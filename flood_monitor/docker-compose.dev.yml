@@ -1,0 +1,64 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: flood_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       floodmonitor
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - flood_net
+
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile
+    container_name: flood_backend_dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST:     postgres
+      DB_USER:     postgres
+      DB_PASSWORD: postgres
+      NODE_ENV:    development
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src
+      - hls_dev_data:/app/hls
+    depends_on:
+      - postgres
+    networks:
+      - flood_net
+    command: node --watch src/index.js
+
+  frontend:
+    image: node:22-alpine
+    container_name: flood_frontend_dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend
+    networks:
+      - flood_net
+
+volumes:
+  postgres_dev_data:
+  hls_dev_data:
+
+networks:
+  flood_net:
+    driver: bridge

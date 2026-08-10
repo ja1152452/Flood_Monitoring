@@ -1,0 +1,51 @@
+# HLS stream segments
+flood_monitor/backend/hls/
+*.ts
+
+# Environment files (sensitive)
+.env
+.env.docker
+.env.local
+.env.production
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+flood_ai/readings_log.csv
+flood_ai/sender_log.csv
+flood_ai/test_frame.jpg
+
+# Build output
+dist/
+build/
+
+# Docker tar files
+*.tar
+*.tar.gz
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android & Build Artifacts
+flood_monitor/mobile/android/local.properties
+flood_monitor/mobile/android/.gradle/
+flood_monitor/mobile/android/.kotlin/
+flood_monitor/mobile/android/app/.cxx/
+flood_monitor/mobile/android/app/build/
+*.apk
+*.tmp
+ffmpeg/
+flood_ai/venv/
+flood_ai/capture_*.jpg
+floodmonitor_*.sql

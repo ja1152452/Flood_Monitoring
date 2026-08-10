@@ -1,0 +1,79 @@
+{
+  "yellow": {
+    "lower": [
+      20,
+      100,
+      100
+    ],
+    "upper": [
+      78,
+      255,
+      255
+    ]
+  },
+  "orange": {
+    "lower": [
+      10,
+      100,
+      100
+    ],
+    "upper": [
+      20,
+      255,
+      255
+    ]
+  },
+  "red": {
+    "lower": [
+      0,
+      100,
+      100
+    ],
+    "upper": [
+      20,
+      255,
+      255
+    ]
+  },
+  "purple": {
+    "lower": [
+      125,
+      85,
+      85
+    ],
+    "upper": [
+      155,
+      255,
+      255
+    ]
+  },
+  "actual_water": {
+    "lower": [
+      35,
+      30,
+      71
+    ],
+    "upper": [
+      85,
+      255,
+      200
+    ]
+  },
+  "waterline_settings": {
+    "row_threshold": 0.15,
+    "min_water_percent": 0.08,
+    "erosion_size": 5,
+    "dilation_size": 6,
+    "scan_offset": 30
+  },
+  "manual_waterline": {
+    "pixel_y": 284,
+    "clicked_points": [
+      [
+        316,
+        284
+      ]
+    ],
+    "timestamp": "15539907560600"
+  }
+}

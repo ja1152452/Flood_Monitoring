@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "ResQConnect",
+    "slug": "resqconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "lumbanflood",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      "./plugins/withCleartextTraffic",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0f172a",
+          "sounds": []
+        }
+      ]
+    ],
+    "android": {
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "INTERNET",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
+      "package": "ph.gov.lumban.floodmonitor",
+      "usesCleartextTraffic": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d902cf91-7aa3-45ba-b0f3-2f4ba5d08e61"
+      },
+      "apiUrl": "https://perjurer-epidural-verbally.ngrok-free.dev"
+    },
+    "owner": "jayzelyasona"
+  }
+}

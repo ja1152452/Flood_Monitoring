@@ -1,0 +1,15 @@
+import api from './axios';
+export const getResponderLocations   = ()       => api.get('/users/responder-locations').then(r => r.data.data);
+export const getResponderLocation     = (userId) => api.get(`/users/responder-locations/${userId}`).then(r => r.data.data);
+export const sendSOS                  = (data) => api.post('/sos', data).then(r => r.data.data);
+export const getMySOS                 = ()     => api.get('/sos/mine').then(r => r.data.data);
+export const cancelSOS                = (id)   => api.patch(`/sos/${id}/cancel`).then(r => r.data.data);
+export const getPendingSOS            = ()     => api.get('/sos/pending').then(r => r.data.data);
+export const getBarangaySOS           = (bid)  => api.get(`/sos/pending?barangay_id=${bid}`).then(r => r.data.data);
+export const respondSOS               = (id, statusType) => api.patch(`/sos/${id}/respond`, { status_type: statusType }).then(r => r.data.data);
+export const declineSOS               = (id, reason) => api.patch(`/sos/${id}/decline`, { reason }).then(r => r.data.data);
+export const completeSOS              = (id)   => api.patch(`/sos/${id}/complete`).then(r => r.data.data);
+export const requestBackup            = (data) => api.post('/sos/backup', data).then(r => r.data.data);
+export const getActiveBackups         = ()     => api.get('/sos/backup').then(r => r.data.data);
+export const resolveBackup            = (id)   => api.patch(`/sos/backup/${id}/resolve`).then(r => r.data.data);
+export const updateResponderStatus   = (status) => api.patch('/users/responder-status', { status }).then(r => r.data.data);

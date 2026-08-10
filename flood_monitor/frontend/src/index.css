@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: rgb(var(--bg-base));
+  color: rgb(var(--text-base));
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ── Light mode (default) ── */
+:root {
+  --bg-base:        235 232 225; /* warm parchment — easy on eyes */
+  --bg-card:        245 243 238; /* warm off-white cards */
+  --bg-card-deep:   228 225 218; /* inner panels */
+  --border-color:   210 205 195; /* warm gray border */
+  --text-base:      28 25 23;    /* warm near-black */
+  --text-muted:     87 83 78;    /* warm gray-600 */
+  --text-faint:     140 134 126; /* warm gray-400 */
+}
+
+/* ── Dark mode (Login-inspired: deep navy + red accent) ── */
+html.dark {
+  --bg-base:        8 12 28;     /* deep navy background */
+  --bg-card:        20 27 58;    /* visible card — noticeably lighter than bg */
+  --bg-card-deep:   13 18 40;    /* inner panels */
+  --border-color:   45 58 110;   /* visible blue-dark border */
+  --text-base:      241 245 249; /* slate-100 */
+  --text-muted:     148 163 184; /* slate-400 */
+  --text-faint:     100 116 139; /* slate-500 */
+  --accent-red:     185 28 28;   /* red-700 */
+}
+
+/* ── Theme-aware overrides ── */
+.bg-slate-950, .bg-slate-900 { background-color: rgb(var(--bg-card-deep)) !important; }
+.bg-slate-800                { background-color: rgb(var(--bg-card)) !important; }
+.border-slate-800,
+.border-slate-700            { border-color: rgb(var(--border-color)) !important; }
+/* dark mode: white text stays white */
+html.dark .text-white         { color: #f8fafc !important; }
+html.dark .text-slate-300,
+html.dark .text-slate-400     { color: rgb(var(--text-muted)) !important; }
+html.dark .text-slate-500     { color: rgb(var(--text-faint)) !important; }
+/* light mode: remap all light text to dark readable colors globally */
+html:not(.dark) .text-white          { color: rgb(var(--text-base)) !important; }
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-400      { color: rgb(var(--text-muted)) !important; }
+html:not(.dark) .text-slate-500      { color: rgb(var(--text-faint)) !important; }
+/* exceptions: keep white text on colored buttons/badges */
+html:not(.dark) button.bg-blue-600 .text-white,
+html:not(.dark) button.bg-green-700 .text-white,
+html:not(.dark) button.bg-red-700 .text-white,
+html:not(.dark) .bg-blue-600,
+html:not(.dark) .bg-green-700,
+html:not(.dark) .bg-red-700,
+html:not(.dark) .bg-green-600,
+html:not(.dark) .bg-red-600          { color: #ffffff !important; }
+.divide-slate-700\/50 > * + * { border-color: rgb(var(--border-color) / 0.5) !important; }
+
+/* ── Light mode: card polish ── */
+:root:not(.dark) .rounded-2xl.bg-slate-800,
+:root:not(.dark) .rounded-2xl.border-slate-700 {
+  background: rgb(var(--bg-card)) !important;
+  border: 1px solid rgb(var(--border-color)) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+  color: rgb(var(--text-base));
+}
+
+:root:not(.dark) .rounded-xl.bg-slate-900,
+:root:not(.dark) .bg-slate-900.rounded-xl {
+  background: rgb(var(--bg-card-deep)) !important;
+  border: 1px solid rgb(var(--border-color));
+  color: rgb(var(--text-base));
+}
+
+/* ── Light mode: page header ── */
+:root .page-header {
+  background: rgb(var(--bg-card));
+  border: 1px solid rgb(var(--border-color));
+  border-radius: 1rem;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* ── Light mode: sidebar ── */
+:root:not(.dark) aside {
+  background: rgb(var(--bg-card-deep)) !important;
+  border-right: 1px solid rgb(var(--border-color)) !important;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+}
+
+/* ── Light mode: search/filter inputs ── */
+:root input.bg-slate-800,
+:root select.bg-slate-800 {
+  background: rgb(var(--bg-card)) !important;
+  border-color: rgb(var(--border-color)) !important;
+  color: rgb(var(--text-base)) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* ── Dark mode: page header ── */
+html.dark .page-header {
+  background: rgb(var(--bg-card));
+  border: 1px solid rgb(var(--border-color));
+  border-radius: 1rem;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* strong text shadow on all bare headings */
+html.dark h1 { text-shadow: 0 2px 16px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,1); color: #f8fafc !important; }
+html.dark h2 { text-shadow: 0 2px 12px rgba(0,0,0,0.95); color: #f1f5f9 !important; }
+html.dark h3 { text-shadow: 0 1px 10px rgba(0,0,0,0.9); }
+
+/* subtitles / meta text */
+html.dark .page-header p,
+html.dark .page-header span {
+  color: #cbd5e1 !important;
+  text-shadow: none;
+}
+
+/* search / filter inputs that sit outside cards */
+html.dark input.bg-slate-800,
+html.dark select.bg-slate-800 {
+  background: rgba(5, 8, 20, 0.80) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(255,255,255,0.14) !important;
+  color: #f1f5f9 !important;
+}
+
+/* ── Dark mode: opaque cards (no bg image = no glass needed) ── */
+html.dark .rounded-2xl.bg-slate-800,
+html.dark .rounded-2xl.border-slate-700 {
+  background: rgb(var(--bg-card)) !important;
+  border-color: rgb(var(--border-color)) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset;
+}
+
+/* inner dark panels */
+html.dark .rounded-xl.bg-slate-900,
+html.dark .bg-slate-900.rounded-xl {
+  background: rgb(var(--bg-card-deep)) !important;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+@keyframes sosPulse {
+  0%   { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+.blink {
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes siren-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  50%       { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+}
+.siren-pulse {
+  animation: siren-pulse 1s ease-in-out infinite;
+}

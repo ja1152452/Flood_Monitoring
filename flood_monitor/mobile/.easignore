@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.gradle/
+*.apk
+*.aab
+*.tar.gz

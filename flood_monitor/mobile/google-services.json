@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "741738804037",
+    "project_id": "lumban-flood-monitor",
+    "storage_bucket": "lumban-flood-monitor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:741738804037:android:6592fbc77d63c2fa3c042c",
+        "android_client_info": {
+          "package_name": "ph.gov.lumban.floodmonitor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsw1VBuAQTflpSK9AXFHq33UuG40SDJ8Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
