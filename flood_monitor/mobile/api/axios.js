@@ -19,32 +19,21 @@ const request = async (method, path, data, params, extraHeaders) => {
   const fallbackUrl = `${LOCAL_FALLBACK_URL}/api/v1${path}${queryStr}`;
 
   let res;
-  const primaryController = new AbortController();
-  const primaryTimeout = setTimeout(() => primaryController.abort(), 5000);
-
   try {
     res = await fetch(primaryUrl, {
       method,
       headers,
       body: data ? JSON.stringify(data) : undefined,
-      signal: primaryController.signal,
     });
-    clearTimeout(primaryTimeout);
   } catch (primaryErr) {
-    clearTimeout(primaryTimeout);
-    // Primary URL network error or 5s timeout. Try local IP fallback quickly.
-    const fallbackController = new AbortController();
-    const fallbackTimeout = setTimeout(() => fallbackController.abort(), 4000);
+    // Primary URL network error (e.g. ngrok drop or cellular signal dip). Try local IP fallback.
     try {
       res = await fetch(fallbackUrl, {
         method,
         headers,
         body: data ? JSON.stringify(data) : undefined,
-        signal: fallbackController.signal,
       });
-      clearTimeout(fallbackTimeout);
     } catch (_) {
-      clearTimeout(fallbackTimeout);
       const err = new Error('Unable to connect to server. Please check internet/Wi-Fi connection.');
       throw err;
     }
