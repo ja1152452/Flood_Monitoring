@@ -1,6 +1,11 @@
 import os
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 import cv2
+try:
+    cv2.setLogLevel(0)
+except Exception:
+    pass
 import numpy as np
 import json
 from datetime import datetime
@@ -250,13 +255,19 @@ def main():
     print("")
     print("Connecting to camera...")
 
+    hls_url = "http://localhost:5001/api/v1/stream/index.m3u8"
     cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
-    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)
+    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     cap.set(cv2.CAP_PROP_FPS, 30)
 
     if not cap.isOpened():
-        print("ERROR: Cannot connect to camera.")
+        print(f"[Stream] Direct RTSP busy/unavailable. Falling back to Backend HLS Stream: {hls_url}")
+        cap = cv2.VideoCapture(hls_url, cv2.CAP_FFMPEG)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    if not cap.isOpened():
+        print("ERROR: Cannot connect to camera or HLS stream.")
         return
 
     print("Camera connected!")

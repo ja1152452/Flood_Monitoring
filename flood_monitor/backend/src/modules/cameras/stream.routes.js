@@ -6,7 +6,14 @@ import { asyncHandler }  from '../../utils/asyncHandler.js';
 import { getStreamStatus, startHLS, stopHLS } from '../../services/stream/hls.service.js';
 import { fileURLToPath } from 'url';
 
-const HLS_DIR = path.resolve(process.env.HLS_OUTPUT_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../../hls'));
+const getHlsDir = () => {
+  const envDir = process.env.HLS_OUTPUT_DIR;
+  if (envDir) {
+    const resolved = path.resolve(envDir);
+    if (fs.existsSync(path.dirname(resolved))) return resolved;
+  }
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../hls');
+};
 
 const router = Router();
 
@@ -31,7 +38,8 @@ router.post('/stop',
 );
 
 router.get('/index.m3u8', (req, res) => {
-  const file = path.join(HLS_DIR, 'stream.m3u8');
+  const hlsDir = getHlsDir();
+  const file = path.join(hlsDir, 'stream.m3u8');
   if (!fs.existsSync(file)) {
     return res.status(404).json({ success: false, message: 'Stream not ready' });
   }
@@ -81,14 +89,19 @@ router.get('/:segment', (req, res) => {
   if (!req.params.segment.endsWith('.ts')) {
     return res.status(400).end();
   }
-  const file = path.join(HLS_DIR, req.params.segment);
+  const hlsDir = getHlsDir();
+  const file = path.join(hlsDir, req.params.segment);
   if (!fs.existsSync(file)) {
     return res.status(404).end();
   }
   res.setHeader('Content-Type',                'video/MP2T');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control',               'no-cache');
-  res.sendFile(file);
+  res.sendFile(file, (err) => {
+    if (err && !res.headersSent) {
+      res.status(404).end();
+    }
+  });
 });
 
 export default router;

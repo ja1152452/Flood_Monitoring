@@ -77,7 +77,11 @@ const start = async () => {
     console.log(`[API] Server running on http://0.0.0.0:${PORT}`);
     console.log(`[API] Connect from phones: http://192.168.1.20:${PORT}`);
     console.log(`[API] Health check: http://localhost:${PORT}/health`);
-    startHLS();
+    if (process.env.ENABLE_LOCAL_HLS === 'true') {
+      startHLS();
+    } else {
+      console.log('[HLS] Local HLS disabled — RTSP port available for YouTube stream');
+    }
   });
 };
 

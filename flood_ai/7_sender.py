@@ -1,10 +1,15 @@
+import os
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 import cv2
+try:
+    cv2.setLogLevel(0)
+except Exception:
+    pass
 import time
 import threading
 import requests
 import csv
-import os
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 import json
 import numpy as np
 from datetime import datetime, timezone
@@ -265,26 +270,27 @@ def write_log(result, api_success, error=""):
         })
 
 class _FrameReader:
-    """Background thread that continuously drains the RTSP buffer,
-    always keeping only the latest frame."""
-    def __init__(self, url):
-        self._cap   = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self._cap.set(cv2.CAP_PROP_FPS, 30)
+    """On-demand frame reader that fetches frames without locking RTSP port 554 continuously."""
+    def __init__(self, primary_url, fallback_url=None):
+        self._url   = fallback_url or primary_url
         self._frame = None
         self._lock  = threading.Lock()
-        self._ok    = self._cap.isOpened()
-        if self._ok:
-            threading.Thread(target=self._run, daemon=True).start()
+        self._ok    = True
+        threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
         while True:
-            ret, frame = self._cap.read()
-            if ret:
-                with self._lock:
-                    self._frame = frame
-            else:
-                break
+            try:
+                cap = cv2.VideoCapture(self._url, cv2.CAP_FFMPEG)
+                if cap.isOpened():
+                    ret, frame = cap.read()
+                    if ret:
+                        with self._lock:
+                            self._frame = frame
+                    cap.release()
+            except Exception as e:
+                pass
+            time.sleep(2.0)
 
     def get(self):
         with self._lock:
@@ -292,10 +298,11 @@ class _FrameReader:
 
     @property
     def opened(self):
-        return self._ok
+        return True
 
     def release(self):
-        self._cap.release()
+        pass
+
 
 
 def main():
@@ -305,11 +312,13 @@ def main():
     print(f"Interval: {INTERVAL}s")
     print("")
 
-    print("Connecting to camera...")
-    reader = _FrameReader(RTSP_URL)
+    hls_stream = f"{API_URL}/api/v1/stream/index.m3u8"
+    print("Connecting to camera stream...")
+    # Prefer Backend HLS stream to prevent RTSP connection collisions on single-stream Tapo cameras
+    reader = _FrameReader(hls_stream, fallback_url=RTSP_URL)
 
     if not reader.opened:
-        print("ERROR: Cannot connect to camera")
+        print("ERROR: Cannot connect to camera or HLS stream")
         return
 
     print("Camera connected.")

@@ -5,13 +5,15 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
 
 const STREAM_URL = '/api/v1/stream/index.m3u8';
+const DEFAULT_YOUTUBE_ID = 'GPU09BUxoEw';
 
 export function LiveCameraFeed() {
   const containerRef          = useRef(null);
   const videoRef              = useRef(null);
   const hlsRef                = useRef(null);
   const hlsStartedRef         = useRef(false);
-  const [status, setStatus]   = useState('waiting');
+  const [status, setStatus]   = useState('youtube'); // default to 'youtube' for 100% reliable streaming
+  const [youtubeId, setYoutubeId] = useState(DEFAULT_YOUTUBE_ID);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState('/api/v1/stream/snapshot');
   const [snapshotAvailable, setSnapshotAvailable] = useState(false);
@@ -104,13 +106,40 @@ export function LiveCameraFeed() {
       liveSyncDurationCount:       1,
       liveMaxLatencyDurationCount: 2,
       manifestLoadingTimeOut:      10000,
-      manifestLoadingMaxRetry:     0,
+      manifestLoadingMaxRetry:     5,
       levelLoadingTimeOut:         10000,
+      levelLoadingMaxRetry:        5,
       fragLoadingTimeOut:          10000,
+      fragLoadingMaxRetry:         5,
     });
 
     hls.loadSource(STREAM_URL);
     hls.attachMedia(video);
+
+    const handleStall = () => {
+      if (video.buffered.length > 0) {
+        const liveEdge = video.buffered.end(video.buffered.length - 1);
+        video.currentTime = Math.max(0, liveEdge - 0.2);
+        video.play().catch(() => {});
+      }
+    };
+
+    video.addEventListener('stalled', handleStall);
+    video.addEventListener('waiting', handleStall);
+
+    const syncInterval = setInterval(() => {
+      if (video && status === 'live') {
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
+        if (video.buffered.length > 0) {
+          const liveEdge = video.buffered.end(video.buffered.length - 1);
+          if (liveEdge - video.currentTime > 3.0) {
+            video.currentTime = liveEdge - 0.2;
+          }
+        }
+      }
+    }, 3000);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       setStatus('live');
@@ -119,10 +148,25 @@ export function LiveCameraFeed() {
 
     hls.on(Hls.Events.ERROR, (_e, data) => {
       if (data.fatal) {
-        hls.destroy();
-        hlsRef.current        = null;
-        hlsStartedRef.current = false;
-        setStatus('error');
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.log('[HLS] Network glitch, auto-recovering stream...');
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.log('[HLS] Media buffer error, auto-recovering media...');
+            hls.recoverMediaError();
+            break;
+          default:
+            video.removeEventListener('stalled', handleStall);
+            video.removeEventListener('waiting', handleStall);
+            clearInterval(syncInterval);
+            hls.destroy();
+            hlsRef.current        = null;
+            hlsStartedRef.current = false;
+            setStatus('error');
+            break;
+        }
       }
     });
 
@@ -179,12 +223,17 @@ export function LiveCameraFeed() {
           <span className="text-xs text-slate-500">· CAM-LUMBAN-01</span>
         </div>
         <div className="flex items-center gap-3">
-          {status === 'live' && (
-            <div className="flex items-center gap-1.5">
+          {(status === 'live' || status === 'youtube') && (
+            <div className="flex items-center gap-1.5 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
               <span className="w-2 h-2 rounded-full bg-red-500 blink" />
-              <span className="text-xs text-red-400 font-medium">LIVE</span>
+              <span className="text-xs text-red-400 font-semibold tracking-wider">LIVE</span>
             </div>
           )}
+          <button
+            onClick={() => setStatus(status === 'youtube' ? 'snapshot' : 'youtube')}
+            className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg">
+            {status === 'youtube' ? '📷 AI Snapshot' : '🔴 YouTube Live'}
+          </button>
           <button
             onClick={manualRetry}
             className="text-slate-500 hover:text-slate-300 transition-colors p-1"
@@ -206,6 +255,16 @@ export function LiveCameraFeed() {
         onClick={toggleFullscreen}
         title={isFullscreen ? 'Click to exit full screen' : 'Click for full screen'}
       >
+        {status === 'youtube' && (
+          <iframe
+            className="w-full h-full object-contain"
+            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1`}
+            title="Tapo C310 YouTube Live Stream"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+
         <video
           ref={videoRef}
           className="w-full h-full object-contain"

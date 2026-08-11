@@ -3,23 +3,26 @@ import path        from 'path';
 import fs          from 'fs';
 import { fileURLToPath } from 'url';
 
-const HLS_DIR   = path.resolve(process.env.HLS_OUTPUT_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../../hls'));
-const FFMPEG    = process.env.FFMPEG_PATH || 'ffmpeg';
-const RTSP_URL  = process.env.RTSP_URL || '';
-const SEGMENT_S  = 1;
-const LIST_SIZE  = 3;
+const getHlsDir = () => {
+  const envDir = process.env.HLS_OUTPUT_DIR;
+  if (envDir) {
+    const resolved = path.resolve(envDir);
+    if (fs.existsSync(path.dirname(resolved))) return resolved;
+  }
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../hls');
+};
 
 let ffmpegProcess = null;
 let isRunning     = false;
 let restartTimer  = null;
 
-const ensureDir = () => {
-  if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 };
 
 export const startHLS = () => {
-  const rtspUrl = process.env.RTSP_URL || RTSP_URL;
-  const ffmpeg  = process.env.FFMPEG_PATH || FFMPEG;
+  const rtspUrl = process.env.RTSP_URL;
+  const ffmpeg  = process.env.FFMPEG_PATH || 'ffmpeg';
 
   if (isRunning || !rtspUrl || !ffmpeg) {
     if (!rtspUrl) console.warn('[HLS] RTSP_URL not set in .env');
@@ -27,31 +30,33 @@ export const startHLS = () => {
     return;
   }
 
-  ensureDir();
+  const hlsDir = getHlsDir();
+  ensureDir(hlsDir);
 
-  const outputPath = path.join(HLS_DIR, 'stream.m3u8');
+  const outputPath = path.join(hlsDir, 'stream.m3u8');
 
   const args = [
-    '-loglevel',   'error',
-    '-rtsp_transport', 'tcp',
-    '-timeout',    '5000000',
-    '-fflags',     'nobuffer',
-    '-flags',      'low_delay',
-    '-i',          rtspUrl,
+    '-loglevel',        'error',
+    '-rtsp_transport',  'tcp',
+    '-analyzeduration', '10000000',
+    '-probesize',       '10000000',
+    '-fflags',          '+genpts+discardcorrupt+nobuffer',
+    '-flags',           'low_delay',
+    '-timeout',         '5000000',
+    '-i',               rtspUrl,
     '-an',
-    '-c:v',        'copy',
-    '-vsync',      'passthrough',
-    '-fflags',     '+genpts+discardcorrupt',
-    '-f',          'hls',
-    '-hls_time',   '2',
-    '-hls_list_size', '3',
-    '-hls_flags',  'delete_segments+append_list+discont_start+omit_endlist',
-    '-hls_segment_type', 'mpegts',
-    '-hls_segment_filename', path.join(HLS_DIR, 'seg%d.ts'),
+    '-c:v',             'copy',
+    '-vsync',           'passthrough',
+    '-f',               'hls',
+    '-hls_time',        '1',
+    '-hls_list_size',   '3',
+    '-hls_flags',       'delete_segments+append_list+discont_start+omit_endlist',
+    '-hls_segment_type','mpegts',
+    '-hls_segment_filename', path.join(hlsDir, 'seg%d.ts'),
     outputPath,
   ];
 
-  console.log('[HLS] Starting FFmpeg stream...');
+  console.log(`[HLS] Starting FFmpeg stream writing to ${outputPath}...`);
 
   ffmpegProcess = spawn(ffmpeg, args);
   isRunning     = true;
@@ -64,14 +69,14 @@ export const startHLS = () => {
   ffmpegProcess.on('close', (code) => {
     isRunning     = false;
     ffmpegProcess = null;
-    console.log(`[HLS] FFmpeg exited with code ${code}. Restarting in 5s...`);
-    restartTimer = setTimeout(() => startHLS(), 5000);
+    console.log(`[HLS] FFmpeg exited with code ${code}. Restarting in 1s...`);
+    restartTimer = setTimeout(() => startHLS(), 1000);
   });
 
   ffmpegProcess.on('error', (err) => {
     isRunning = false;
     console.error('[HLS] FFmpeg error:', err.message);
-    restartTimer = setTimeout(() => startHLS(), 5000);
+    restartTimer = setTimeout(() => startHLS(), 1000);
   });
 };
 
@@ -85,12 +90,16 @@ export const stopHLS = () => {
   }
 };
 
-export const getStreamStatus = () => ({
-  running:     isRunning,
-  rtsp_url:    (process.env.RTSP_URL || RTSP_URL)
-                 ? (process.env.RTSP_URL || RTSP_URL).replace(/:[^:@]+@/, ':***@')
-                 : null,
-  output_dir:  HLS_DIR,
-  m3u8_path:   path.join(HLS_DIR, 'stream.m3u8'),
-  m3u8_exists: fs.existsSync(path.join(HLS_DIR, 'stream.m3u8')),
-});
+export const getStreamStatus = () => {
+  const hlsDir = getHlsDir();
+  const m3u8Path = path.join(hlsDir, 'stream.m3u8');
+  return {
+    running:     isRunning,
+    rtsp_url:    process.env.RTSP_URL
+                   ? process.env.RTSP_URL.replace(/:[^:@]+@/, ':***@')
+                   : null,
+    output_dir:  hlsDir,
+    m3u8_path:   m3u8Path,
+    m3u8_exists: fs.existsSync(m3u8Path),
+  };
+};
