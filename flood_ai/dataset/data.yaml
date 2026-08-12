@@ -1,0 +1,7 @@
+path: C:\Users\jayze\Documents\GitHub\Flood_Monitoring\flood_ai\dataset
+train: images/train
+val: images/val
+
+names:
+  0: water_surface
+  1: gauge_board

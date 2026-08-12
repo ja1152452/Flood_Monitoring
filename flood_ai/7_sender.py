@@ -24,16 +24,17 @@ BASELINE_PIXEL_Y = CAL["baseline_pixel_y"]
 BASELINE_METERS  = CAL["baseline_meters"]
 PX_PER_METER     = CAL["px_per_meter"]
 
+# Colored marker ranges for dry staff gauge bands (ONLY vivid colored bands — white removed to avoid water reflection glare!)
 MARKER_RANGES = {
-  "white":    ([0,   0,   160], [180, 45,  255]),
-  "yellow":   ([18,  80,  70],  [38,  255, 255]),
-  "orange":   ([8,   90,  70],  [18,  255, 255]),
-  "red_low":  ([0,   80,  60],  [8,   255, 255]),
-  "red_high": ([165, 80,  60],  [180, 255, 255]),
-  "purple":   ([120, 50,  50],  [158, 255, 255]),
+  "purple":   ([115, 30,  30],  [160, 255, 255]),
+  "red_low":  ([0,   40,  40],  [15,  255, 255]),
+  "red_high": ([155, 40,  40],  [180, 255, 255]),
+  "orange":   ([10,  35,  35],  [28,  255, 255]),
+  "yellow":   ([14,  35,  35],  [40,  255, 255]),
 }
 
-WATER_RANGE = ([0, 0, 30], [180, 80, 180])
+# Brown floodwater color range (muddy river water during rising flood)
+BROWN_FLOOD_RANGE = ([0, 15, 15], [35, 180, 220])
 
 FLOOD_BASELINE = 2.135  # Current raw reading when dry, subtracted to make 0.0m = no water
 
@@ -46,6 +47,8 @@ FLOOD_THRESHOLDS = [
 ]
 
 def classify(water_level_m):
+    if water_level_m < 3.1:
+        return "NORMAL"
     for low, high, level in FLOOD_THRESHOLDS:
         if low <= water_level_m < high:
             return level
@@ -54,99 +57,139 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=15, max_jump_px=35):
+    def __init__(self, window_size=3, max_jump_px=100):
         self.window_size = window_size
         self.max_jump_px = max_jump_px
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
 
     def process(self, raw_y, raw_m):
-        if self.history_y:
-            current_median_y = np.median(self.history_y)
-            if abs(raw_y - current_median_y) > self.max_jump_px and len(self.history_y) >= 5:
-                raw_y = current_median_y + np.sign(raw_y - current_median_y) * self.max_jump_px
-
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
         smooth_y = int(np.median(self.history_y))
         smooth_m = round(float(np.median(self.history_m)), 3)
+
         std_y = np.std(self.history_y) if len(self.history_y) > 1 else 0.0
         stability = max(0.75, min(0.98, 1.0 - (std_y / 50.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=15)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5)
+
+YOLO_MODEL = None
+
+def get_yolo_model():
+    global YOLO_MODEL
+    if YOLO_MODEL is None:
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "water_yolo.pt")
+        if os.path.exists(model_path):
+            try:
+                from ultralytics import YOLO
+                YOLO_MODEL = YOLO(model_path)
+                print(f"[AI Engine] Loaded YOLO model from {model_path}")
+            except Exception as e:
+                print(f"[AI Engine] Model load warning: {e}")
+    return YOLO_MODEL
 
 def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
-    with open(os.path.join(_DIR, "calibration.json")) as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "calibration.json")) as f:
         _cal = json.load(f)
-    BASELINE_PIXEL_Y = _cal["baseline_pixel_y"]
-    BASELINE_METERS  = _cal["baseline_meters"]
-    PX_PER_METER     = _cal["px_per_meter"]
 
     h, w = frame.shape[:2]
 
     roi_cfg    = _cal.get("roi", {})
-    roi_top    = int(h * (roi_cfg.get("top_pct", 10.0) / 100.0))
+    roi_top    = int(h * (roi_cfg.get("top_pct",    10.0) / 100.0))
     roi_bottom = int(h * (roi_cfg.get("bottom_pct", 90.0) / 100.0))
-    roi_left   = int(w * (roi_cfg.get("left_pct", 30.0) / 100.0))
-    roi_right  = int(w * (roi_cfg.get("right_pct", 70.0) / 100.0))
+    roi_left   = int(w * (roi_cfg.get("left_pct",   30.0) / 100.0))
+    roi_right  = int(w * (roi_cfg.get("right_pct",  70.0) / 100.0))
 
     bgr_roi = frame[roi_top:roi_bottom, roi_left:roi_right]
-
-    if use_clahe:
-        lab = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-        cl = clahe.apply(l)
-        enhanced_bgr = cv2.cvtColor(cv2.merge((cl, a, b)), cv2.COLOR_LAB2BGR)
-        hsv_roi = cv2.cvtColor(enhanced_bgr, cv2.COLOR_BGR2HSV)
-    else:
-        hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
-
-    roi_h, roi_w = hsv_roi.shape[:2]
-
-    # Detect colored markers
-    combined_mask = np.zeros(hsv_roi.shape[:2], dtype=np.uint8)
-    for name, (lower, upper) in MARKER_RANGES.items():
-        mask = cv2.inRange(hsv_roi, np.array(lower), np.array(upper))
-        combined_mask = cv2.bitwise_or(combined_mask, mask)
-
-    kernel = np.ones((5, 5), np.uint8)
-    combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
-
-    contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    roi_h, roi_w = bgr_roi.shape[:2]
 
     waterline_y = None
-    if contours:
-        min_area = roi_h * roi_w * 0.01
-        significant = [c for c in contours if cv2.contourArea(c) > min_area]
+    ai_confidence = 0.88
 
-        if significant:
-            lowest_bottom_y = 0
-            for c in significant:
-                x, y, bw, bh = cv2.boundingRect(c)
-                bottom_y = y + bh
-                if bottom_y > lowest_bottom_y:
-                    lowest_bottom_y = bottom_y
-            waterline_y = roi_top + lowest_bottom_y
+    # --- 1. AI ENGINE (YOLOv8) ---
+    ai_model = get_yolo_model()
+    if ai_model is not None:
+        try:
+            results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
+            if results and len(results[0].boxes) > 0:
+                boxes = results[0].boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    conf_val = float(box.conf[0])
+                    # Class 0: water_surface (Top edge of water box = actual waterline)
+                    if cls_id == 0 and conf_val >= 0.40:
+                        top_y = int(box.xyxy[0][1])
+                        pred_y = roi_top + top_y
+                        if pred_y < int(h * 0.92):  # Valid waterline above bottom floor
+                            waterline_y = pred_y
+                            ai_confidence = conf_val
+                            break
+        except Exception as err:
+            print(f"[AI Predict Warning] {err}")
+
+    # --- 2. FALLBACK: SHADOW-PROOF BOTTOM-UP SATURATION & COLOR DETECTOR ---
+    if waterline_y is None:
+        hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
+
+        combined_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
+        for name, (lower, upper) in MARKER_RANGES.items():
+            combined_mask = cv2.bitwise_or(combined_mask,
+                cv2.inRange(hsv_roi, np.array(lower), np.array(upper)))
+
+        # Remove extreme glare
+        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 240]), np.array([180, 30, 255]))
+        combined_mask = cv2.bitwise_and(combined_mask, cv2.bitwise_not(glare_mask))
+
+        kernel = np.ones((5, 5), np.uint8)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN,  kernel)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
+
+        row_counts = np.sum(combined_mask > 0, axis=1)
+        min_band_px = max(5, int(roi_w * 0.18))
+        valid_rows = np.where(row_counts >= min_band_px)[0]
+
+        # Detect brown water surface edge
+        water_mask = cv2.inRange(hsv_roi, np.array([0, 15, 10]), np.array([35, 255, 140]))
+        row_water = np.sum(water_mask > 0, axis=1)
+        water_rows = np.where(row_water > (roi_w * 0.25))[0]
+
+        if len(water_rows) > 0:
+            top_water_y = roi_top + int(water_rows[0])
+            waterline_y = top_water_y
+        elif len(valid_rows) > 0:
+            # Bottom-Up Scanning: Use lowest detected dry row
+            waterline_y = roi_top + int(valid_rows[-1])
+        else:
+            # Saturation transition: find where painted board (S>45) turns to water
+            sat = hsv_roi[:, :, 1]
+            row_sat = np.mean(sat, axis=1)
+            sat_y = 0
+            for y in range(len(row_sat) - 1, -1, -1):
+                if row_sat[y] > 45:
+                    sat_y = y
+                    break
+            waterline_y = roi_top + sat_y
 
     if waterline_y is None:
-        return {"success": False, "reason": "No markers detected"}
+        return {"success": False, "reason": "No staff gauge or water surface detected"}
 
+    # Map waterline_y to meters
     if "points" in _cal and len(_cal["points"]) >= 2:
         pts = sorted(_cal["points"], key=lambda p: p["px"])
         xp = [p["px"] for p in pts]
         fp = [p["m"] for p in pts]
-        if waterline_y < xp[0]:
-            slope = (fp[1] - fp[0]) / (xp[1] - xp[0])
+        if waterline_y <= xp[0]:
+            slope = (fp[1] - fp[0]) / (xp[1] - xp[0]) if (xp[1] - xp[0]) != 0 else 0
             val = fp[0] + slope * (waterline_y - xp[0])
-        elif waterline_y > xp[-1]:
-            slope = (fp[-1] - fp[-2]) / (xp[-1] - xp[-2])
+        elif waterline_y >= xp[-1]:
+            slope = (fp[-1] - fp[-2]) / (xp[-1] - xp[-2]) if (xp[-1] - xp[-2]) != 0 else 0
             val = fp[-1] + slope * (waterline_y - xp[-1])
         else:
             val = float(np.interp(waterline_y, xp, fp))
-        raw_water_level_m = round(val, 3)
+        raw_water_level_m = round(max(0.0, val), 3)
     else:
         pixel_delta   = BASELINE_PIXEL_Y - waterline_y
         water_level_raw = BASELINE_METERS + (pixel_delta / PX_PER_METER)
@@ -155,10 +198,10 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     if smoother is not None:
         smooth_y, smooth_m, confidence = smoother.process(waterline_y, raw_water_level_m)
         waterline_y = smooth_y
-        water_level_m = smooth_m
+        water_level_m = max(0.0, smooth_m)
     else:
         water_level_m = raw_water_level_m
-        confidence = 0.88
+        confidence = ai_confidence
 
     flood_level = classify(water_level_m)
 
@@ -272,7 +315,8 @@ def write_log(result, api_success, error=""):
 class _FrameReader:
     """On-demand frame reader that fetches frames without locking RTSP port 554 continuously."""
     def __init__(self, primary_url, fallback_url=None):
-        self._url   = fallback_url or primary_url
+        self._primary_url  = primary_url
+        self._fallback_url = fallback_url
         self._frame = None
         self._lock  = threading.Lock()
         self._ok    = True
@@ -280,16 +324,20 @@ class _FrameReader:
 
     def _run(self):
         while True:
-            try:
-                cap = cv2.VideoCapture(self._url, cv2.CAP_FFMPEG)
-                if cap.isOpened():
-                    ret, frame = cap.read()
-                    if ret:
-                        with self._lock:
-                            self._frame = frame
-                    cap.release()
-            except Exception as e:
-                pass
+            for url in filter(None, [self._primary_url, self._fallback_url]):
+                try:
+                    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+                    if cap.isOpened():
+                        ret, frame = cap.read()
+                        cap.release()
+                        if ret and frame is not None:
+                            with self._lock:
+                                self._frame = frame
+                            break
+                    else:
+                        cap.release()
+                except Exception:
+                    pass
             time.sleep(2.0)
 
     def get(self):
@@ -314,8 +362,7 @@ def main():
 
     hls_stream = f"{API_URL}/api/v1/stream/index.m3u8"
     print("Connecting to camera stream...")
-    # Prefer Backend HLS stream to prevent RTSP connection collisions on single-stream Tapo cameras
-    reader = _FrameReader(hls_stream, fallback_url=RTSP_URL)
+    reader = _FrameReader(RTSP_URL, fallback_url=hls_stream)
 
     if not reader.opened:
         print("ERROR: Cannot connect to camera or HLS stream")
