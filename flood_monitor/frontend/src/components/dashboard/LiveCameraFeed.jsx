@@ -12,7 +12,7 @@ export function LiveCameraFeed() {
   const videoRef              = useRef(null);
   const hlsRef                = useRef(null);
   const hlsStartedRef         = useRef(false);
-  const [status, setStatus]   = useState('youtube'); // default to 'youtube' for 100% reliable streaming
+  const [status, setStatus]   = useState('snapshot'); // default to 'snapshot' for live AI camera capture feed
   const [youtubeId, setYoutubeId] = useState(DEFAULT_YOUTUBE_ID);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState('/api/v1/stream/snapshot');

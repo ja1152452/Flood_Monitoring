@@ -115,13 +115,14 @@ while True:
         
         sorted_points = sorted(points, key=lambda p: p[0])
 
-        config = {
+        config = _existing.copy()
+        config.update({
             "rtsp_url":         RTSP_URL,
             "baseline_pixel_y": baseline_pixel_y,
             "baseline_meters":  baseline_meters,
             "px_per_meter":     round(px_per_meter, 4),
             "points":           [{"px": p[0], "m": p[1]} for p in sorted_points]
-        }
+        })
 
         with open(CAL_FILE, "w") as f:
             json.dump(config, f, indent=2)
