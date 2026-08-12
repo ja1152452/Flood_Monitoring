@@ -5,15 +5,29 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
 
 const STREAM_URL = '/api/v1/stream/index.m3u8';
-const DEFAULT_YOUTUBE_ID = 'GPU09BUxoEw';
+const DEFAULT_YOUTUBE_ID = 'UCUiMNY4pfRHTpBIJIBcBRw'; // Live Channel ID
 
 export function LiveCameraFeed() {
   const containerRef          = useRef(null);
   const videoRef              = useRef(null);
   const hlsRef                = useRef(null);
   const hlsStartedRef         = useRef(false);
-  const [status, setStatus]   = useState('snapshot'); // default to 'snapshot' for live AI camera capture feed
-  const [youtubeId, setYoutubeId] = useState(DEFAULT_YOUTUBE_ID);
+  const [status, setStatus]   = useState('youtube'); // default to 'youtube' for centralized YouTube HD live stream
+  const [youtubeId, setYoutubeId] = useState(() => {
+    return localStorage.getItem('youtube_live_id') || DEFAULT_YOUTUBE_ID;
+  });
+
+  const changeYoutubeId = (e) => {
+    if (e) e.stopPropagation();
+    const input = prompt("Paste your current YouTube Live Video URL or Video ID:\n(e.g. https://www.youtube.com/watch?v=YOUR_VIDEO_ID)", youtubeId);
+    if (input) {
+      let id = input.trim();
+      const match = id.match(/(?:v=|\/embed\/|\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (match) id = match[1];
+      setYoutubeId(id);
+      localStorage.setItem('youtube_live_id', id);
+    }
+  };
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState('/api/v1/stream/snapshot');
   const [snapshotAvailable, setSnapshotAvailable] = useState(false);
@@ -175,6 +189,7 @@ export function LiveCameraFeed() {
 
   // Only start HLS once m3u8_exists becomes true
   useEffect(() => {
+    if (status === 'youtube') return; // Preserve YouTube mode
     if (streamStatus?.m3u8_exists && !hlsStartedRef.current) {
       hlsStartedRef.current = true;
       initHls();
@@ -205,6 +220,12 @@ export function LiveCameraFeed() {
   };
 
   const manualRetry = () => {
+    if (status === 'youtube') {
+      const current = youtubeId;
+      setYoutubeId('');
+      setTimeout(() => setYoutubeId(current), 50);
+      return;
+    }
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -230,9 +251,10 @@ export function LiveCameraFeed() {
             </div>
           )}
           <button
-            onClick={() => setStatus(status === 'youtube' ? 'snapshot' : 'youtube')}
-            className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg">
-            {status === 'youtube' ? '📷 AI Snapshot' : '🔴 YouTube Live'}
+            onClick={changeYoutubeId}
+            className="text-xs text-blue-400 hover:text-white px-2.5 py-1 rounded-lg border border-blue-500/30 bg-blue-500/10 font-medium transition-colors"
+            title="Update YouTube Live URL or Video ID">
+            ✏️ Link Stream
           </button>
           <button
             onClick={manualRetry}
@@ -258,7 +280,7 @@ export function LiveCameraFeed() {
         {status === 'youtube' && (
           <iframe
             className="w-full h-full object-contain"
-            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1`}
+            src={youtubeId.startsWith('UC') ? `https://www.youtube.com/embed/live_stream?channel=${youtubeId}&autoplay=1&mute=1&controls=1&modestbranding=1&rel=0` : `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=1&modestbranding=1&rel=0`}
             title="Tapo C310 YouTube Live Stream"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen

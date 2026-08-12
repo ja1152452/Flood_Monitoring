@@ -83,6 +83,8 @@ if not ret or frame is None:
 clone         = frame.copy()
 display_frame = frame.copy()
 
+cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Calibration", 1024, 576)
 cv2.imshow("Calibration", display_frame)
 cv2.setMouseCallback("Calibration", click_event)
 

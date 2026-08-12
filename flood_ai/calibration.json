@@ -1,8 +1,8 @@
 {
-  "rtsp_url": "rtsp://FloodMonitoring:FloodCam2026@192.168.1.16:554/stream2",
-  "baseline_pixel_y": 212,
-  "baseline_meters": 4.1833,
-  "px_per_meter": 49.1258,
+  "rtsp_url": "rtsp://FloodMonitoring:FloodCam2026@192.168.1.16:554/stream1",
+  "baseline_pixel_y": 634,
+  "baseline_meters": 4.1879,
+  "px_per_meter": 147.5074,
   "roi": {
     "left_pct": 26.25,
     "right_pct": 68.59,
@@ -11,27 +11,27 @@
   },
   "points": [
     {
-      "px": 47,
+      "px": 141,
       "m": 7.0
     },
     {
-      "px": 124,
+      "px": 368,
       "m": 6.0
     },
     {
-      "px": 189,
+      "px": 564,
       "m": 5.0
     },
     {
-      "px": 253,
+      "px": 758,
       "m": 4.0
     },
     {
-      "px": 307,
+      "px": 919,
       "m": 3.1
     },
     {
-      "px": 352,
+      "px": 1058,
       "m": 0.0
     }
   ]
