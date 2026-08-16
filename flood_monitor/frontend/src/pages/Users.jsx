@@ -41,8 +41,8 @@ const ROLE_CONFIG = {
   MDRRMO:            { label: 'MDRRMO',             bg: 'bg-red-600 dark:bg-red-700',         text: 'text-white' },
   MDRRMO_RESPONDER:  { label: 'MDRRMO Responder',   bg: 'bg-red-600 dark:bg-red-700',         text: 'text-white' },
   BARANGAY_OFFICIAL: { label: 'Barangay Official',  bg: 'bg-purple-800 dark:bg-purple-900',   text: 'text-white' },
-  RESCUE:            { label: 'Responder',          bg: 'bg-sky-400 dark:bg-sky-500',         text: 'text-white' },
-  CITIZEN:           { label: 'Resident',           bg: 'bg-slate-200 dark:bg-slate-700',     text: 'text-slate-700 dark:text-slate-300' },
+  RESCUE:            { label: 'Responder',          bg: 'bg-sky-500 dark:bg-sky-600',         text: 'text-white' },
+  CITIZEN:           { label: 'Resident',           bg: 'bg-slate-200 dark:bg-slate-700',     text: 'text-slate-800 dark:text-slate-300' },
 };
 
 const EMPTY = {
@@ -51,7 +51,7 @@ const EMPTY = {
   evacuation_center_id: '',
 };
 
-const inputCls = 'w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500';
+const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
 
 function FormFields({ form, setForm, isEdit, centers = [] }) {
   const opt = getRoleOption(form.roleOption);
@@ -362,21 +362,21 @@ export default function Users() {
     <div className="space-y-5">
       <div className="page-header flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">User Management</h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">User Management</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">
             {meta.total || 0} total registered users
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-2 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors border border-slate-300 dark:border-slate-600 shadow-sm">
             <FileDown size={16} />
             Export PDF
           </button>
           <button
             onClick={() => { setForm(EMPTY); setShowAdd(true); }}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
             <Plus size={16} />
             Add User
           </button>
@@ -385,16 +385,16 @@ export default function Users() {
 
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-48 relative">
-          <Search size={14} className="absolute left-3 top-3 text-slate-500" />
+          <Search size={14} className="absolute left-3 top-3.5 text-slate-400" />
           <input
-            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+            className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by name or email..."
           />
         </div>
         <select
-          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+          className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm"
           value={roleFilter}
           onChange={e => { setRoleFilter(e.target.value); setPage(1); }}>
           <option value="">All Roles</option>
@@ -412,51 +412,51 @@ export default function Users() {
         </select>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700">
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">User</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Role</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Barangay</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Phone</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Status</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Joined</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase">Actions</th>
+            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">User</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Role</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Barangay</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Phone</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Status</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Joined</th>
+              <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
             {isLoading ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500">Loading...</td></tr>
+              <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500 font-semibold">Loading...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500">No users found</td></tr>
+              <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500 font-semibold">No users found</td></tr>
             ) : (
               users.map(user => {
                 const rc = ROLE_CONFIG[user.role] || ROLE_CONFIG.CITIZEN;
                 return (
                   <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="px-5 py-3.5">
-                      <div className="font-medium text-slate-900 dark:text-white">{user.full_name || '—'}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
+                      <div className="font-bold text-slate-900 dark:text-white">{user.full_name || '—'}</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{user.email}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${(ROLE_CONFIG[user.role] || ROLE_CONFIG.CITIZEN).bg} ${(ROLE_CONFIG[user.role] || ROLE_CONFIG.CITIZEN).text}`}>
-                        {ROLE_CONFIG[user.role]?.label || user.role}
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${rc.bg} ${rc.text}`}>
+                        {rc.label || user.role}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-300 text-xs">
+                    <td className="px-5 py-3.5 text-slate-800 dark:text-slate-200 text-xs font-medium">
                       {user.role === 'MSWDO'
                         ? (user.evacuation_center_name
-                            ? <span className="text-blue-400">{user.evacuation_center_name}</span>
-                            : <span className="text-amber-400">No center assigned</span>)
-                        : (user.barangay_name || <span className="text-slate-600">—</span>)
+                            ? <span className="text-blue-600 dark:text-blue-400 font-bold">{user.evacuation_center_name}</span>
+                            : <span className="text-amber-600 dark:text-amber-400 font-medium">No center assigned</span>)
+                        : (user.barangay_name || <span className="text-slate-400">—</span>)
                       }
                     </td>
-                    <td className="px-5 py-3.5 text-slate-400 text-xs">
-                      {user.phone_number || <span className="text-slate-600">—</span>}
+                    <td className="px-5 py-3.5 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium">
+                      {user.phone_number || <span className="text-slate-400">—</span>}
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                         user.is_active
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-green-900/50 dark:text-green-400'
                           : 'bg-rose-100 text-rose-800 dark:bg-red-900/50 dark:text-red-400'
@@ -464,38 +464,37 @@ export default function Users() {
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-500 text-xs">
+                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-400 text-xs font-medium">
                       {formatDateTime(user.created_at)}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEdit(user)}
-                          className="text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                          <Edit2 size={13} />
+                          className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                          <Edit2 size={14} />
                         </button>
                         {user.is_active ? (
                           <button
                             onClick={() => confirmDeactivate(user)}
-                            className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-                            title="Deactivate">
-                            <UserX size={13} />
+                            title="Deactivate account"
+                            className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <UserX size={14} />
                           </button>
                         ) : (
                           <button
                             onClick={() => activate.mutate(user.id)}
-                            className="text-slate-400 hover:text-green-500 dark:hover:text-green-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-                            title="Activate">
-                            <UserCheck size={13} />
+                            title="Activate account"
+                            className="text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <UserCheck size={14} />
                           </button>
                         )}
-                        {user.role !== 'SUPER_ADMIN' && (
-                          <button
-                            onClick={() => setDeleteTarget(user)}
-                            className="text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <Trash2 size={13} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDeleteTarget(user)}
+                          title="Delete permanently"
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -506,21 +505,21 @@ export default function Users() {
         </table>
 
         {meta.pages > 1 && (
-          <div className="flex items-center justify-between px-5 py-4 border-t border-slate-700">
-            <span className="text-xs text-slate-500">
+          <div className="flex items-center justify-between px-5 py-4 border-t border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
               Page {meta.page} of {meta.pages} · {meta.total} total
             </span>
             <div className="flex gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage(p => p - 1)}
-                className="text-sm px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-40 rounded-lg dark:text-white transition-colors">
+                className="text-sm px-3.5 py-1.5 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-40 rounded-xl dark:text-white font-bold transition-colors shadow-sm">
                 Previous
               </button>
               <button
                 disabled={page >= meta.pages}
                 onClick={() => setPage(p => p + 1)}
-                className="text-sm px-3 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-40 rounded-lg dark:text-white transition-colors">
+                className="text-sm px-3.5 py-1.5 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-40 rounded-xl dark:text-white font-bold transition-colors shadow-sm">
                 Next
               </button>
             </div>

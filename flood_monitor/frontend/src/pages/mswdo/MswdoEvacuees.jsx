@@ -23,7 +23,7 @@ const EMPTY = {
   members_list: [{ name: '', age: '', gender: '' }],
 };
 
-const inputClass = 'w-full bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500';
+const inputClass = 'w-full bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm';
 
 export default function MswdoEvacuees() {
   const { user } = useAuthStore();
@@ -79,103 +79,139 @@ export default function MswdoEvacuees() {
     refetchInterval: 10000,
   });
 
-  const dateFiltered = useMemo(() => {
-    return (Array.isArray(families) ? families : []).filter(f => {
-      if (!f.arrival_date) return false;
-      const d = new Date(f.arrival_date);
-      if (wlFilter.type === 'date') return d.toISOString().slice(0, 10) === wlFilter.date;
-      if (wlFilter.type === 'week') {
-        const { start, end } = getWeekRange(wlFilter.week);
-        return d >= start && d <= end;
-      }
-      return d.getFullYear() === wlFilter.year && d.getMonth() === wlFilter.month;
-    });
-  }, [families, wlFilter]);
-
   const saveFamily = useMutation({
-    mutationFn: (data) => editing
-      ? api.patch(`/evacuation/${center?.id}/families/${editing.id}`, data).then(r => r.data.data)
-      : api.post(`/evacuation/${center?.id}/families`, data).then(r => r.data.data),
-    onSuccess: () => {
-      toast.success(editing ? 'Record updated' : 'Evacuee record added');
-      qc.invalidateQueries(['families']);
-      qc.invalidateQueries(['evacuation']);
-      setShowModal(false);
-      setForm(EMPTY);
-      setEditing(null);
+    mutationFn: (data) => {
+      if (editing) return api.put(`/evacuation/${center?.id}/families/${editing.id}`, data);
+      return api.post(`/evacuation/${center?.id}/families`, data);
     },
-    onError: () => toast.error('Failed to save record'),
+    onSuccess: () => {
+      qc.invalidateQueries(['families', center?.id]);
+      qc.invalidateQueries(['evacuation']);
+      toast.success(editing ? 'Record updated' : 'Evacuee registered');
+      setShowModal(false);
+      setEditing(null);
+      setForm(EMPTY);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Save failed'),
   });
 
   const deleteFamily = useMutation({
-    mutationFn: (id) => api.delete(`/evacuation/${center?.id}/families/${id}`),
+    mutationFn: (fid) => api.delete(`/evacuation/${center?.id}/families/${fid}`),
     onSuccess: () => {
-      toast.success('Record removed');
-      qc.invalidateQueries(['families']);
+      qc.invalidateQueries(['families', center?.id]);
       qc.invalidateQueries(['evacuation']);
+      toast.success('Record removed');
     },
-    onError: () => toast.error('Failed to delete'),
+    onError: () => toast.error('Delete failed'),
   });
+
+  const filtered = useMemo(() => {
+    return families.filter(f => {
+      if (wlFilter.type === 'month') {
+        const arrDate = new Date(f.arrival_date);
+        if (arrDate.getFullYear() !== wlFilter.year || arrDate.getMonth() !== wlFilter.month) return false;
+      } else if (wlFilter.type === 'date') {
+        const arrDateStr = f.arrival_date ? new Date(f.arrival_date).toISOString().slice(0, 10) : '';
+        if (arrDateStr !== wlFilter.date) return false;
+      } else if (wlFilter.type === 'week') {
+        const arrDate = new Date(f.arrival_date);
+        const { start, end } = getWeekRange(wlFilter.week);
+        if (arrDate < start || arrDate > end) return false;
+      }
+
+      const matchSearch = !search ||
+        f.head_name?.toLowerCase().includes(search.toLowerCase()) ||
+        f.barangay?.toLowerCase().includes(search.toLowerCase()) ||
+        f.address?.toLowerCase().includes(search.toLowerCase());
+      const matchBrgy = !filterBrgy || f.barangay === filterBrgy;
+      const matchGender = !filterGender || f.gender === filterGender;
+      const age = f.age ? parseInt(f.age) : null;
+      const matchAgeMin = !filterAgeMin || (age !== null && age >= parseInt(filterAgeMin));
+      const matchAgeMax = !filterAgeMax || (age !== null && age <= parseInt(filterAgeMax));
+      return matchSearch && matchBrgy && matchGender && matchAgeMin && matchAgeMax;
+    });
+  }, [families, search, filterBrgy, filterGender, filterAgeMin, filterAgeMax, wlFilter]);
+
+  const totalMembers = filtered.reduce((s, f) => s + (f.members || 0), 0);
 
   const openAdd = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
   const openEdit = (f) => {
     setEditing(f);
     setForm({
-      head_name: f.head_name,
-      age: f.age || '',
+      head_name: f.head_name || '',
+      age: f.age ? String(f.age) : '',
       gender: f.gender || '',
-      members: f.members,
+      members: f.members || 1,
       address: f.address || '',
       barangay: f.barangay || '',
       contact: f.contact || '',
       arrival_date: f.arrival_date ? new Date(f.arrival_date).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
       notes: f.notes || '',
-      members_list: f.members_list?.length ? f.members_list.map(m => ({ name: m.name, age: m.age || '', gender: m.gender || '' })) : [{ name: '', age: '', gender: '' }],
+      members_list: f.members_list?.length ? f.members_list : [{ name: '', age: '', gender: '' }],
     });
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (!form.head_name.trim()) { toast.error('Head of Family is required'); return; }
-    const validMembers = form.members_list.filter(m => m.name.trim());
-    saveFamily.mutate({
-      ...form,
-      age: form.age ? parseInt(form.age) : null,
-      gender: form.gender || null,
-      members: parseInt(form.members) || 1,
-      members_list: validMembers.map(m => ({ name: m.name.trim(), age: m.age ? parseInt(m.age) : null, gender: m.gender || null })),
+  const addMemberRow = () => {
+    setForm(f => ({
+      ...f,
+      members_list: [...f.members_list, { name: '', age: '', gender: '' }],
+      members: f.members_list.length + 1,
+    }));
+  };
+
+  const removeMemberRow = (idx) => {
+    setForm(f => {
+      const list = f.members_list.filter((_, i) => i !== idx);
+      return { ...f, members_list: list, members: list.length };
     });
   };
 
-  const addMemberRow = () => setForm(f => ({ ...f, members_list: [...f.members_list, { name: '', age: '', gender: '' }], members: f.members_list.length + 1 }));
-  const removeMemberRow = (i) => setForm(f => ({ ...f, members_list: f.members_list.filter((_, idx) => idx !== i), members: Math.max(1, f.members_list.length - 1) }));
-  const updateMember = (i, field, val) => setForm(f => ({
-    ...f,
-    members_list: f.members_list.map((m, idx) => idx === i ? { ...m, [field]: val } : m),
-  }));
+  const updateMember = (idx, field, val) => {
+    setForm(f => {
+      const list = [...f.members_list];
+      list[idx] = { ...list[idx], [field]: val };
+      return { ...f, members_list: list };
+    });
+  };
 
-  const filtered = (Array.isArray(families) ? families : []).filter(f => {
-    const matchSearch = !search ||
-      f.head_name?.toLowerCase().includes(search.toLowerCase()) ||
-      f.barangay?.toLowerCase().includes(search.toLowerCase()) ||
-      f.address?.toLowerCase().includes(search.toLowerCase());
-    const matchBrgy = !filterBrgy || f.barangay === filterBrgy;
-    const matchGender = !filterGender || f.gender === filterGender;
-    const age = f.age ? parseInt(f.age) : null;
-    const matchAge = (!filterAgeMin || (age !== null && age >= parseInt(filterAgeMin))) &&
-      (!filterAgeMax || (age !== null && age <= parseInt(filterAgeMax)));
-    return matchSearch && matchBrgy && matchGender && matchAge;
-  });
-
-  const totalMembers = filtered.reduce((s, f) => s + (f.members || 0), 0);
+  const handleSave = () => {
+    if (!form.head_name.trim()) { toast.error('Head of family name is required'); return; }
+    if (!form.address.trim()) { toast.error('Address is required'); return; }
+    saveFamily.mutate({
+      ...form,
+      age: form.age ? parseInt(form.age) : null,
+      members: parseInt(form.members) || 1,
+      members_list: form.members_list.filter(m => m.name.trim()),
+    });
+  };
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const nowStr = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' });
-    const periodLabel = wlFilter.type === 'date' ? wlFilter.date
-      : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
-        : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
-    const exportRows = dateFiltered.filter(f => {
+
+    let periodLabel = '';
+    if (wlFilter.type === 'month') {
+      periodLabel = `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
+    } else if (wlFilter.type === 'date') {
+      periodLabel = new Date(wlFilter.date).toLocaleDateString('en-PH', { dateStyle: 'long' });
+    } else if (wlFilter.type === 'week') {
+      const { start, end } = getWeekRange(wlFilter.week);
+      periodLabel = `Week of ${start.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+
+    const exportRows = families.filter(f => {
+      if (wlFilter.type === 'month') {
+        const arrDate = new Date(f.arrival_date);
+        if (arrDate.getFullYear() !== wlFilter.year || arrDate.getMonth() !== wlFilter.month) return false;
+      } else if (wlFilter.type === 'date') {
+        const arrDateStr = f.arrival_date ? new Date(f.arrival_date).toISOString().slice(0, 10) : '';
+        if (arrDateStr !== wlFilter.date) return false;
+      } else if (wlFilter.type === 'week') {
+        const arrDate = new Date(f.arrival_date);
+        const { start, end } = getWeekRange(wlFilter.week);
+        if (arrDate < start || arrDate > end) return false;
+      }
       const matchSearch = !search ||
         f.head_name?.toLowerCase().includes(search.toLowerCase()) ||
         f.barangay?.toLowerCase().includes(search.toLowerCase()) ||
@@ -230,22 +266,22 @@ export default function MswdoEvacuees() {
     <div className="space-y-6">
       <div className="page-header flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Evacuee Management</h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Evacuee Management</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 font-medium">
             {center?.name} · {filtered.length} families · {totalMembers} total members
           </p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <button onClick={() => setShowFilter(v => !v)}
-            className="flex items-center gap-2 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            className="flex items-center gap-2 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 text-sm font-bold px-4 py-2.5 rounded-xl transition-colors border border-slate-300 dark:border-slate-600 shadow-sm">
             <Filter size={15} /> Filter
           </button>
           {/* Period filter tabs */}
           {['month', 'date', 'week'].map(t => (
             <button key={t} onClick={() => setWlFilter(f => ({ ...f, type: t }))}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${wlFilter.type === t
+              className={`text-xs px-3 py-2 rounded-xl font-bold transition-colors shadow-sm ${wlFilter.type === t
                   ? 'bg-blue-600 text-white hover:bg-blue-500'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:border-slate-600'
                 }`}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
@@ -253,11 +289,11 @@ export default function MswdoEvacuees() {
           {wlFilter.type === 'month' && (
             <>
               <select value={wlFilter.month} onChange={e => setWlFilter(f => ({ ...f, month: +e.target.value }))}
-                className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                 {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
               </select>
               <select value={wlFilter.year} onChange={e => setWlFilter(f => ({ ...f, year: +e.target.value }))}
-                className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                 {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </>
@@ -265,19 +301,19 @@ export default function MswdoEvacuees() {
           {wlFilter.type === 'date' && (
             <input type="date" value={wlFilter.date}
               onChange={e => setWlFilter(f => ({ ...f, date: e.target.value }))}
-              className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
           )}
           {wlFilter.type === 'week' && (
             <input type="week" value={wlFilter.week}
               onChange={e => setWlFilter(f => ({ ...f, week: e.target.value }))}
-              className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
           )}
           <button onClick={exportPDF}
-            className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
             <Download size={15} /> Export PDF
           </button>
           <button onClick={openAdd}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
             <Plus size={15} /> Add Evacuee
           </button>
         </div>
@@ -286,32 +322,32 @@ export default function MswdoEvacuees() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { label: 'Total Families', value: filtered.length, color: '#3b82f6' },
-          { label: 'Total Members', value: totalMembers, color: '#22c55e' },
-          { label: 'Center Capacity', value: `${center?.capacity_current || 0} / ${center?.capacity_total || 0}`, color: '#a78bfa' },
+          { label: 'Total Families', value: filtered.length, color: '#2563eb' },
+          { label: 'Total Members', value: totalMembers, color: '#16a34a' },
+          { label: 'Center Capacity', value: `${center?.capacity_current || 0} / ${center?.capacity_total || 0}`, color: '#7c3aed' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">{label}</div>
-            <div className="text-2xl font-bold" style={{ color }}>{value}</div>
+          <div key={label} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">{label}</div>
+            <div className="text-2xl font-black" style={{ color }}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
       {showFilter && (
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-wrap gap-3 items-end">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-wrap gap-3 items-end shadow-sm">
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Barangay</label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Barangay</label>
             <select value={filterBrgy} onChange={e => setFilterBrgy(e.target.value)}
-              className="bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+              className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm">
               <option value="">All Barangays</option>
               {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Gender</label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Gender</label>
             <select value={filterGender} onChange={e => setFilterGender(e.target.value)}
-              className="bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+              className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm">
               <option value="">All Genders</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -319,108 +355,108 @@ export default function MswdoEvacuees() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Age Range</label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Age Range</label>
             <div className="flex items-center gap-2">
               <input type="number" min="0" max="120" placeholder="Min" value={filterAgeMin}
                 onChange={e => setFilterAgeMin(e.target.value)}
-                className="w-20 bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-blue-500" />
-              <span className="text-slate-500 text-xs">–</span>
+                className="w-20 bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm" />
+              <span className="text-slate-500 text-xs font-bold">–</span>
               <input type="number" min="0" max="120" placeholder="Max" value={filterAgeMax}
                 onChange={e => setFilterAgeMax(e.target.value)}
-                className="w-20 bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                className="w-20 bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm" />
             </div>
           </div>
           {(filterBrgy || filterGender || filterAgeMin || filterAgeMax) && (
             <button onClick={() => { setFilterBrgy(''); setFilterGender(''); setFilterAgeMin(''); setFilterAgeMax(''); }}
-              className="text-xs text-slate-700 hover:text-slate-900 bg-slate-200 hover:bg-slate-300 dark:text-slate-400 dark:hover:text-white px-3 py-2 dark:bg-slate-700 rounded-lg transition-colors">
+              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:text-slate-300 dark:hover:text-white px-3 py-2 dark:bg-slate-700 rounded-xl transition-colors shadow-sm">
               Clear Filters
             </button>
           )}
-          <div className="text-xs text-slate-500 self-center">
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 self-center">
             Showing {filtered.length} of {families.length} records
           </div>
         </div>
       )}
 
       {/* Search + Table */}
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-700 flex items-center gap-3">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input type="text" placeholder="Search by name or barangay..." value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              className="w-full bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-red-500 shadow-sm" />
           </div>
-          <span className="text-xs text-slate-500">{filtered.length} records</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{filtered.length} records</span>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-slate-500 text-sm">Loading records...</div>
+          <div className="flex items-center justify-center py-16 text-slate-500 text-sm font-semibold">Loading records...</div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-500">
             <Users size={32} className="mb-3 opacity-30" />
-            <p className="text-sm">No evacuee records found</p>
+            <p className="text-sm font-semibold">No evacuee records found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700">
+                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                   {['#', 'Head of Family', 'Age', 'Gender', 'Address', 'Barangay', 'Members', 'Contact', 'Arrival Date', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/50">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                 {filtered.map((f, i) => (
                   <Fragment key={f.id}>
-                    <tr className="hover:bg-slate-700/30 transition-colors cursor-pointer"
+                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
                       onClick={() => setExpandedRow(expandedRow === f.id ? null : f.id)}>
-                      <td className="px-4 py-3 text-slate-500 text-xs">{i + 1}</td>
-                      <td className="px-4 py-3 font-medium text-white">
+                      <td className="px-4 py-3 text-slate-500 text-xs font-medium">{i + 1}</td>
+                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-slate-500 text-xs">{expandedRow === f.id ? '▼' : '▶'}</span>
+                          <span className="text-slate-400 text-xs">{expandedRow === f.id ? '▼' : '▶'}</span>
                           {f.head_name}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{f.age || '—'}</td>
-                      <td className="px-4 py-3 text-slate-400">{f.gender || '—'}</td>
-                      <td className="px-4 py-3 text-slate-400 max-w-[160px] truncate">{f.address || '—'}</td>
-                      <td className="px-4 py-3 text-slate-400">{f.barangay || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.age || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.gender || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 max-w-[160px] truncate font-medium">{f.address || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.barangay || '—'}</td>
                       <td className="px-4 py-3">
-                        <span className="flex items-center gap-1.5 text-blue-400 font-semibold">
+                        <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold">
                           <Users size={12} /> {f.members}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{f.contact || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono font-medium">{f.contact || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap font-medium">
                         {f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(f)} className="text-slate-400 hover:text-blue-400 transition-colors p-1"><Edit2 size={13} /></button>
+                          <button onClick={() => openEdit(f)} className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><Edit2 size={13} /></button>
                           <button onClick={() => { if (window.confirm('Remove this record?')) deleteFamily.mutate(f.id); }}
-                            className="text-slate-400 hover:text-red-400 transition-colors p-1"><Trash2 size={13} /></button>
+                            className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><Trash2 size={13} /></button>
                         </div>
                       </td>
                     </tr>
                     {expandedRow === f.id && (
-                      <tr className="bg-slate-900/50">
+                      <tr className="bg-slate-50 dark:bg-slate-900/50">
                         <td colSpan={10} className="px-8 py-3">
-                          <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Family Members</div>
+                          <div className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Family Members</div>
                           {f.members_list?.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                               {f.members_list.map((m, mi) => (
-                                <div key={mi} className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
-                                  <span className="text-xs text-slate-500 shrink-0">{mi + 1}.</span>
-                                  <span className="text-sm text-white font-medium truncate">{m.name}</span>
-                                  {m.age && <span className="text-xs text-slate-400 shrink-0">({m.age})</span>}
-                                  {m.gender && <span className="text-xs text-slate-500 shrink-0">{m.gender}</span>}
+                                <div key={mi} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 shadow-sm">
+                                  <span className="text-xs font-bold text-slate-400 shrink-0">{mi + 1}.</span>
+                                  <span className="text-sm text-slate-900 dark:text-white font-bold truncate">{m.name}</span>
+                                  {m.age && <span className="text-xs text-slate-600 dark:text-slate-400 shrink-0 font-medium">({m.age})</span>}
+                                  {m.gender && <span className="text-xs text-slate-500 shrink-0 font-medium">{m.gender}</span>}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-xs text-slate-500">No individual members listed.</p>
+                            <p className="text-xs text-slate-500 font-medium">No individual members listed.</p>
                           )}
                         </td>
                       </tr>
@@ -436,15 +472,15 @@ export default function MswdoEvacuees() {
       {/* PDF Preview Modal */}
       {pdfPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="bg-slate-800 border border-slate-600 rounded-2xl w-full max-w-5xl flex flex-col" style={{ height: '90vh' }}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-              <span className="text-sm font-semibold text-white">PDF Preview — {pdfPreview.filename}</span>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl" style={{ height: '90vh' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">PDF Preview — {pdfPreview.filename}</span>
               <div className="flex items-center gap-2">
                 <a href={pdfPreview.url} download={pdfPreview.filename}
-                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors">
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
                   <Download size={13} /> Download
                 </a>
-                <button onClick={() => setPdfPreview(null)} className="text-slate-400 hover:text-white transition-colors p-1">
+                <button onClick={() => setPdfPreview(null)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1">
                   <X size={18} />
                 </button>
               </div>
@@ -460,18 +496,18 @@ export default function MswdoEvacuees() {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-xs text-slate-400 block mb-1.5">Head of Family <span className="text-red-400">*</span></label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Head of Family <span className="text-red-500">*</span></label>
               <input value={form.head_name} onChange={e => setForm(f => ({ ...f, head_name: e.target.value }))}
                 placeholder="Full name" className={inputClass} />
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Age</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Age</label>
               <input type="number" min="1" max="120" value={form.age}
                 onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
                 placeholder="e.g. 45" className={inputClass} />
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Gender</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Gender</label>
               <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
                 className={inputClass}>
                 <option value="">— Select —</option>
@@ -481,7 +517,7 @@ export default function MswdoEvacuees() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Total Family Members <span className="text-red-400">*</span></label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Total Family Members <span className="text-red-500">*</span></label>
               <input type="number" min="1" value={form.members}
                 onChange={e => setForm(f => ({ ...f, members: e.target.value }))}
                 className={inputClass} />
@@ -489,14 +525,14 @@ export default function MswdoEvacuees() {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Home Address <span className="text-red-400">*</span></label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Home Address <span className="text-red-500">*</span></label>
             <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               placeholder="Street / Purok / Sitio" className={inputClass} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Home Barangay</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Home Barangay</label>
               <select value={form.barangay} onChange={e => setForm(f => ({ ...f, barangay: e.target.value }))}
                 className={inputClass}>
                 <option value="">— Select barangay —</option>
@@ -504,14 +540,14 @@ export default function MswdoEvacuees() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Contact Number</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Contact Number</label>
               <input value={form.contact} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))}
                 placeholder="+639XXXXXXXXX" className={inputClass} />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Arrival Date <span className="text-red-400">*</span></label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Arrival Date <span className="text-red-500">*</span></label>
             <input type="datetime-local" value={form.arrival_date}
               onChange={e => setForm(f => ({ ...f, arrival_date: e.target.value }))}
               className={inputClass} />
@@ -520,24 +556,24 @@ export default function MswdoEvacuees() {
           {/* Family Members */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Family Members</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Family Members</label>
               <button type="button" onClick={addMemberRow}
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 px-2 py-1 bg-blue-900/30 rounded-lg">
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
                 <Plus size={11} /> Add Member
               </button>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {form.members_list.map((m, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-500 w-5 shrink-0">{i + 1}.</span>
+                  <span className="text-xs font-bold text-slate-500 w-5 shrink-0">{i + 1}.</span>
                   <input type="text" placeholder="Name" value={m.name}
                     onChange={e => updateMember(i, 'name', e.target.value)}
-                    className="flex-1 bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" />
+                    className="flex-1 bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-red-500 shadow-sm" />
                   <input type="number" placeholder="Age" value={m.age}
                     onChange={e => updateMember(i, 'age', e.target.value)}
-                    className="w-16 bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500" />
+                    className="w-16 bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-red-500 shadow-sm" />
                   <select value={m.gender} onChange={e => updateMember(i, 'gender', e.target.value)}
-                    className="w-24 bg-slate-100 border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                    className="w-24 bg-white border border-slate-300 text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-red-500 shadow-sm">
                     <option value="">Sex</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -545,8 +581,8 @@ export default function MswdoEvacuees() {
                   </select>
                   {form.members_list.length > 1 && (
                     <button type="button" onClick={() => removeMemberRow(i)}
-                      className="text-slate-500 hover:text-red-400 p-1">
-                      <Trash2 size={13} />
+                      className="text-slate-400 hover:text-red-500 p-1">
+                      <Trash2 size={14} />
                     </button>
                   )}
                 </div>
@@ -555,7 +591,7 @@ export default function MswdoEvacuees() {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1.5">Notes</label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Notes</label>
             <textarea value={form.notes} rows={2}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               placeholder="Special needs, medical conditions, etc."
@@ -564,11 +600,11 @@ export default function MswdoEvacuees() {
 
           <div className="flex gap-3 pt-1">
             <button onClick={() => { setShowModal(false); setEditing(null); }}
-              className="flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm py-2.5 rounded-xl transition-colors">
+              className="flex-1 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white dark:border-transparent text-sm font-bold py-2.5 rounded-xl transition-colors">
               Cancel
             </button>
             <button onClick={handleSave} disabled={!form.head_name || saveFamily.isPending}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-xl transition-colors">
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-xl transition-colors shadow-sm">
               {saveFamily.isPending ? 'Saving...' : editing ? 'Save Changes' : 'Add Record'}
             </button>
           </div>

@@ -27,12 +27,19 @@ export const evaluateAndDispatch = async (reading, client) => {
   const level = reading.flood_level;
 
   if (level === 'NORMAL') {
-    await db.query(
+    const { rows: resolved } = await db.query(
       `UPDATE flood_alerts
        SET is_active = FALSE, resolved_at = NOW(), siren_active = FALSE
-       WHERE camera_id = $1 AND is_active = TRUE`,
+       WHERE camera_id = $1 AND is_active = TRUE
+       RETURNING *`,
       [reading.camera_id]
     );
+    if (resolved.length) {
+      try {
+        const io = getIO();
+        if (io) io.emit('alert:updated', { ...resolved[0], is_active: false });
+      } catch (_) {}
+    }
     return null;
   }
 
@@ -179,6 +186,21 @@ export const evaluateAndDispatch = async (reading, client) => {
       recipients: recipients.length,
     },
   });
+
+  try {
+    const io = getIO();
+    if (io) {
+      io.emit('alert:created', {
+        id: alert.id,
+        camera_id: reading.camera_id,
+        reading_id: reading.id,
+        flood_level: level,
+        siren_active: sirenActive,
+        is_active: true,
+        triggered_at: new Date().toISOString(),
+      });
+    }
+  } catch (_) {}
 
   return { alert_id: alert.id, level, siren_active: sirenActive };
 };

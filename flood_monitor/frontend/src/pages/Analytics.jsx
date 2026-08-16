@@ -29,11 +29,11 @@ const RISK_COLORS = {
 };
 
 const STATUS_COLORS = {
-  NORMAL:     '#22c55e',
-  MONITOR:    '#eab308',
-  ALERT:      '#f97316',
-  EVACUATION: '#ef4444',
-  CRITICAL:   '#7c3aed',
+  NORMAL:     '#16a34a',
+  MONITOR:    '#d97706',
+  ALERT:      '#ea580c',
+  EVACUATION: '#dc2626',
+  CRITICAL:   '#7e22ce',
 };
 
 const ROLE_COLORS = {
@@ -70,20 +70,20 @@ const TOOLTIP_STYLE = {
 
 function StatCard({ label, value, sub, color = 'text-slate-900 dark:text-white' }) {
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm dark:shadow-none">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{label}</div>
-      <div className={`text-4xl font-bold ${color}`}>{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-2">{sub}</div>}
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">{label}</div>
+      <div className={`text-4xl font-black ${color}`}>{value}</div>
+      {sub && <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2">{sub}</div>}
     </div>
   );
 }
 
 function ChartCard({ title, sub, children }) {
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm dark:shadow-none">
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
       <div className="mb-4">
-        <div className="text-sm font-semibold text-slate-300">{title}</div>
-        {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+        <div className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">{title}</div>
+        {sub && <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
       </div>
       {children}
     </div>
@@ -93,7 +93,6 @@ function ChartCard({ title, sub, children }) {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 function getWeekRange(weekStr) {
-  // weekStr = "YYYY-Www"
   const [year, w] = weekStr.split('-W');
   const jan4 = new Date(year, 0, 4);
   const startOfWeek1 = new Date(jan4);
@@ -115,7 +114,7 @@ export default function Analytics() {
     week:        `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(),0,1)) / 604800000)).padStart(2,'0')}`,
     flood_level: '',
   });
-  const [pdfPreview, setPdfPreview] = useState(null); // { url, filename }
+  const [pdfPreview, setPdfPreview] = useState(null);
 
   const { data: stats } = useQuery({
     queryKey:       ['user-stats'],
@@ -140,17 +139,14 @@ export default function Analytics() {
     queryFn:  () => getAlertHistory({ limit: 20 }),
   });
 
-  // Water level history with filters
   const wlParams = useMemo(() => {
     if (wlFilter.type === 'date') return { date: wlFilter.date, limit: 50000, ...(wlFilter.flood_level && { flood_level: wlFilter.flood_level }) };
     if (wlFilter.type === 'week') {
       const { start, end } = getWeekRange(wlFilter.week);
-      // use local date strings so backend AT TIME ZONE handles the boundary
       const from = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}T00:00:00+08:00`;
       const to   = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}T23:59:59+08:00`;
       return { from, to, limit: 50000, ...(wlFilter.flood_level && { flood_level: wlFilter.flood_level }) };
     }
-    // month
     const y = wlFilter.year, m = String(wlFilter.month + 1).padStart(2,'0');
     const lastDay = new Date(wlFilter.year, wlFilter.month + 1, 0).getDate();
     return {
@@ -166,7 +162,6 @@ export default function Analytics() {
     queryFn:  () => getAllReadings(CAMERA_ID_READINGS, wlParams),
   });
 
-  // All evacuees across all centers
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation'],
     queryFn:  getEvacuationCenters,
@@ -283,20 +278,20 @@ export default function Analytics() {
     <div className="space-y-6">
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Analytics</h1>
-        <p className="text-slate-400 text-sm mt-0.5">
+        <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">
           System-wide data overview — users, SOS requests, and water level trends
         </p>
       </div>
 
       <div>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+        <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
           User Overview
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Total Users"   value={totalUsers}    sub="All registered accounts" />
-          <StatCard label="Responders"    value={totalRescuers}  sub="Barangay rescue teams"  color="text-green-400" />
-          <StatCard label="Residents"     value={totalResidents} sub="Registered via mobile"  color="text-blue-400"  />
-          <StatCard label="Barangays"     value={byBarangay.filter(b => b.total_users > 0).length} sub="With registered users" color="text-amber-400" />
+          <StatCard label="Responders"    value={totalRescuers}  sub="Barangay rescue teams"  color="text-emerald-600 dark:text-emerald-400" />
+          <StatCard label="Residents"     value={totalResidents} sub="Registered via mobile"  color="text-blue-600 dark:text-blue-400"  />
+          <StatCard label="Barangays"     value={byBarangay.filter(b => b.total_users > 0).length} sub="With registered users" color="text-amber-600 dark:text-amber-400" />
         </div>
       </div>
 
@@ -304,7 +299,7 @@ export default function Analytics() {
         <ChartCard title="Users per Barangay" sub="Residents and responders breakdown">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={barangayChartData} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
               <XAxis
                 dataKey="name"
                 tick={{ fill: '#64748b', fontSize: 10 }}
@@ -314,7 +309,7 @@ export default function Analytics() {
               />
               <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
               <Tooltip {...TOOLTIP_STYLE} />
-              <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12, paddingTop: 8 }} />
+              <Legend wrapperStyle={{ color: '#64748b', fontSize: 12, paddingTop: 8 }} />
               <Bar dataKey="residents" name="Residents"  fill="#3b82f6" radius={[3,3,0,0]} />
               <Bar dataKey="rescuers"  name="Responders" fill="#22c55e" radius={[3,3,0,0]} />
             </BarChart>
@@ -342,7 +337,7 @@ export default function Analytics() {
                   formatter={(val, name) => [val, name]}
                 />
                 <Legend
-                  formatter={(value) => <span style={{ color: '#94a3b8', fontSize: 12 }}>{value}</span>}
+                  formatter={(value) => <span className="text-slate-700 dark:text-slate-300 text-xs font-semibold">{value}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -351,31 +346,31 @@ export default function Analytics() {
       </div>
 
       <div>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+        <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
           SOS Rescue Requests
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
           <StatCard label="Total SOS"   value={sosStat.total    || 0} />
-          <StatCard label="Resolved"    value={sosStat.resolved || 0} color="text-green-400"
+          <StatCard label="Resolved"    value={sosStat.resolved || 0} color="text-emerald-600 dark:text-emerald-400"
             sub={`${responseRate}% response rate`} />
           <StatCard label="Pending"     value={sosStat.pending  || 0}
             color={(sosStat.pending || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'} />
-          <StatCard label="Responding"  value={sosStat.responding || 0} color="text-blue-400" />
+          <StatCard label="Responding"  value={sosStat.responding || 0} color="text-blue-600 dark:text-blue-400" />
           <StatCard label="Avg Response" value={sosStat.avg_response_min ? `${sosStat.avg_response_min}m` : '—'}
-            sub="Average response time" color="text-amber-400" />
+            sub="Average response time" color="text-amber-600 dark:text-amber-400" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ChartCard title="SOS Requests per Barangay" sub="Total vs resolved by area">
           {sosBarangayChart.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-slate-500 text-sm">
+            <div className="flex items-center justify-center h-48 text-slate-500 text-sm font-medium">
               No SOS data yet
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={sosBarangayChart} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
                 <XAxis
                   dataKey="name"
                   tick={{ fill: '#64748b', fontSize: 10 }}
@@ -385,7 +380,7 @@ export default function Analytics() {
                 />
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                 <Tooltip {...TOOLTIP_STYLE} />
-                <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12, paddingTop: 8 }} />
+                <Legend wrapperStyle={{ color: '#64748b', fontSize: 12, paddingTop: 8 }} />
                 <Bar dataKey="total"    name="Total SOS"  fill="#ef4444" radius={[3,3,0,0]} />
                 <Bar dataKey="resolved" name="Resolved"   fill="#22c55e" radius={[3,3,0,0]} />
               </BarChart>
@@ -395,17 +390,17 @@ export default function Analytics() {
 
         <ChartCard title="SOS Timeline (30 days)" sub="Daily requests and resolutions">
           {timelineData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-slate-500 text-sm">
+            <div className="flex items-center justify-center h-48 text-slate-500 text-sm font-medium">
               No SOS data in the last 30 days
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={timelineData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
                 <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} />
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                 <Tooltip {...TOOLTIP_STYLE} />
-                <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
+                <Legend wrapperStyle={{ color: '#64748b', fontSize: 12 }} />
                 <Line type="monotone" dataKey="total"    name="Total SOS"
                   stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }} />
                 <Line type="monotone" dataKey="resolved" name="Resolved"
@@ -419,29 +414,27 @@ export default function Analytics() {
       {/* Water Level History with filters */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Water Level History</h2>
+          <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Water Level History</h2>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Filter type tabs */}
             {['month','date','week'].map(t => (
               <button key={t}
                 onClick={() => setWlFilter(f => ({ ...f, type: t }))}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
                   wlFilter.type === t 
-                    ? 'bg-blue-600 text-white hover:bg-blue-500' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm' 
                     : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
                 }`}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
-            {/* Filter inputs */}
             {wlFilter.type === 'month' && (
               <>
                 <select value={wlFilter.month} onChange={e => setWlFilter(f => ({ ...f, month: +e.target.value }))}
-                  className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                   {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <select value={wlFilter.year} onChange={e => setWlFilter(f => ({ ...f, year: +e.target.value }))}
-                  className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                   {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </>
@@ -449,16 +442,16 @@ export default function Analytics() {
             {wlFilter.type === 'date' && (
               <input type="date" value={wlFilter.date}
                 onChange={e => setWlFilter(f => ({ ...f, date: e.target.value }))}
-                className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
             )}
             {wlFilter.type === 'week' && (
               <input type="week" value={wlFilter.week}
                 onChange={e => setWlFilter(f => ({ ...f, week: e.target.value }))}
-                className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
             )}
             <select value={wlFilter.flood_level}
               onChange={e => setWlFilter(f => ({ ...f, flood_level: e.target.value }))}
-              className="bg-slate-200 border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
               <option value="">All Levels</option>
               <option value="NORMAL">Normal</option>
               <option value="MONITOR">Monitor</option>
@@ -467,7 +460,7 @@ export default function Analytics() {
               <option value="CRITICAL">Critical</option>
             </select>
             <button onClick={handleWlExport} disabled={wlLoading}
-              className="flex items-center gap-1.5 text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-slate-900 dark:text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+              className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 px-3.5 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
               <FileDown size={13} />
               {wlLoading ? 'Loading...' : 'Export PDF'}
             </button>
@@ -475,12 +468,12 @@ export default function Analytics() {
         </div>
         <WaterLevelChart data={wlHistory} floodLevel={wlFilter.flood_level} title={`Water Level History — ${wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`} />
 
-        {/* Detailed Water Level Readings Table (Transferred from Flood Reports) */}
-        <div className="mt-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+        {/* Detailed Water Level Readings Table */}
+        <div className="mt-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-slate-300">Detailed Water Level Readings</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Detailed Water Level Readings</h3>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                 {wlHistory.length} total readings recorded · Current weather: {weatherLabel}
               </p>
             </div>
@@ -491,7 +484,7 @@ export default function Analytics() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                   {['Date', 'Time', 'Water Level', 'Status', 'Weather'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -502,22 +495,22 @@ export default function Analytics() {
                   const statusColor = STATUS_COLORS[r.flood_level || r.status] || '#64748b';
                   return (
                     <tr key={r.id || r.captured_at} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                      <td className="px-5 py-3 text-xs text-slate-300">
+                      <td className="px-5 py-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                       </td>
-                      <td className="px-5 py-3 text-xs font-mono text-slate-400">
+                      <td className="px-5 py-3 text-xs font-mono font-medium text-slate-600 dark:text-slate-400">
                         {dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </td>
-                      <td className="px-5 py-3 text-sm font-bold" style={{ color: statusColor }}>
+                      <td className="px-5 py-3 text-sm font-black" style={{ color: statusColor }}>
                         {r.water_level_m != null ? `${parseFloat(r.water_level_m).toFixed(3)} m` : '—'}
                       </td>
                       <td className="px-5 py-3">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg"
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
                           style={{ backgroundColor: statusColor + '22', color: statusColor }}>
                           {config.label}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-xs text-slate-400">
+                      <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
                         {weatherLabel}
                       </td>
                     </tr>
@@ -528,7 +521,7 @@ export default function Analytics() {
           </div>
 
           {wlHistory.length === 0 && !wlLoading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 text-sm">
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 text-sm font-semibold">
               <span className="text-3xl">🌊</span>
               <p>No water level readings found for this period</p>
             </div>
@@ -546,10 +539,10 @@ export default function Analytics() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl w-full max-w-4xl flex flex-col shadow-2xl" style={{ height: '90vh' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">PDF Preview — {pdfPreview.filename}</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">PDF Preview — {pdfPreview.filename}</span>
               <div className="flex items-center gap-2">
                 <a href={pdfPreview.url} download={pdfPreview.filename}
-                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors">
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
                   <FileDown size={13} /> Download
                 </a>
                 <button onClick={() => setPdfPreview(null)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1">
@@ -564,36 +557,36 @@ export default function Analytics() {
 
       {/* All Evacuee Data */}
       <div>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Evacuee Data (All Centers)</h2>
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+        <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">Evacuee Data (All Centers)</h2>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
           {allFamilies.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
+            <div className="flex items-center justify-center py-12 text-slate-500 text-sm font-semibold">
               <Users size={28} className="mr-2 opacity-30" /> No evacuee records
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                     {['#','Head of Family','Age','Barangay','Members','Contact','Arrival Date','Center','Notes'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                   {allFamilies.map((f, i) => (
-                    <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                      <td className="px-4 py-3 text-slate-500 text-xs">{i + 1}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{f.head_name}</td>
-                      <td className="px-4 py-3 text-slate-400">{f.age || '—'}</td>
-                      <td className="px-4 py-3 text-slate-400">{f.barangay || '—'}</td>
-                      <td className="px-4 py-3 text-blue-400 font-semibold">{f.members}</td>
-                      <td className="px-4 py-3 text-slate-400">{f.contact || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                    <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                      <td className="px-4 py-3 text-slate-500 text-xs font-medium">{i + 1}</td>
+                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{f.head_name}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.age || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.barangay || '—'}</td>
+                      <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-bold">{f.members}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.contact || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap font-medium">
                         {f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-slate-400 text-xs">{f.center_name || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs max-w-[140px] truncate">{f.notes || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs font-semibold">{f.center_name || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[140px] truncate font-medium">{f.notes || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -605,15 +598,15 @@ export default function Analytics() {
 
       {byBarangay.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
             Barangay Registration Details
           </h2>
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
+                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                   {['Barangay','Risk Level','Total Users','Responders','Residents'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase">
+                    <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                       {h}
                     </th>
                   ))}
@@ -621,20 +614,20 @@ export default function Analytics() {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                 {byBarangay.map(b => (
-                  <tr key={b.barangay} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                    <td className="px-5 py-3 font-medium text-slate-900 dark:text-white">{b.barangay}</td>
+                  <tr key={b.barangay} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    <td className="px-5 py-3 font-bold text-slate-900 dark:text-white">{b.barangay}</td>
                     <td className="px-5 py-3">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                         style={{
                           backgroundColor: RISK_COLORS[b.risk_level] + '22',
-                          color:           RISK_COLORS[b.risk_level] || '#94a3b8',
+                          color:           RISK_COLORS[b.risk_level] || '#64748b',
                         }}>
                         {b.risk_level?.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-slate-900 dark:text-white font-semibold">{b.total_users}</td>
-                    <td className="px-5 py-3 text-green-400">{b.rescuers || 0}</td>
-                    <td className="px-5 py-3 text-blue-400">{b.residents || 0}</td>
+                    <td className="px-5 py-3 text-slate-900 dark:text-white font-extrabold">{b.total_users}</td>
+                    <td className="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-bold">{b.rescuers || 0}</td>
+                    <td className="px-5 py-3 text-blue-600 dark:text-blue-400 font-bold">{b.residents || 0}</td>
                   </tr>
                 ))}
               </tbody>

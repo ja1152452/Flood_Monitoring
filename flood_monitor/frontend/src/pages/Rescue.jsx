@@ -348,21 +348,21 @@ export default function Rescue() {
 
         {/* Operational Quick Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2 text-center">
-            <div className="text-xs text-red-400 font-medium">Pending Dispatch</div>
-            <div className="text-lg font-extrabold text-red-500">{pendingCount}</div>
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl px-3 py-2 text-center">
+            <div className="text-xs text-red-700 dark:text-red-400 font-bold">Pending Dispatch</div>
+            <div className="text-lg font-black text-red-600 dark:text-red-500">{pendingCount}</div>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center">
-            <div className="text-xs text-amber-400 font-medium">Active Operations</div>
-            <div className="text-lg font-extrabold text-amber-400">{dispatchedCount}</div>
+          <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl px-3 py-2 text-center">
+            <div className="text-xs text-amber-700 dark:text-amber-400 font-bold">Active Operations</div>
+            <div className="text-lg font-black text-amber-600 dark:text-amber-400">{dispatchedCount}</div>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2 text-center">
-            <div className="text-xs text-emerald-400 font-medium">Available Units</div>
-            <div className="text-lg font-extrabold text-emerald-400">{availableResponders.length}</div>
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl px-3 py-2 text-center">
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold">Available Units</div>
+            <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">{availableResponders.length}</div>
           </div>
-          <div className="bg-sky-500/10 border border-sky-500/30 rounded-xl px-3 py-2 text-center">
-            <div className="text-xs text-sky-400 font-medium">Total Resolved</div>
-            <div className="text-lg font-extrabold text-sky-400">
+          <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 rounded-xl px-3 py-2 text-center">
+            <div className="text-xs text-sky-700 dark:text-sky-400 font-bold">Total Resolved</div>
+            <div className="text-lg font-black text-sky-600 dark:text-sky-400">
               {safeSosHistory.filter(s => s.status === 'RESOLVED' || s.status === 'COMPLETED').length}
             </div>
           </div>

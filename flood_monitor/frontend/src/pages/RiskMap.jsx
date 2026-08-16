@@ -14,10 +14,10 @@ import lumbanBoundary from '../data/ADM4 Lumban.geojson';
 const LUMBAN_CENTER = [14.291969, 121.460112];
 
 const RISK_CONFIG = {
-  VERY_HIGH: { color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib', icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.', bg: 'bg-red-900/40',    text: 'text-red-300'    },
-  HIGH:      { color: '#c2410c', fill: '#f97316', label: 'High Risk',      tagalog: 'Mataas na Panganib',     icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',          bg: 'bg-orange-900/40', text: 'text-orange-300' },
-  MODERATE:  { color: '#a16207', fill: '#eab308', label: 'Moderate Risk',  tagalog: 'Katamtamang Panganib',   icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',                 bg: 'bg-yellow-900/40', text: 'text-yellow-300' },
-  LOW:       { color: '#15803d', fill: '#22c55e', label: 'Low Risk',       tagalog: 'Mababang Panganib',      icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',              bg: 'bg-green-900/40',  text: 'text-green-300'  },
+  VERY_HIGH: { color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib', icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.', bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',    text: 'text-red-800 dark:text-red-300'    },
+  HIGH:      { color: '#c2410c', fill: '#f97316', label: 'High Risk',      tagalog: 'Mataas na Panganib',     icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',          bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800', text: 'text-orange-800 dark:text-orange-300' },
+  MODERATE:  { color: '#a16207', fill: '#eab308', label: 'Moderate Risk',  tagalog: 'Katamtamang Panganib',   icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',                 bg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800', text: 'text-amber-800 dark:text-yellow-300' },
+  LOW:       { color: '#15803d', fill: '#22c55e', label: 'Low Risk',       tagalog: 'Mababang Panganib',      icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',              bg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-green-900/40  dark:text-green-300 dark:border-green-800',  text: 'text-emerald-800 dark:text-green-300'  },
 };
 
 const EMPTY = { name: '', risk_level: 'MODERATE', lat: '', lng: '', radius: '250', note: '' };
@@ -122,7 +122,6 @@ function Legend() {
   );
 }
 
-// Barangay centers derived from actual geojson centroids — names match ADM4_EN exactly
 const BRGY_CENTERS = {
   'Bagong Silang':          [14.2951, 121.4648],
   'Balimbingan (Pob.)':     [14.3002, 121.4603],
@@ -144,8 +143,8 @@ const BRGY_CENTERS = {
 
 const BARANGAY_NAMES = Object.keys(BRGY_CENTERS);
 
-const inputCls = 'w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500';
-const labelCls = 'text-xs text-slate-400 block mb-1';
+const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
+const labelCls = 'text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1';
 
 function FieldInput({ label, children }) {
   return <div><span className={labelCls}>{label}</span>{children}</div>;
@@ -231,21 +230,21 @@ export default function RiskMapPage() {
       {/* Header */}
       <div className="page-header flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Flood Risk Map</h1>
-          <p className="text-slate-400 text-sm mt-1">Lumban, Laguna — {areas.length} areas classified</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Flood Risk Map</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Lumban, Laguna — {areas.length} areas classified</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="flex bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden p-0.5">
             {['map', 'list'].map(tab => (
               <button key={tab} onClick={() => setViewTab(tab)}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${viewTab === tab ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${viewTab === tab ? 'bg-red-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}`}>
                 {tab === 'map' ? '🗺 Map' : '📋 List'}
               </button>
             ))}
           </div>
           {isAdmin && (
             <button onClick={() => { setForm(EMPTY); setShowAdd(true); }}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
               <Plus size={16} /> Add Area
             </button>
           )}
@@ -254,20 +253,18 @@ export default function RiskMapPage() {
 
       {/* Map Tab */}
       {viewTab === 'map' && (
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-300">⚠️ Interactive Risk Zone Map</span>
-            <span className="text-xs text-slate-500">I-click ang zone para sa detalye</span>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <span className="text-sm font-bold text-slate-900 dark:text-white">⚠️ Interactive Risk Zone Map</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Click a zone for details</span>
           </div>
           <div style={{ position: 'relative', height: 520 }}>
             <MapContainer center={LUMBAN_CENTER} zoom={12} style={{ height: '100%', width: '100%', background: '#b8d4e8' }}>
-              {/* Light political-style base — no labels so our polygon labels show cleanly */}
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
                 attribution="&copy; OpenStreetMap &copy; CARTO"
               />
               <RiskGeoJSON areas={areas} boundary={lumbanBoundary} />
-              {/* Road/place labels on top of polygons */}
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
                 attribution=""
@@ -281,7 +278,7 @@ export default function RiskMapPage() {
                 <Popup>
                   <div style={{ background: '#0f172a', color: '#e2e8f0', padding: 10, borderRadius: 10, borderLeft: '4px solid #3b82f6' }}>
                     <strong style={{ color: '#60a5fa' }}>📷 CAM-LUMBAN-01</strong><br />
-                    <span style={{ color: '#64748b', fontSize: 11 }}>Lumban Bridge — Active Monitoring</span>
+                    <span style={{ color: '#94a3b8', fontSize: 11 }}>Lumban Bridge — Active Monitoring</span>
                   </div>
                 </Popup>
               </Marker>
@@ -300,27 +297,27 @@ export default function RiskMapPage() {
             return (
               <Card key={level}>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full border ${cfg.bg}`}>
                     {cfg.icon} {cfg.label}
                   </span>
-                  <span className="text-xs text-slate-500">{cfg.tagalog}</span>
-                  <span className="text-sm text-slate-500 ml-auto">{levelAreas.length} areas</span>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{cfg.tagalog}</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-auto">{levelAreas.length} areas</span>
                 </div>
                 <div className="space-y-2">
                   {levelAreas.map(area => (
-                    <div key={area.id} className="flex items-center justify-between p-3 bg-slate-900 rounded-xl">
+                    <div key={area.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }} />
-                          <span className="text-sm font-medium text-white truncate">{area.name}</span>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{area.name}</span>
                         </div>
-                        {area.note && <p className="text-xs text-slate-500 mt-1 ml-5 truncate">{area.note}</p>}
-                        <p className="text-xs text-slate-600 mt-0.5 ml-5">📍 {area.lat.toFixed(4)}, {area.lng.toFixed(4)} · r={area.radius}m</p>
+                        {area.note && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 ml-5 truncate font-medium">{area.note}</p>}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-5 font-mono">📍 {area.lat.toFixed(4)}, {area.lng.toFixed(4)} · r={area.radius}m</p>
                       </div>
                       {isAdmin && (
                         <div className="flex items-center gap-2 ml-3 shrink-0">
-                          <button onClick={() => openEdit(area)} className="text-slate-400 hover:text-blue-400 p-1"><Edit2 size={14} /></button>
-                          <button onClick={() => window.confirm(`Delete "${area.name}"?`) && remove.mutate(area.id)} className="text-slate-400 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                          <button onClick={() => openEdit(area)} className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Edit2 size={14} /></button>
+                          <button onClick={() => window.confirm(`Delete "${area.name}"?`) && remove.mutate(area.id)} className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Trash2 size={14} /></button>
                         </div>
                       )}
                     </div>
@@ -333,8 +330,8 @@ export default function RiskMapPage() {
       )}
 
       <Card>
-        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Data Source</h3>
-        <p className="text-sm text-slate-400 leading-relaxed">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">Data Source</h3>
+        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
           Risk classifications are based on the Climate and Disaster Risk Assessment (CDRA) included in the Local Disaster Risk Reduction and Management Plan (LDRRMP) of Lumban, Laguna.
         </p>
       </Card>
@@ -344,8 +341,8 @@ export default function RiskMapPage() {
         <div className="space-y-4">
           <FormFields form={form} setForm={setForm} />
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setShowAdd(false)} className="flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm py-2.5 rounded-xl transition-colors">Cancel</button>
-            <button onClick={handleCreate} disabled={create.isPending} className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-xl">
+            <button onClick={() => setShowAdd(false)} className="flex-1 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm font-bold py-2.5 rounded-xl transition-colors">Cancel</button>
+            <button onClick={handleCreate} disabled={create.isPending} className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-xl shadow-sm">
               {create.isPending ? 'Adding...' : 'Add Area'}
             </button>
           </div>
@@ -357,8 +354,8 @@ export default function RiskMapPage() {
         <div className="space-y-4">
           <FormFields form={form} setForm={setForm} />
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setShowEdit(false)} className="flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm py-2.5 rounded-xl transition-colors">Cancel</button>
-            <button onClick={handleUpdate} disabled={update.isPending} className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-xl">
+            <button onClick={() => setShowEdit(false)} className="flex-1 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm font-bold py-2.5 rounded-xl transition-colors">Cancel</button>
+            <button onClick={handleUpdate} disabled={update.isPending} className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-xl shadow-sm">
               {update.isPending ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

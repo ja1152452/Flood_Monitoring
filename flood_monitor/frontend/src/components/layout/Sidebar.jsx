@@ -37,11 +37,11 @@ export function Sidebar() {
   } : {
     width: '16rem',
     minHeight: '100vh',
-    background: 'rgb(var(--bg-card-deep))',
+    background: '#ffffff',
     borderRight: '1px solid rgb(var(--border-color))',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
+    boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
   };
 
   return (
@@ -63,23 +63,23 @@ export function Sidebar() {
         <img src={logo} alt="Logo" style={{ width: 30, height: 30, objectFit: 'contain', opacity: 0.9 }} />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                 isActive
                   ? 'text-white shadow-sm'
-                  : 'hover:bg-white/10'
+                  : 'hover:bg-slate-100 dark:hover:bg-white/10'
               }`
             }
             style={({ isActive }) => isActive
               ? { background: 'linear-gradient(90deg, #991b1b, #dc2626)', boxShadow: '0 2px 12px rgba(185,28,28,0.4)', color: '#ffffff' }
-              : { color: isDark ? 'rgba(148,163,184,0.9)' : 'rgb(var(--text-muted))' }
+              : { color: isDark ? 'rgba(148,163,184,0.9)' : '#334155' }
             }>
             {({ isActive }) => (
               <>
-                <Icon size={16} strokeWidth={isActive ? 2.5 : 1.8} />
+                <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
                 {label}
               </>
             )}
@@ -92,26 +92,22 @@ export function Sidebar() {
         borderTop: isDark ? '1px solid rgba(185,28,28,0.18)' : '1px solid rgb(var(--border-color))',
       }}>
         <button onClick={toggle}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all mb-1"
-          style={{ color: isDark ? 'rgba(148,163,184,0.8)' : 'rgb(var(--text-muted))' }}
-          onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgb(var(--bg-base))'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-1.5 hover:bg-slate-100 dark:hover:bg-white/5"
+          style={{ color: isDark ? 'rgba(148,163,184,0.9)' : '#334155' }}>
           {isDark ? <Sun size={15} /> : <Moon size={15} />}
           {isDark ? 'Light Mode' : 'Dark Mode'}
         </button>
-        <div className="px-3 py-2.5 mb-1 rounded-xl" style={{
-          background: isDark ? 'rgba(255,255,255,0.04)' : 'rgb(var(--bg-base))',
-          border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgb(var(--border-color))',
+        <div className="px-3 py-2.5 mb-1.5 rounded-xl" style={{
+          background: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+          border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0',
         }}>
-          <div className="text-xs font-semibold truncate" style={{ color: 'rgb(var(--text-base))' }}>{user?.full_name}</div>
-          <div className="text-xs truncate mt-0.5" style={{ color: 'rgb(var(--text-faint))' }}>{user?.email}</div>
-          <div className="text-xs capitalize mt-0.5 font-medium" style={{ color: '#f87171' }}>{user?.role?.replace('_', ' ')}</div>
+          <div className="text-xs font-bold truncate text-slate-900 dark:text-white">{user?.full_name}</div>
+          <div className="text-xs truncate mt-0.5 text-slate-600 dark:text-slate-400">{user?.email}</div>
+          <div className="text-xs capitalize mt-1 font-bold text-red-600 dark:text-red-400">{user?.role?.replace('_', ' ')}</div>
         </div>
         <button onClick={logout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all hover:text-red-400"
-          style={{ color: isDark ? 'rgba(148,163,184,0.8)' : 'rgb(var(--text-muted))' }}
-          onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(185,28,28,0.15)' : 'rgb(var(--bg-base))'; }}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+          style={{ color: isDark ? 'rgba(148,163,184,0.9)' : '#475569' }}>
           <LogOut size={15} />
           Sign Out
         </button>

@@ -71,22 +71,22 @@ export function WaterLevelInterpretationCard({ trendData }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Real-time Narrative Interpretation */}
-        <div className="bg-slate-900 dark:bg-slate-950 border-l-4 border-sky-500 rounded-r-xl p-4 shadow-inner">
-          <div className="text-[11px] font-extrabold text-sky-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+        <div className="bg-sky-50 dark:bg-slate-950 border-l-4 border-sky-500 rounded-r-xl p-4 shadow-sm">
+          <div className="text-[11px] font-extrabold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
             <span>💬 Interpretation</span>
           </div>
-          <p className="text-xs font-bold text-slate-100 italic leading-relaxed">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 italic leading-relaxed">
             "{interpretationText}"
           </p>
         </div>
 
         {/* Real Predictive Forecast Callout */}
-        <div className="bg-amber-950/90 dark:bg-slate-950 border-l-4 border-amber-500 rounded-r-xl p-4 shadow-inner text-amber-100">
-          <div className="text-[11px] font-extrabold text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+        <div className="bg-amber-50 dark:bg-slate-950 border-l-4 border-amber-500 rounded-r-xl p-4 shadow-sm text-amber-900 dark:text-amber-100">
+          <div className="text-[11px] font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>🔮 Predictive Forecast (Real-time Sensor Rate)</span>
           </div>
-          <p className="text-xs font-bold text-slate-100 italic leading-relaxed">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 italic leading-relaxed">
             "{predictiveText}"
           </p>
         </div>

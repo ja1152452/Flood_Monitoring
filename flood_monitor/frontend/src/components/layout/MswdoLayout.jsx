@@ -21,6 +21,20 @@ export function MswdoLayout({ children }) {
   const { user, logout } = useAuthStore();
   const { isDark, toggle } = useThemeStore();
 
+  const sidebarStyle = isDark ? {
+    width: '16rem', minHeight: '100vh',
+    background: 'rgb(var(--bg-card))',
+    borderRight: '1px solid rgb(var(--border-color))',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
+  } : {
+    width: '16rem', minHeight: '100vh',
+    background: '#ffffff',
+    borderRight: '1px solid rgb(var(--border-color))',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
+  };
+
   return (
     <div style={{
       display: 'flex',
@@ -31,19 +45,7 @@ export function MswdoLayout({ children }) {
     }}>
       <div style={{ display: 'flex', width: '100%' }}>
         {/* Sidebar */}
-        <aside style={isDark ? {
-          width: '16rem', minHeight: '100vh',
-          background: 'rgb(var(--bg-card))',
-          borderRight: '1px solid rgb(var(--border-color))',
-          display: 'flex', flexDirection: 'column',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
-        } : {
-          width: '16rem', minHeight: '100vh',
-          background: 'rgb(var(--bg-card-deep))',
-          borderRight: '1px solid rgb(var(--border-color))',
-          display: 'flex', flexDirection: 'column',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
-        }}>
+        <aside style={sidebarStyle}>
           {/* Red banner — matches login */}
           <div style={{
             background: 'linear-gradient(90deg, #6b0000 0%, #c0392b 40%, #c0392b 60%, #6b0000 100%)',
@@ -61,24 +63,30 @@ export function MswdoLayout({ children }) {
 
           {/* Center badge */}
           {user?.evacuation_center_name && (
-            <div style={{ margin: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', background: isDark ? 'rgba(30,58,95,0.5)' : 'rgb(var(--bg-base))', border: '1px solid rgba(59,130,246,0.3)' }}>
-              <div style={{ fontSize: '9px', color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Assigned Center</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgb(var(--text-base))' }}>{user.evacuation_center_name}</div>
+            <div style={{
+              margin: '0.75rem',
+              padding: '0.5rem 0.75rem',
+              borderRadius: '0.75rem',
+              background: isDark ? 'rgba(30,58,95,0.5)' : '#eff6ff',
+              border: isDark ? '1px solid rgba(59,130,246,0.3)' : '1px solid #bfdbfe'
+            }}>
+              <div style={{ fontSize: '9px', color: isDark ? '#60a5fa' : '#2563eb', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Assigned Center</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgb(var(--text-base))' }}>{user.evacuation_center_name}</div>
             </div>
           )}
 
           {/* Nav */}
-          <nav style={{ flex: 1, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <nav style={{ flex: 1, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {NAV.map(({ to, icon: Icon, label, end }) => (
               <NavLink key={to} to={to} end={end}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                     isActive ? 'text-white shadow-sm' : isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'
                   }`
                 }
                 style={({ isActive }) => isActive
-                  ? { background: 'linear-gradient(90deg, #991b1b, #dc2626)', boxShadow: '0 2px 12px rgba(185,28,28,0.4)' }
-                  : { color: isDark ? 'rgba(148,163,184,0.9)' : 'rgb(var(--text-muted))' }
+                  ? { background: 'linear-gradient(90deg, #991b1b, #dc2626)', boxShadow: '0 2px 12px rgba(185,28,28,0.4)', color: '#ffffff' }
+                  : { color: isDark ? 'rgba(148,163,184,0.9)' : '#334155' }
                 }>
                 <Icon size={16} />
                 {label}
@@ -89,23 +97,25 @@ export function MswdoLayout({ children }) {
           {/* Footer */}
           <div style={{ padding: '1rem 0.75rem', borderTop: isDark ? '1px solid rgba(185,28,28,0.18)' : '1px solid rgb(var(--border-color))' }}>
             <button onClick={toggle}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all mb-1"
-              style={{ color: isDark ? 'rgba(148,163,184,0.8)' : 'rgb(var(--text-muted))' }}
-              onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : ''}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-1.5 hover:bg-slate-100 dark:hover:bg-white/5"
+              style={{ color: isDark ? 'rgba(148,163,184,0.9)' : '#334155' }}>
               {isDark ? <Sun size={15} /> : <Moon size={15} />}
               {isDark ? 'Light Mode' : 'Dark Mode'}
             </button>
-            <div style={{ padding: '0.625rem 0.75rem', marginBottom: '0.25rem', borderRadius: '0.75rem', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgb(var(--bg-base))', border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgb(var(--border-color))' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgb(var(--text-base))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.full_name}</div>
+            <div style={{
+              padding: '0.625rem 0.75rem',
+              marginBottom: '0.25rem',
+              borderRadius: '0.75rem',
+              background: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+              border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--text-base))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.full_name}</div>
               <div style={{ fontSize: '11px', color: 'rgb(var(--text-faint))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{user?.email}</div>
-              <div style={{ fontSize: '11px', color: '#f87171', marginTop: 2, fontWeight: 500 }}>MSWDO Admin</div>
+              <div style={{ fontSize: '11px', color: '#dc2626', marginTop: 2, fontWeight: 700 }}>MSWDO Admin</div>
             </div>
             <button onClick={logout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all hover:text-red-400"
-              style={{ color: isDark ? 'rgba(148,163,184,0.8)' : 'rgb(var(--text-muted))' }}
-              onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(185,28,28,0.15)' : ''}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              style={{ color: isDark ? 'rgba(148,163,184,0.9)' : '#475569' }}>
               <LogOut size={15} />
               Sign Out
             </button>

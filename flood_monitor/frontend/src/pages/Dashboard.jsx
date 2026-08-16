@@ -338,8 +338,8 @@ export default function Dashboard() {
       <WaterLevelChart data={historyData?.data || []} />
 
       {alerts.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm dark:shadow-none">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">
             Active Alerts
           </h3>
           <div className="space-y-3">
@@ -348,19 +348,19 @@ export default function Dashboard() {
               return (
                 <div
                   key={alert.id}
-                  className="flex items-center justify-between p-4 rounded-xl border"
+                  className="flex items-center justify-between p-4 rounded-xl border shadow-sm"
                   style={{
-                    backgroundColor: acfg.color + '10',
-                    borderColor: acfg.color + '40',
+                    backgroundColor: acfg.color + '15',
+                    borderColor: acfg.color + '50',
                   }}>
                   <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full blink" style={{ backgroundColor: acfg.color }} />
+                    <span className="w-2.5 h-2.5 rounded-full blink" style={{ backgroundColor: acfg.color }} />
                     <div>
-                      <div className="text-sm font-medium text-white">{alert.location_name}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-sm font-bold text-slate-900 dark:text-white">{alert.location_name}</div>
+                      <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-0.5">
                         {alert.barangay_name} · {formatDateTime(alert.triggered_at)}
                         {alert.siren_active && (
-                          <span className="ml-2 text-red-400">🔊 Siren</span>
+                          <span className="ml-2 text-red-600 dark:text-red-400 font-bold">🔊 Siren Active</span>
                         )}
                       </div>
                     </div>

@@ -23,15 +23,15 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* ── Light mode (default) ── */
+/* ── Light mode (crisp, modern, high contrast) ── */
 :root {
-  --bg-base:        235 232 225; /* warm parchment — easy on eyes */
-  --bg-card:        245 243 238; /* warm off-white cards */
-  --bg-card-deep:   228 225 218; /* inner panels */
-  --border-color:   210 205 195; /* warm gray border */
-  --text-base:      28 25 23;    /* warm near-black */
-  --text-muted:     87 83 78;    /* warm gray-600 */
-  --text-faint:     140 134 126; /* warm gray-400 */
+  --bg-base:        248 250 252; /* slate-50: crisp, clean background */
+  --bg-card:        255 255 255; /* pure crisp white cards */
+  --bg-card-deep:   241 245 249; /* slate-100: inner panels & subtle sections */
+  --border-color:   226 232 240; /* slate-200: clean subtle borders */
+  --text-base:      15 23 42;    /* slate-900: sharp, high-contrast dark text */
+  --text-muted:     51 65 85;    /* slate-700: strong legible secondary text */
+  --text-faint:     100 116 139; /* slate-500: clear, readable muted text */
 }
 
 /* ── Dark mode (Login-inspired: deep navy + red accent) ── */
@@ -46,38 +46,107 @@ html.dark {
   --accent-red:     185 28 28;   /* red-700 */
 }
 
-/* ── Theme-aware overrides ── */
+/* ── Theme-aware backgrounds & borders ── */
 .bg-slate-950, .bg-slate-900 { background-color: rgb(var(--bg-card-deep)) !important; }
 .bg-slate-800                { background-color: rgb(var(--bg-card)) !important; }
 .border-slate-800,
-.border-slate-700            { border-color: rgb(var(--border-color)) !important; }
-/* dark mode: white text stays white */
+.border-slate-700,
+.border-slate-600            { border-color: rgb(var(--border-color)) !important; }
+
+/* ── Dark mode text ── */
 html.dark .text-white         { color: #f8fafc !important; }
+html.dark .text-slate-100,
+html.dark .text-slate-200     { color: #f1f5f9 !important; }
 html.dark .text-slate-300,
 html.dark .text-slate-400     { color: rgb(var(--text-muted)) !important; }
 html.dark .text-slate-500     { color: rgb(var(--text-faint)) !important; }
-/* light mode: remap all light text to dark readable colors globally */
-html:not(.dark) .text-white          { color: rgb(var(--text-base)) !important; }
-html:not(.dark) .text-slate-300,
-html:not(.dark) .text-slate-400      { color: rgb(var(--text-muted)) !important; }
-html:not(.dark) .text-slate-500      { color: rgb(var(--text-faint)) !important; }
-/* exceptions: keep white text on colored buttons/badges */
-html:not(.dark) button.bg-blue-600 .text-white,
-html:not(.dark) button.bg-green-700 .text-white,
-html:not(.dark) button.bg-red-700 .text-white,
-html:not(.dark) .bg-blue-600,
-html:not(.dark) .bg-green-700,
-html:not(.dark) .bg-red-700,
-html:not(.dark) .bg-green-600,
-html:not(.dark) .bg-red-600          { color: #ffffff !important; }
-.divide-slate-700\/50 > * + * { border-color: rgb(var(--border-color) / 0.5) !important; }
 
-/* ── Light mode: card polish ── */
+/* ── Light mode: comprehensive text remapping for sharp readability ── */
+html:not(.dark) .text-white,
+html:not(.dark) .text-slate-100,
+html:not(.dark) .text-slate-200,
+html:not(.dark) .text-gray-100,
+html:not(.dark) .text-gray-200,
+html:not(.dark) .text-zinc-100,
+html:not(.dark) .text-zinc-200,
+html:not(.dark) .text-neutral-100,
+html:not(.dark) .text-neutral-200 {
+  color: rgb(var(--text-base)) !important;
+}
+
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400,
+html:not(.dark) .text-zinc-300,
+html:not(.dark) .text-zinc-400,
+html:not(.dark) .text-neutral-300,
+html:not(.dark) .text-neutral-400 {
+  color: rgb(var(--text-muted)) !important;
+}
+
+html:not(.dark) .text-slate-500,
+html:not(.dark) .text-gray-500,
+html:not(.dark) .text-zinc-500,
+html:not(.dark) .text-neutral-500 {
+  color: rgb(var(--text-faint)) !important;
+}
+
+/* ── Exceptions: preserve white/light text on solid colored buttons, badges, and active items ── */
+html:not(.dark) .bg-red-600,
+html:not(.dark) .bg-red-700,
+html:not(.dark) .bg-blue-600,
+html:not(.dark) .bg-blue-700,
+html:not(.dark) .bg-green-600,
+html:not(.dark) .bg-green-700,
+html:not(.dark) .bg-emerald-600,
+html:not(.dark) .bg-emerald-700,
+html:not(.dark) .bg-amber-600,
+html:not(.dark) .bg-orange-600,
+html:not(.dark) .bg-purple-600,
+html:not(.dark) .bg-purple-700,
+html:not(.dark) .bg-sky-600 {
+  color: #ffffff !important;
+}
+
+html:not(.dark) button.bg-red-600,
+html:not(.dark) button.bg-red-600 *,
+html:not(.dark) button.bg-red-700,
+html:not(.dark) button.bg-red-700 *,
+html:not(.dark) button.bg-blue-600,
+html:not(.dark) button.bg-blue-600 *,
+html:not(.dark) button.bg-green-600,
+html:not(.dark) button.bg-green-600 *,
+html:not(.dark) button.bg-green-700,
+html:not(.dark) button.bg-green-700 *,
+html:not(.dark) button.bg-emerald-600,
+html:not(.dark) button.bg-emerald-600 *,
+html:not(.dark) button.bg-purple-600,
+html:not(.dark) button.bg-purple-600 *,
+html:not(.dark) button.bg-purple-700,
+html:not(.dark) button.bg-purple-700 *,
+html:not(.dark) .bg-red-600 .text-white,
+html:not(.dark) .bg-red-700 .text-white,
+html:not(.dark) .bg-blue-600 .text-white,
+html:not(.dark) .bg-green-600 .text-white,
+html:not(.dark) .bg-green-700 .text-white,
+html:not(.dark) .bg-emerald-600 .text-white,
+html:not(.dark) .bg-emerald-600 .text-emerald-100,
+html:not(.dark) .bg-amber-600 .text-amber-100,
+html:not(.dark) .bg-orange-600 .text-orange-100,
+html:not(.dark) .bg-red-600 .text-red-100,
+html:not(.dark) .bg-purple-700 .text-purple-100 {
+  color: #ffffff !important;
+}
+
+.divide-slate-700\/50 > * + * { border-color: rgb(var(--border-color) / 0.7) !important; }
+
+/* ── Light mode: card polish & shadows ── */
 :root:not(.dark) .rounded-2xl.bg-slate-800,
 :root:not(.dark) .rounded-2xl.border-slate-700 {
-  background: rgb(var(--bg-card)) !important;
+  background: #ffffff !important;
   border: 1px solid rgb(var(--border-color)) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   color: rgb(var(--text-base));
 }
 
@@ -90,28 +159,38 @@ html:not(.dark) .bg-red-600          { color: #ffffff !important; }
 
 /* ── Light mode: page header ── */
 :root .page-header {
-  background: rgb(var(--bg-card));
+  background: #ffffff;
   border: 1px solid rgb(var(--border-color));
   border-radius: 1rem;
   padding: 0.875rem 1.25rem;
   margin-bottom: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 /* ── Light mode: sidebar ── */
 :root:not(.dark) aside {
-  background: rgb(var(--bg-card-deep)) !important;
+  background: #ffffff !important;
   border-right: 1px solid rgb(var(--border-color)) !important;
   box-shadow: 2px 0 8px rgba(0,0,0,0.04);
 }
 
 /* ── Light mode: search/filter inputs ── */
-:root input.bg-slate-800,
-:root select.bg-slate-800 {
-  background: rgb(var(--bg-card)) !important;
+:root:not(.dark) input.bg-slate-800,
+:root:not(.dark) select.bg-slate-800,
+:root:not(.dark) input.bg-slate-900,
+:root:not(.dark) select.bg-slate-900,
+:root:not(.dark) textarea.bg-slate-900,
+:root:not(.dark) input,
+:root:not(.dark) select,
+:root:not(.dark) textarea {
+  background-color: #ffffff !important;
   border-color: rgb(var(--border-color)) !important;
   color: rgb(var(--text-base)) !important;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+:root:not(.dark) input::placeholder,
+:root:not(.dark) textarea::placeholder {
+  color: rgb(var(--text-faint)) !important;
 }
 
 /* ── Dark mode: page header ── */
@@ -124,19 +203,19 @@ html.dark .page-header {
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 
-/* strong text shadow on all bare headings */
+/* strong text shadow on all bare headings in dark mode */
 html.dark h1 { text-shadow: 0 2px 16px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,1); color: #f8fafc !important; }
 html.dark h2 { text-shadow: 0 2px 12px rgba(0,0,0,0.95); color: #f1f5f9 !important; }
 html.dark h3 { text-shadow: 0 1px 10px rgba(0,0,0,0.9); }
 
-/* subtitles / meta text */
+/* subtitles / meta text in dark mode */
 html.dark .page-header p,
 html.dark .page-header span {
   color: #cbd5e1 !important;
   text-shadow: none;
 }
 
-/* search / filter inputs that sit outside cards */
+/* search / filter inputs in dark mode */
 html.dark input.bg-slate-800,
 html.dark select.bg-slate-800 {
   background: rgba(5, 8, 20, 0.80) !important;
@@ -146,7 +225,7 @@ html.dark select.bg-slate-800 {
   color: #f1f5f9 !important;
 }
 
-/* ── Dark mode: opaque cards (no bg image = no glass needed) ── */
+/* ── Dark mode: opaque cards ── */
 html.dark .rounded-2xl.bg-slate-800,
 html.dark .rounded-2xl.border-slate-700 {
   background: rgb(var(--bg-card)) !important;
@@ -154,7 +233,7 @@ html.dark .rounded-2xl.border-slate-700 {
   box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
-/* inner dark panels */
+/* inner dark panels in dark mode */
 html.dark .rounded-xl.bg-slate-900,
 html.dark .bg-slate-900.rounded-xl {
   background: rgb(var(--bg-card-deep)) !important;
