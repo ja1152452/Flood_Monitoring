@@ -33,7 +33,7 @@ export function SirenManager() {
         shouldDuckAndroid:       false,
       });
       const { sound } = await Audio.Sound.createAsync(
-        require('../assets/siren.ogg'),
+        require('../assets/tornado-siren.mp3'),
         { isLooping: true, shouldPlay: false, volume: 1.0 }
       );
       soundRef.current  = sound;

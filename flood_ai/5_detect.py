@@ -155,19 +155,24 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         min_band_px = max(5, int(roi_w * 0.18))
         valid_rows = np.where(row_counts >= min_band_px)[0]
 
-        # Detect brown water surface edge
-        water_mask = cv2.inRange(hsv_roi, np.array([0, 15, 10]), np.array([35, 255, 140]))
+        # Detect water surface edge using calibrated water HSV range
+        w_range = _cal.get("water_hsv_range", {})
+        w_lower = np.array(w_range.get("lower", [0, 10, 33]))
+        w_upper = np.array(w_range.get("upper", [176, 255, 255]))
+        water_mask = cv2.inRange(hsv_roi, w_lower, w_upper)
         row_water = np.sum(water_mask > 0, axis=1)
         water_rows = np.where(row_water > (roi_w * 0.25))[0]
 
-        if len(water_rows) > 0:
+        # Transparent Water / Sunlight Glare Strategy:
+        # If water is transparent or glaring, prioritize bottom-up gauge board marker submersion scanning!
+        if len(valid_rows) > 0:
+            # Bottom-Up Scanning: The bottom edge of the lowest visible dry marker = exact waterline
+            waterline_y = roi_top + int(valid_rows[-1])
+        elif len(water_rows) > 0:
             top_water_y = roi_top + int(water_rows[0])
             waterline_y = top_water_y
-        elif len(valid_rows) > 0:
-            # Bottom-Up Scanning: Use lowest detected dry row
-            waterline_y = roi_top + int(valid_rows[-1])
         else:
-            # Saturation transition: find where painted board (S>45) turns to water
+            # Saturation transition: find where painted board (S>45) turns to water/glare
             sat = hsv_roi[:, :, 1]
             row_sat = np.mean(sat, axis=1)
             sat_y = 0
