@@ -157,11 +157,38 @@ export const getFamilies = async (centerId) => {
 };
 
 export const addFamily = async (centerId, dto, actorId) => {
+  const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
+  const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
+
   const { rows } = await query(
-    `INSERT INTO evacuation_families (evacuation_center_id, head_name, members, barangay, contact, notes, age, gender, address, arrival_date, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-    [centerId, dto.head_name, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
-     dto.age || null, dto.gender || null, dto.address || null, dto.arrival_date || new Date(), actorId]
+    `INSERT INTO evacuation_families (
+       evacuation_center_id, head_name, members, barangay, contact, notes, age, gender, address, arrival_date, created_by,
+       serial_number, region, province, city_municipality, district,
+       head_last_name, head_first_name, head_middle_name, head_name_ext, head_dob, head_place_of_birth,
+       head_civil_status, head_mothers_maiden_name, head_religion, head_occupation, head_monthly_income,
+       head_id_card_presented, head_id_card_number, contact_alternate,
+       house_lot_no, street, subd_village, zip_code, is_4ps_beneficiary, is_ip, ethnicity,
+       bank_ewallet, account_name, account_type, account_number, house_ownership, shelter_damage
+     )
+     VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+       $12,$13,$14,$15,$16,
+       $17,$18,$19,$20,$21,$22,
+       $23,$24,$25,$26,$27,
+       $28,$29,$30,
+       $31,$32,$33,$34,$35,$36,$37,
+       $38,$39,$40,$41,$42,$43
+     ) RETURNING *`,
+    [
+      centerId, headName, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
+      dto.age || null, dto.gender || null, fullAddress || null, dto.arrival_date || new Date(), actorId,
+      dto.serial_number || null, dto.region || 'Region IV-A', dto.province || 'Laguna', dto.city_municipality || 'Lumban', dto.district || null,
+      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, dto.head_dob || null, dto.head_place_of_birth || null,
+      dto.head_civil_status || null, dto.head_mothers_maiden_name || null, dto.head_religion || null, dto.head_occupation || null, dto.head_monthly_income || null,
+      dto.head_id_card_presented || null, dto.head_id_card_number || null, dto.contact_alternate || null,
+      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, dto.is_4ps_beneficiary || false, dto.is_ip || false, dto.ethnicity || null,
+      dto.bank_ewallet || null, dto.account_name || null, dto.account_type || null, dto.account_number || null, dto.house_ownership || null, dto.shelter_damage || null
+    ]
   );
   const family = rows[0];
 
@@ -169,8 +196,14 @@ export const addFamily = async (centerId, dto, actorId) => {
     for (const m of dto.members_list) {
       if (m.name?.trim()) {
         await query(
-          `INSERT INTO evacuation_family_members (family_id, name, age, gender) VALUES ($1,$2,$3,$4)`,
-          [family.id, m.name.trim(), m.age || null, m.gender || null]
+          `INSERT INTO evacuation_family_members (
+             family_id, name, age, gender, relation_to_head, birthdate, sex, educational_attainment, occupation, vulnerability_type
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            family.id, m.name.trim(), m.age || null, m.gender || m.sex || null,
+            m.relation_to_head || null, m.birthdate || null, m.sex || m.gender || null,
+            m.educational_attainment || null, m.occupation || null, m.vulnerability_type || null
+          ]
         );
       }
     }
@@ -186,18 +219,38 @@ export const addFamily = async (centerId, dto, actorId) => {
   await writeAuditLog({
     userId: actorId, action: 'FAMILY_ADDED',
     entityType: 'evacuation_families', entityId: family.id,
-    after: { head_name: dto.head_name, members: dto.members, evacuation_center_id: centerId },
+    after: { head_name: headName, members: dto.members, evacuation_center_id: centerId },
   });
   
   return family;
 };
 
 export const updateFamily = async (centerId, familyId, dto, actorId) => {
+  const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
+  const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
+
   const { rows } = await query(
-    `UPDATE evacuation_families SET head_name=$1, members=$2, barangay=$3, contact=$4, notes=$5, age=$6, gender=$7, address=$8, arrival_date=$9, updated_at=NOW()
-     WHERE id=$10 AND evacuation_center_id=$11 RETURNING *`,
-    [dto.head_name, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
-     dto.age || null, dto.gender || null, dto.address || null, dto.arrival_date || null, familyId, centerId]
+    `UPDATE evacuation_families SET
+       head_name=$1, members=$2, barangay=$3, contact=$4, notes=$5, age=$6, gender=$7, address=$8, arrival_date=$9,
+       serial_number=$10, region=$11, province=$12, city_municipality=$13, district=$14,
+       head_last_name=$15, head_first_name=$16, head_middle_name=$17, head_name_ext=$18, head_dob=$19, head_place_of_birth=$20,
+       head_civil_status=$21, head_mothers_maiden_name=$22, head_religion=$23, head_occupation=$24, head_monthly_income=$25,
+       head_id_card_presented=$26, head_id_card_number=$27, contact_alternate=$28,
+       house_lot_no=$29, street=$30, subd_village=$31, zip_code=$32, is_4ps_beneficiary=$33, is_ip=$34, ethnicity=$35,
+       bank_ewallet=$36, account_name=$37, account_type=$38, account_number=$39, house_ownership=$40, shelter_damage=$41,
+       updated_at=NOW()
+     WHERE id=$42 AND evacuation_center_id=$43 RETURNING *`,
+    [
+      headName, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
+      dto.age || null, dto.gender || null, fullAddress || null, dto.arrival_date || null,
+      dto.serial_number || null, dto.region || 'Region IV-A', dto.province || 'Laguna', dto.city_municipality || 'Lumban', dto.district || null,
+      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, dto.head_dob || null, dto.head_place_of_birth || null,
+      dto.head_civil_status || null, dto.head_mothers_maiden_name || null, dto.head_religion || null, dto.head_occupation || null, dto.head_monthly_income || null,
+      dto.head_id_card_presented || null, dto.head_id_card_number || null, dto.contact_alternate || null,
+      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, dto.is_4ps_beneficiary || false, dto.is_ip || false, dto.ethnicity || null,
+      dto.bank_ewallet || null, dto.account_name || null, dto.account_type || null, dto.account_number || null, dto.house_ownership || null, dto.shelter_damage || null,
+      familyId, centerId
+    ]
   );
   if (!rows.length) throw ApiError.notFound('Family record not found');
 
@@ -206,8 +259,14 @@ export const updateFamily = async (centerId, familyId, dto, actorId) => {
     for (const m of dto.members_list) {
       if (m.name?.trim()) {
         await query(
-          `INSERT INTO evacuation_family_members (family_id, name, age, gender) VALUES ($1,$2,$3,$4)`,
-          [familyId, m.name.trim(), m.age || null, m.gender || null]
+          `INSERT INTO evacuation_family_members (
+             family_id, name, age, gender, relation_to_head, birthdate, sex, educational_attainment, occupation, vulnerability_type
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            familyId, m.name.trim(), m.age || null, m.gender || m.sex || null,
+            m.relation_to_head || null, m.birthdate || null, m.sex || m.gender || null,
+            m.educational_attainment || null, m.occupation || null, m.vulnerability_type || null
+          ]
         );
       }
     }
@@ -223,7 +282,7 @@ export const updateFamily = async (centerId, familyId, dto, actorId) => {
   await writeAuditLog({
     userId: actorId, action: 'FAMILY_UPDATED',
     entityType: 'evacuation_families', entityId: familyId,
-    after: { head_name: dto.head_name, members: dto.members },
+    after: { head_name: headName, members: dto.members },
   });
   
   return rows[0];

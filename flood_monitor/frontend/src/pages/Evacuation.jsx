@@ -7,7 +7,7 @@ import { getEvacuationCenters, updateEvacuationCenter, deleteEvacuationCenter } 
 import api from '../api/axios';
 import { Modal } from '../components/ui/Modal';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Users, Trash2, Download, X } from 'lucide-react';
+import { Plus, Edit2, Users, Trash2, Download, X, Printer } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -201,6 +201,133 @@ export default function Evacuation() {
     setPdfPreview({ url: doc.output('bloburl'), filename });
   };
 
+  const generateFacedCardPDF = (f) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const nowStr = new Date().toLocaleString('en-PH');
+
+    // Header
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('MSWDO', 14, 12);
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text('Republic of the Philippines', 30, 9.5);
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+    doc.text('Municipal Social Welfare and Development Office', 30, 13.5);
+    doc.setFontSize(8.5);
+    doc.text('FAMILY ASSISTANCE CARD IN EMERGENCIES AND DISASTERS (FACED)', 30, 18, { maxWidth: 104 });
+
+    // Official Use Only Box (Right Aligned)
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal');
+    doc.text("THIS CARD IS NOT FOR SALE / SOCIAL WORKER'S COPY", 136, 9.5);
+    doc.setLineWidth(0.3); doc.rect(136, 11, 59, 10);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+    doc.text('OFFICIAL USE ONLY', 138, 14.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+    doc.text(`SERIAL NO: ${f.serial_number || 'MSWDO-' + (f.id ? f.id.slice(0, 8).toUpperCase() : '0000')}`, 138, 19);
+
+    doc.setFillColor(30, 41, 59); doc.rect(14, 23, 181, 5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('LOCATION OF THE AFFECTED FAMILY', 16, 26.5);
+    doc.setTextColor(0, 0, 0);
+
+    doc.rect(14, 28, 181, 12); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    doc.text(`1. REGION: ${f.region || 'Region IV-A'}`, 16, 32);
+    doc.text(`2. PROVINCE: ${f.province || 'Laguna'}`, 16, 36);
+    doc.text(`3. CITY/ MUNICIPALITY: ${f.city_municipality || 'Lumban'}`, 70, 32);
+    doc.text(`4. DISTRICT: ${f.district || '1st District'}`, 70, 36);
+    doc.text(`5. BARANGAY: ${f.barangay || '—'}`, 130, 32);
+    doc.text(`6. EVACUATION CENTER/ SITE: ${f.center_name || selectedCenter?.name || '—'}`, 130, 36);
+
+    doc.setFillColor(30, 41, 59); doc.rect(14, 42, 181, 5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('HEAD OF THE FAMILY', 16, 45.5);
+    doc.setTextColor(0, 0, 0);
+
+    doc.rect(14, 47, 181, 46); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text(`7. LAST NAME: ${f.head_last_name || f.head_name?.split(' ').pop() || '—'}`, 16, 51);
+    doc.text(`8. FIRST NAME: ${f.head_first_name || f.head_name?.split(' ')[0] || '—'}`, 16, 56);
+    doc.text(`9. MIDDLE NAME: ${f.head_middle_name || '—'}`, 16, 61);
+    doc.text(`10. NAME EXT. (Jr., Sr.): ${f.head_name_ext || '—'}`, 16, 66);
+    doc.text(`11. DATE OF BIRTH: ${f.head_dob ? new Date(f.head_dob).toLocaleDateString('en-PH') : '—'}`, 16, 71);
+    doc.text(`12. AGE: ${f.age || '—'}`, 16, 76);
+    doc.text(`13. PLACE OF BIRTH: ${f.head_place_of_birth || '—'}`, 16, 81);
+    doc.text(`14. SEX: [${f.gender === 'Male' ? 'X' : ' '}] MALE   [${f.gender === 'Female' ? 'X' : ' '}] FEMALE`, 16, 86);
+
+    doc.text(`15. CIVIL STATUS: ${f.head_civil_status || '—'}`, 100, 51);
+    doc.text(`16. MOTHER'S MAIDEN NAME: ${f.head_mothers_maiden_name || '—'}`, 100, 56);
+    doc.text(`17. RELIGION: ${f.head_religion || '—'}`, 100, 61);
+    doc.text(`18. OCCUPATION: ${f.head_occupation || '—'}`, 100, 66);
+    doc.text(`19. MONTHLY FAMILY NET INCOME: ₱${f.head_monthly_income || '—'}`, 100, 71);
+    doc.text(`20. ID CARD PRESENTED: ${f.head_id_card_presented || '—'}`, 100, 76);
+    doc.text(`21. ID CARD NUMBER: ${f.head_id_card_number || '—'}`, 100, 81);
+    doc.text(`22. CONTACT NUMBER: ${f.contact || '—'} (ALT: ${f.contact_alternate || '—'})`, 100, 86);
+
+    doc.line(14, 88.5, 195, 88.5);
+    doc.text(`23. PERMANENT ADDRESS: ${f.address || `${f.house_lot_no || ''} ${f.street || ''} ${f.subd_village || ''} Brgy. ${f.barangay || ''}, ${f.city_municipality || 'Lumban'}, ${f.province || 'Laguna'}`}`, 16, 92);
+    doc.text(`24. OTHERS:  [${f.is_4ps_beneficiary ? 'X' : ' '}] 4Ps Beneficiary    [${f.is_ip ? 'X' : ' '}] IP (Ethnicity: ${f.ethnicity || 'N/A'})`, 100, 92);
+
+    doc.setFillColor(30, 41, 59); doc.rect(14, 95, 181, 5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('FAMILY INFORMATION', 16, 98.5);
+    doc.setTextColor(0, 0, 0);
+
+    const membersTableRows = (f.members_list?.length ? f.members_list : []).map((m, i) => [
+      i + 1, m.name, m.relation_to_head || '—', m.birthdate ? new Date(m.birthdate).toLocaleDateString('en-PH') : '—',
+      m.age || '—', m.sex || m.gender || '—', m.educational_attainment || '—', m.occupation || '—', m.vulnerability_type || 'None',
+    ]);
+
+    autoTable(doc, {
+      startY: 101,
+      head: [['#', 'FAMILY MEMBERS', 'RELATION TO HEAD', 'BIRTHDATE', 'AGE', 'SEX', 'HIGHEST EDUC. ATTAINMENT', 'OCCUPATION', 'TYPE OF VULNERABILITY']],
+      body: membersTableRows.length ? membersTableRows : [['1', 'No additional members registered', '—', '—', '—', '—', '—', '—', '—']],
+      styles: { fontSize: 7, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      headStyles: { fillColor: [241, 245, 249], textColor: 0, fontStyle: 'bold', fontSize: 6.5 },
+      theme: 'grid',
+      margin: { left: 14, right: 14 }
+    });
+
+    const finalY = doc.lastAutoTable.finalY || 140;
+
+    doc.setFillColor(30, 41, 59); doc.rect(14, finalY + 3, 181, 5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('ACCOUNT INFORMATION (For Financial / Cash Assistance)', 16, finalY + 6.5);
+    doc.setTextColor(0, 0, 0);
+
+    doc.rect(14, finalY + 8, 181, 12); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text(`25. BANK/E-WALLET: ${f.bank_ewallet || 'N/A'}`, 16, finalY + 13);
+    doc.text(`26. ACCOUNT NAME: ${f.account_name || 'N/A'}`, 16, finalY + 17);
+    doc.text(`27. ACCOUNT TYPE: ${f.account_type || 'N/A'}`, 100, finalY + 13);
+    doc.text(`28. ACCOUNT NUMBER: ${f.account_number || 'N/A'}`, 100, finalY + 17);
+
+    const yHousing = finalY + 22;
+    doc.rect(14, yHousing, 181, 12);
+    doc.text(`29. HOUSE OWNERSHIP: [${f.house_ownership === 'Owner' ? 'X' : ' '}] OWNER    [${f.house_ownership === 'Renter' ? 'X' : ' '}] RENTER    [${f.house_ownership === 'Sharer' ? 'X' : ' '}] SHARER`, 16, yHousing + 5);
+    doc.text(`30. SHELTER DAMAGE CLASSIFICATION: [${f.shelter_damage === 'Partially Damaged' ? 'X' : ' '}] PARTIALLY DAMAGED    [${f.shelter_damage === 'Totally Damaged' ? 'X' : ' '}] TOTALLY DAMAGED`, 16, yHousing + 9.5);
+
+    const ySig = yHousing + 15;
+    doc.rect(14, ySig, 181, 25); doc.rect(16, ySig + 2, 20, 20);
+    doc.setFontSize(6); doc.text('Right Thumbmark', 17, ySig + 20);
+
+    doc.line(45, ySig + 16, 110, ySig + 16); doc.setFontSize(7);
+    doc.text('Signature / Thumbmark of Family Head', 48, ySig + 19);
+
+    doc.line(125, ySig + 16, 188, ySig + 16);
+    doc.text('Name / Signature of Barangay Captain', 130, ySig + 19);
+
+    doc.line(45, ySig + 22, 110, ySig + 22);
+    doc.text(`Date Registered: ${f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH') : nowStr}`, 48, ySig + 24.5);
+
+    doc.line(125, ySig + 22, 188, ySig + 22);
+    doc.text('Name / Signature of LSWDO', 138, ySig + 24.5);
+
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+    doc.text('DATA PRIVACY DECLARATION', 14, ySig + 28.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('All data and information indicated herein shall be used for identification purposes for the implementation of disaster risk reduction and management (DRRM) programs, projects, and activities in compliance to Republic Act 10173 (Data Privacy Act of 2012).', 14, ySig + 32, { maxWidth: 181 });
+
+    const filename = `FACED_Card_${f.head_last_name || 'Evacuee'}_${f.serial_number || 'Record'}.pdf`;
+    setPdfPreview({ url: doc.output('bloburl'), filename });
+  };
+
   const exportAllPDF = () => {
     const familiesToExport = selectedCenter
       ? allFamilies.filter(f => f.evacuation_center_id === selectedCenter.id)
@@ -211,21 +338,26 @@ export default function Evacuation() {
     const doc = new jsPDF({ orientation: 'landscape' });
     const now = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' });
     doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text(`MDRRMO — Evacuee Records${selectedCenter ? ` — ${centerName}` : ''}`, 14, 16);
+    doc.text(`MDRRMO — Evacuee Records (FACED Registry)${selectedCenter ? ` — ${centerName}` : ''}`, 14, 16);
     doc.setFontSize(10); doc.setFont('helvetica', 'normal');
     doc.text(`Generated: ${now}`, 14, 23);
     doc.text(`Total Families: ${familiesToExport.length}   Total Members: ${familiesToExport.reduce((s, f) => s + (f.members || 0), 0)}`, 14, 29);
     autoTable(doc, {
       startY: 34,
-      head: [['#', 'Head of Family', 'Age', 'Address', 'Barangay', 'Members', 'Family Members List', 'Contact', 'Arrival Date', selectedCenter ? '' : 'Center']].map(row => row.filter(h => h !== '')),
+      head: [['#', 'Serial No.', 'Head of Family', 'Age/Sex', 'Address', 'Barangay', 'Members', '4Ps/IP', 'Damage Status', 'Bank / E-Wallet', 'Contact', 'Arrival Date', selectedCenter ? '' : 'Center']].map(row => row.filter(h => h !== '')),
       body: familiesToExport.map((f, i) => {
-        const membersList = f.members_list && Array.isArray(f.members_list) && f.members_list.length > 0
-          ? f.members_list.map(m => `${m.name}${m.age ? ` (${m.age})` : ''}`).join(', ')
-          : '—';
-
         const row = [
-          i + 1, f.head_name, f.age || '—', f.address || '—', f.barangay || '—',
-          f.members, membersList, f.contact || '—',
+          i + 1,
+          f.serial_number || '—',
+          f.head_name || `${f.head_first_name || ''} ${f.head_last_name || ''}`,
+          `${f.age || '—'} / ${f.gender || '—'}`,
+          f.address || '—',
+          f.barangay || '—',
+          f.members,
+          `${f.is_4ps_beneficiary ? '4Ps' : ''}${f.is_4ps_beneficiary && f.is_ip ? ' / ' : ''}${f.is_ip ? 'IP' : ''}` || 'None',
+          f.shelter_damage || '—',
+          f.bank_ewallet ? `${f.bank_ewallet} (${f.account_number || ''})` : '—',
+          f.contact || '—',
           f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH') : '—',
         ];
         if (!selectedCenter) row.push(f.center_name || '—');
@@ -234,7 +366,6 @@ export default function Evacuation() {
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [241, 245, 249] },
-      columnStyles: { 6: { cellWidth: 50 } },
     });
     const filename = `evacuees_${selectedCenter ? selectedCenter.name.replace(/\s+/g, '_') : 'all'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     setPdfPreview({ url: doc.output('bloburl'), filename });
@@ -373,42 +504,56 @@ export default function Evacuation() {
             return (
               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        {['#', 'Head of Family', 'Age', 'Gender', 'Address', 'Barangay', 'Members', 'Family Members List', 'Contact', 'Arrival Date'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                        {['#', 'Serial No.', 'Head of Family', 'Age/Sex', 'Barangay', 'Evacuees', '4Ps / IP', 'Damage Status', 'Bank / E-Wallet', 'Arrival Date', 'Actions'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                       {rows.length === 0 ? (
-                        <tr><td colSpan={10} className="px-5 py-10 text-center text-slate-500 font-semibold">No families match the current filters</td></tr>
+                        <tr><td colSpan={11} className="px-5 py-10 text-center text-slate-500 font-semibold">No families match the current filters</td></tr>
                       ) : rows.map((f, i) => (
                         <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-4 py-3 text-slate-500 text-xs font-medium">{i + 1}</td>
-                          <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{f.head_name}</td>
-                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.age || '—'}</td>
-                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.gender || '—'}</td>
-                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 max-w-[140px] truncate font-medium">{f.address || '—'}</td>
+                          <td className="px-4 py-3 text-slate-500 font-medium">{i + 1}</td>
+                          <td className="px-4 py-3 font-mono font-bold text-blue-600 dark:text-blue-400">
+                            {f.serial_number || 'MSWDO-' + (f.id ? f.id.slice(0, 6).toUpperCase() : '0000')}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                            {f.head_name || `${f.head_first_name || ''} ${f.head_last_name || ''}`}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.age || '—'} / {f.gender || '—'}</td>
                           <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.barangay || '—'}</td>
                           <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-bold">{f.members}</td>
-                          <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
-                            {f.members_list && Array.isArray(f.members_list) && f.members_list.length > 0 ? (
-                              <div className="space-y-1">
-                                {f.members_list.map((member, idx) => (
-                                  <div key={idx} className="text-xs font-medium">
-                                    {member.name}{member.age ? ` (${member.age}yo)` : ''}{member.gender ? ` [${member.gender}]` : ''}
-                                  </div>
-                                ))}
-                              </div>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1 flex-wrap">
+                              {f.is_4ps_beneficiary && <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold">4Ps</span>}
+                              {f.is_ip && <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold">IP</span>}
+                              {!f.is_4ps_beneficiary && !f.is_ip && <span className="text-slate-500">—</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {f.shelter_damage === 'Totally Damaged' ? (
+                              <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 px-2 py-0.5 rounded-full font-bold">Totally Damaged</span>
+                            ) : f.shelter_damage === 'Partially Damaged' ? (
+                              <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">Partially Damaged</span>
                             ) : (
-                              <span className="text-slate-400 text-xs">—</span>
+                              <span className="text-[10px] text-slate-500 font-medium">Intact</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono font-medium">{f.contact || '—'}</td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">
+                            {f.bank_ewallet ? `${f.bank_ewallet} (${f.account_number || ''})` : '—'}
+                          </td>
                           <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap font-medium">
                             {f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => generateFacedCardPDF(f)} title="Print FACED Card"
+                              className="flex items-center gap-1 text-[11px] font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors">
+                              <Printer size={12} /> FACED Card
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -683,6 +828,27 @@ export default function Evacuation() {
           </div>
         </div>
       </Modal>
+
+      {/* PDF Preview Modal */}
+      {pdfPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl" style={{ height: '90vh' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">PDF Document Preview — {pdfPreview.filename}</span>
+              <div className="flex items-center gap-2">
+                <a href={pdfPreview.url} download={pdfPreview.filename}
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <Download size={13} /> Download PDF
+                </a>
+                <button onClick={() => setPdfPreview(null)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <iframe key={pdfPreview.url} src={pdfPreview.url} className="flex-1 w-full rounded-b-2xl" title="PDF Preview" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

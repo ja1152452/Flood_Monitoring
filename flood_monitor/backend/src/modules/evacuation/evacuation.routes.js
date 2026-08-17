@@ -141,6 +141,14 @@ router.post('/:id/families',
   })
 );
 
+router.put('/:id/families/:fid',
+  authorize('ADMIN','SUPER_ADMIN','MSWDO'),
+  asyncHandler(async (req, res) => {
+    const data = await service.updateFamily(req.params.id, req.params.fid, req.body, req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
 router.patch('/:id/families/:fid',
   authorize('ADMIN','SUPER_ADMIN','MSWDO'),
   asyncHandler(async (req, res) => {

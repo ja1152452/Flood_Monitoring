@@ -240,6 +240,38 @@ async function migrate() {
       ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS age INTEGER;
       ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS address TEXT;
       ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS arrival_date TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS serial_number VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS region VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS province VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS city_municipality VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS district VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_last_name VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_first_name VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_middle_name VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_name_ext VARCHAR(20);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_dob DATE;
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_place_of_birth VARCHAR(255);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_civil_status VARCHAR(50);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_mothers_maiden_name VARCHAR(255);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_religion VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_occupation VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_monthly_income VARCHAR(50);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_id_card_presented VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS head_id_card_number VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS contact_alternate VARCHAR(50);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS house_lot_no VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS street VARCHAR(255);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS subd_village VARCHAR(255);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS zip_code VARCHAR(20);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS is_4ps_beneficiary BOOLEAN DEFAULT FALSE;
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS is_ip BOOLEAN DEFAULT FALSE;
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS ethnicity VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS bank_ewallet VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS account_name VARCHAR(255);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS account_type VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS account_number VARCHAR(100);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS house_ownership VARCHAR(50);
+      ALTER TABLE evacuation_families ADD COLUMN IF NOT EXISTS shelter_damage VARCHAR(50);
     `);
     console.log('  OK evacuation_families columns');
 
@@ -252,6 +284,12 @@ async function migrate() {
         age         INTEGER,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS relation_to_head VARCHAR(100);
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS birthdate DATE;
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS sex VARCHAR(20);
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS educational_attainment VARCHAR(100);
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS occupation VARCHAR(100);
+      ALTER TABLE evacuation_family_members ADD COLUMN IF NOT EXISTS vulnerability_type VARCHAR(100);
     `);
     console.log('  OK evacuation_family_members');
 
