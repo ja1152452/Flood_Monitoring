@@ -219,7 +219,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         },
     }
 
-API_URL      = os.environ.get('BACKEND_URL', 'http://192.168.1.21:5001')
+API_URL      = os.environ.get('BACKEND_URL', 'https://quiet-ideas-tease.loca.lt')
 CAMERA_CODE  = os.environ.get('CAMERA_CODE', 'CAM-LUMBAN-01')
 CAMERA_API_KEY = os.environ.get('CAMERA_API_KEY', 'Admin@1234')
 INTERVAL     = int(os.environ.get('INTERVAL', '2'))
@@ -235,7 +235,7 @@ def get_token():
     r = requests.post(f"{API_URL}/api/v1/auth/login", json={
         "email":    EMAIL,
         "password": PASSWORD,
-    }, timeout=10)
+    }, headers={"bypass-tunnel-reminder": "true"}, timeout=10)
     r.raise_for_status()
     token = r.json()["data"]["accessToken"]
     print(f"[Auth] Logged in successfully")
@@ -270,7 +270,7 @@ def send_snapshot(frame, camera_api_key):
         requests.post(
             f"{API_URL}/api/v1/stream/snapshot",
             data=buf.tobytes(),
-            headers={'Content-Type': 'image/jpeg', 'X-API-Key': camera_api_key},
+            headers={'Content-Type': 'image/jpeg', 'X-API-Key': camera_api_key, 'bypass-tunnel-reminder': 'true'},
             timeout=5,
         )
     except Exception:
@@ -288,7 +288,7 @@ def send_reading(reading, camera_api_key):
             "confidence":        float(reading["confidence"]),
             "captured_at":       datetime.now(timezone.utc).isoformat(),
         },
-        headers={"X-API-Key": camera_api_key},
+        headers={"X-API-Key": camera_api_key, "bypass-tunnel-reminder": "true"},
         timeout=10,
     )
     r.raise_for_status()
