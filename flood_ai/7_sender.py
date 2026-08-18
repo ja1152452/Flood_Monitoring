@@ -219,7 +219,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         },
     }
 
-API_URL      = os.environ.get('BACKEND_URL', 'http://192.168.1.21:5000')
+API_URL      = os.environ.get('BACKEND_URL', 'http://192.168.1.21:5001')
 CAMERA_CODE  = os.environ.get('CAMERA_CODE', 'CAM-LUMBAN-01')
 CAMERA_API_KEY = os.environ.get('CAMERA_API_KEY', 'Admin@1234')
 INTERVAL     = int(os.environ.get('INTERVAL', '2'))
