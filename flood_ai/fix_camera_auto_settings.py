@@ -5,7 +5,7 @@ def test_camera_settings():
     """
     Test current camera settings and show how to fix auto-adjustments
     """
-    RTSP_URL = "rtsp://FloodMonitoring:FloodCam2026@192.168.1.16:554/stream2"
+    RTSP_URL = "rtsp://FloodMonitoring:FloodCam2026@192.168.1.149:554/stream2"
     
     print("=== Camera Settings Diagnostic ===")
     print("Connecting to camera...")

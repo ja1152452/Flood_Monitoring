@@ -1,6 +1,6 @@
 import cv2
 
-RTSP_URL = "rtsp://FloodMonitoring:FloodCam2026@192.168.1.16:554/stream1"
+RTSP_URL = "rtsp://FloodMonitoring:FloodCam2026@192.168.1.149:554/stream1"
 
 print("Connecting to camera...")
 cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)

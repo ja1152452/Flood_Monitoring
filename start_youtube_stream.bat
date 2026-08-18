@@ -4,7 +4,7 @@ echo Starting Live Tapo C310 Stream to YouTube (Pixel-Perfect HD)
 echo ===================================================
 
 set STREAM_KEY=0t7b-p7t1-1ds5-a64k-4tp5
-set RTSP_URL=rtsp://FloodMonitoring:FloodCam2026@192.168.1.16:554/stream1
+set RTSP_URL=rtsp://FloodMonitoring:FloodCam2026@192.168.1.149:554/stream1
 
 :loop
 echo [%time%] Pushing live camera stream to YouTube...
