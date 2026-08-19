@@ -35,6 +35,7 @@ async function migrate() {
     await client.query(`DO $$ BEGIN CREATE TYPE flood_level AS ENUM ('NORMAL','MONITOR','ALERT','EVACUATION','CRITICAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE alert_trigger AS ENUM ('THRESHOLD_BREACH','FORECAST_WARNING','MANUAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE dispatch_channel AS ENUM ('FCM','SMS','IN_APP'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+    await client.query(`DO $$ BEGIN CREATE TYPE dispatch_status AS ENUM ('PENDING','SENT','FAILED','DELIVERED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE sos_status AS ENUM ('PENDING','ACKNOWLEDGED','DISPATCHED','RESPONDING','RESOLVED','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN ALTER TYPE sos_status ADD VALUE IF NOT EXISTS 'DISPATCHED'; EXCEPTION WHEN others THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE risk_level AS ENUM ('VERY_HIGH','HIGH','MODERATE','LOW'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
