@@ -68,6 +68,14 @@ app.use('/api/v1/contacts',      contactsRoutes);
 app.use('/api/v1/risk-areas', riskRoutes);
 app.use('/api/v1/weather', weatherRoutes);
 app.use('/api/v1/stream', streamRoutes);
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Lumban Flood Monitoring API is online',
+    version: '1.0.0',
+  });
+});
+
 app.get('/health', async (_req, res) => {
   try {
     await query('SELECT 1');

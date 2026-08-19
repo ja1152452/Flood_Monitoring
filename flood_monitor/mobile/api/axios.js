@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../store/authStore';
 
-export const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'https://perjurer-epidural-verbally.ngrok-free.dev';
+export const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'https://floodmonitoring-production-c88d.up.railway.app';
 export const LOCAL_FALLBACK_URL = 'http://192.168.1.27:5001';
 
 const request = async (method, path, data, params, extraHeaders) => {
