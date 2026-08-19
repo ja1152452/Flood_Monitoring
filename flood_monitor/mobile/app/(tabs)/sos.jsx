@@ -206,12 +206,23 @@ function CitizenSOSView({ qc, user }) {
   const [sending, setSending] = useState(false);
   const [recommended, setRecommended] = useState([]);
 
-  const fetchCurrentLocation = async () => {
+  const getFreshLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setLocation(loc.coords);
+    if (status !== 'granted') {
+      throw new Error('Location permission denied. Please enable Location in your phone settings.');
     }
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Highest,
+      mayShowUserSettingsDialog: true,
+    });
+    setLocation(loc.coords);
+    return loc.coords;
+  };
+
+  const fetchCurrentLocation = async () => {
+    try {
+      await getFreshLocation();
+    } catch (_) {}
   };
 
   useEffect(() => {
@@ -243,10 +254,6 @@ function CitizenSOSView({ qc, user }) {
   });
 
   const handleSOS = async () => {
-    if (!location) {
-      Alert.alert('Location Required', 'Enable location services to send SOS.');
-      return;
-    }
     Alert.alert(
       '🆘 Send SOS Request',
       'This will notify MDRRMO and rescue teams of your exact GPS location.',
@@ -258,6 +265,13 @@ function CitizenSOSView({ qc, user }) {
           onPress: async () => {
             setSending(true);
             try {
+              let coords = location;
+              try {
+                coords = await getFreshLocation();
+              } catch (_) {
+                if (!coords) throw new Error('Could not acquire your GPS location. Please turn on GPS / Location and try again.');
+              }
+
               try {
                 if (typeof getFCMToken === 'function') {
                   getFCMToken().then(tok => {
@@ -266,7 +280,7 @@ function CitizenSOSView({ qc, user }) {
                 }
               } catch (_) {}
 
-              await sendSOS({ lat: location.latitude, lng: location.longitude });
+              await sendSOS({ lat: coords.latitude, lng: coords.longitude });
               Toast.show({
                 type: 'success',
                 text1: '🆘 SOS Sent Successfully!',
@@ -274,7 +288,7 @@ function CitizenSOSView({ qc, user }) {
               });
               qc.invalidateQueries(['my-sos']);
 
-              getRecommendedCenters(location.latitude, location.longitude)
+              getRecommendedCenters(coords.latitude, coords.longitude)
                 .then(centers => {
                   if (centers && Array.isArray(centers)) setRecommended(centers);
                 })

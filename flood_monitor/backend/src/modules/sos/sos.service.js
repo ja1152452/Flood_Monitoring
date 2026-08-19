@@ -12,7 +12,20 @@ export const createSOS = async (userId, dto) => {
     [userId]
   );
 
-  const barangayId = dto.barangay_id || user[0]?.barangay_id || null;
+  let barangayId = dto.barangay_id;
+  if (!barangayId && dto.lat && dto.lng) {
+    const { rows: nearest } = await query(
+      `SELECT id FROM barangays
+       WHERE lat IS NOT NULL AND lng IS NOT NULL
+       ORDER BY ((lat - $1)^2 + (lng - $2)^2) ASC
+       LIMIT 1`,
+      [dto.lat, dto.lng]
+    );
+    if (nearest.length) barangayId = nearest[0].id;
+  }
+  if (!barangayId) {
+    barangayId = user[0]?.barangay_id || null;
+  }
 
   const { rows } = await query(
     `INSERT INTO sos_requests
