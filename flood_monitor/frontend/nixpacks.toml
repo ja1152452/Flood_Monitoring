@@ -1,9 +1,0 @@
-# Nixpacks configuration for Railway to ensure Node.js is present in the runtime container
-[phases.setup]
-nixPkgs = ["nodejs_20"]
-
-[phases.build]
-cmds = ["npm install", "npm run build"]
-
-[start]
-cmd = "node server.js"
