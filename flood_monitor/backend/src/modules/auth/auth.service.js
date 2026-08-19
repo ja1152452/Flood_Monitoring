@@ -4,19 +4,26 @@ import nodemailer from 'nodemailer';
 import { query } from '../../config/db.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT),
-  secure: false,
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
-
 const sendOtpEmail = async (email, otp, fullName) => {
-  await transporter.sendMail({
-    from: `"ResQConnect" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: 'ResQConnect - Email Verification Security Code',
-    html: `
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.log(`[EMAIL] SMTP not configured. OTP for ${email} is ${otp}`);
+    return;
+  }
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+    });
+    await transporter.sendMail({
+      from: `"ResQConnect" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'ResQConnect - Email Verification Security Code',
+      html: `
       <!DOCTYPE html>
       <html>
       <head>
@@ -62,7 +69,11 @@ const sendOtpEmail = async (email, otp, fullName) => {
       </body>
       </html>
     `,
-  });
+    });
+    console.log('[EMAIL] OTP sent to:', email);
+  } catch (emailErr) {
+    console.error('[EMAIL] Failed to send OTP:', emailErr.message);
+  }
 };
 
 const signTokens = (userId, role) => ({
