@@ -39,11 +39,11 @@ export const registerSchema = Joi.object({
     .allow('', null),
 
   phone_number: Joi.string()
-    .pattern(/^09\d{9}$/)
+    .pattern(/^(\+?63|0)?9[\d\s-]{8,12}\d$/)
     .optional()
     .allow('', null)
     .messages({
-      'string.pattern.base': 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)',
+      'string.pattern.base': 'Contact number must be a valid Philippine mobile number (e.g. 09171234567 or +639171234567)',
     }),
 });
 

@@ -4,23 +4,24 @@ import nodemailer from 'nodemailer';
 import { query } from '../../config/db.js';
 import { ApiError } from '../../utils/ApiError.js';
 
+const EMAIL_USER = process.env.EMAIL_USER || 'jayzelyasona23@gmail.com';
+const EMAIL_PASS = process.env.EMAIL_PASS || 'vwnrbcswsbufmebo';
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 587;
+
 const sendOtpEmail = async (email, otp, fullName) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log(`[EMAIL] SMTP not configured. OTP for ${email} is ${otp}`);
-    return;
-  }
   try {
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: Number(process.env.EMAIL_PORT) || 587,
+      host: EMAIL_HOST,
+      port: EMAIL_PORT,
       secure: false,
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000,
+      auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
     await transporter.sendMail({
-      from: `"ResQConnect" <${process.env.EMAIL_USER}>`,
+      from: `"ResQConnect - Lumban MDRRMO" <${EMAIL_USER}>`,
       to: email,
       subject: 'ResQConnect - Email Verification Security Code',
       html: `
@@ -49,7 +50,7 @@ const sendOtpEmail = async (email, otp, fullName) => {
             <div class="subbrand">Lumban Emergency Rescue & Disaster Monitoring</div>
           </div>
           <div class="content">
-            <div class="salutation">Dear ${fullName},</div>
+            <div class="salutation">Dear ${fullName || 'Resident'},</div>
             <p>Thank you for registering with <strong>ResQConnect</strong>, the official emergency monitoring and disaster rescue platform for Lumban, Laguna.</p>
             <p>To complete your account registration and verify your email address, please enter the one-time security verification code below:</p>
             
@@ -70,9 +71,9 @@ const sendOtpEmail = async (email, otp, fullName) => {
       </html>
     `,
     });
-    console.log('[EMAIL] OTP sent to:', email);
+    console.log('[EMAIL] Verification OTP email successfully sent to:', email);
   } catch (emailErr) {
-    console.error('[EMAIL] Failed to send OTP:', emailErr.message);
+    console.error('[EMAIL] Failed to send OTP email:', emailErr.message);
   }
 };
 
@@ -111,27 +112,25 @@ export const register = async (dto) => {
 
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified)
-     VALUES ($1, $2, $3, $4, $5, true, true)
+     VALUES ($1, $2, $3, $4, $5, false, false)
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
     [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
 
   const user = rows[0];
 
-  const isEmailConfigured = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-  const otp = '123456';
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await query(
     `UPDATE users SET email_otp = $1, email_otp_expires_at = $2 WHERE id = $3`,
     [otp, expiresAt, user.id]
   );
 
-  if (isEmailConfigured) {
-    sendOtpEmail(user.email, otp, user.full_name).catch(() => {});
-  }
+  // Send the actual OTP verification email to user's inbox
+  sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
 
-  // Return tokens with autoVerified = true so mobile immediately transitions to login/home
-  return { user, ...signTokens(user.id, user.role), autoVerified: true, defaultOtp: '123456' };
+  // Return tokens so mobile app can call /verify-email on Step 3
+  return { user, ...signTokens(user.id, user.role), autoVerified: false };
 };
 
 export const verifyEmail = async (userId, otp) => {
@@ -142,11 +141,11 @@ export const verifyEmail = async (userId, otp) => {
   const user = rows[0];
   if (!user) throw ApiError.notFound('User not found');
   if (user.email_verified) return;
-  if (otp !== '123456' && (!user.email_otp || user.email_otp !== otp)) {
+  if (!user.email_otp || user.email_otp !== String(otp).trim()) {
     throw ApiError.badRequest('Invalid verification code');
   }
-  if (user.email_otp_expires_at && new Date() > new Date(user.email_otp_expires_at) && otp !== '123456') {
-    throw ApiError.badRequest('Verification code has expired');
+  if (user.email_otp_expires_at && new Date() > new Date(user.email_otp_expires_at)) {
+    throw ApiError.badRequest('Verification code has expired. Please tap Resend Code.');
   }
 
   await query(
@@ -164,20 +163,14 @@ export const resendOtp = async (userId) => {
   if (!user) throw ApiError.notFound('User not found');
   if (user.email_verified) throw ApiError.conflict('Email already verified');
 
-  const isEmailConfigured = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-  const otp = isEmailConfigured ? String(Math.floor(100000 + Math.random() * 900000)) : '123456';
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await query(
     `UPDATE users SET email_otp = $1, email_otp_expires_at = $2 WHERE id = $3`,
     [otp, expiresAt, user.id]
   );
-  if (isEmailConfigured) {
-    try {
-      await sendOtpEmail(user.email, otp, user.full_name);
-    } catch (emailErr) {
-      console.error('[EMAIL] Failed to resend OTP:', emailErr.message);
-    }
-  }
+
+  sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
 };
 
 export const login = async (dto) => {
