@@ -68,13 +68,13 @@ const sendOtpEmail = async (email, otp, fullName) => {
 const signTokens = (userId, role) => ({
   accessToken: jwt.sign(
     { sub: userId, role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    process.env.JWT_SECRET || 'lumban_flood_monitor_jwt_secret_key_2024',
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   ),
   refreshToken: jwt.sign(
     { sub: userId, type: 'refresh' },
-    process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }
+    process.env.REFRESH_TOKEN_SECRET || 'lumban_flood_monitor_refresh_secret_2024',
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d' }
   ),
 });
 
