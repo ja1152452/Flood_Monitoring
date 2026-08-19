@@ -45,7 +45,7 @@
       "eas": {
         "projectId": "d902cf91-7aa3-45ba-b0f3-2f4ba5d08e61"
       },
-      "apiUrl": "https://floodmonitoring-production-c88d.up.railway.app"
+      "apiUrl": "https://flood-monitoring.up.railway.app"
     },
     "owner": "jayzelyasona"
   }
