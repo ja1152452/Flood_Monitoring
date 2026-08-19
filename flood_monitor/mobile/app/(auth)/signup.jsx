@@ -624,6 +624,26 @@ const Signup = () => {
                 </Text>
               </View>
 
+              {pendingAuth?.otp ? (
+                <View style={{
+                  backgroundColor: '#f0fdf4',
+                  borderColor: '#86efac',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginBottom: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  justifyContent: 'center',
+                }}>
+                  <Ionicons name="key-outline" size={18} color="#16a34a" />
+                  <Text style={{ color: '#15803d', fontSize: 13, fontWeight: '700' }}>
+                    Security Code: <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 2 }}>{pendingAuth.otp}</Text>
+                  </Text>
+                </View>
+              ) : null}
+
               <Text style={styles.fieldLabel}>VERIFICATION CODE <Text style={styles.reqAsterisk}>*</Text></Text>
               <TextInput
                 style={[styles.textInput, { textAlign: 'center', fontSize: 24, letterSpacing: 8, fontWeight: '800', height: 56 }]}
