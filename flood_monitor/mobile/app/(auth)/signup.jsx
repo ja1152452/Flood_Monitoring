@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -53,9 +53,22 @@ const Signup = () => {
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
   const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(100);
+  const [codeExpiry, setCodeExpiry] = useState(120);
   const [pendingAuth, setPendingAuth] = useState(null);
   const [showPwd, setShowPwd] = useState(false);
   const [showCfm, setShowCfm] = useState(false);
+
+  useEffect(() => {
+    let interval;
+    if (step === 3) {
+      interval = setInterval(() => {
+        setResendCooldown(c => Math.max(0, c - 1));
+        setCodeExpiry(e => Math.max(0, e - 1));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step]);
 
   const update = (field, value) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -203,6 +216,8 @@ const Signup = () => {
       }
 
       setPendingAuth(data.data);
+      setResendCooldown(100);
+      setCodeExpiry(120);
       Toast.show({ type: 'success', text1: 'Account created!', text2: 'Check your email for the verification code' });
       setStep(3);
 
@@ -229,8 +244,11 @@ const Signup = () => {
     }
     setLoading(true);
     try {
-      await api.post('/auth/verify-email', { otp }, {
-        headers: { Authorization: `Bearer ${pendingAuth.accessToken}` },
+      await api.post('/auth/verify-email', {
+        otp: otp.trim(),
+        email: form.email.toLowerCase().trim(),
+      }, {
+        headers: pendingAuth?.accessToken ? { Authorization: `Bearer ${pendingAuth.accessToken}` } : {},
       });
       Toast.show({ type: 'success', text1: '✅ Email verified!', text2: 'You can now log in to your account' });
       router.replace('/(auth)/login');
@@ -242,14 +260,19 @@ const Signup = () => {
   };
 
   const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
     setResending(true);
     try {
-      await api.post('/auth/resend-otp', {}, {
-        headers: { Authorization: `Bearer ${pendingAuth.accessToken}` },
+      await api.post('/auth/resend-otp', {
+        email: form.email.toLowerCase().trim(),
+      }, {
+        headers: pendingAuth?.accessToken ? { Authorization: `Bearer ${pendingAuth.accessToken}` } : {},
       });
       Toast.show({ type: 'success', text1: 'Code resent!', text2: 'Check your email again' });
       setOtp('');
       setOtpError('');
+      setResendCooldown(100);
+      setCodeExpiry(120);
     } catch (err) {
       Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to resend code' });
     } finally {
@@ -579,6 +602,28 @@ const Signup = () => {
                 </Text>
               </View>
 
+              {/* 2-Minute Expiry Countdown Badge */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: codeExpiry === 0 ? '#fee2e2' : '#f8fafc',
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: codeExpiry === 0 ? '#fca5a5' : '#e2e8f0',
+                marginVertical: 12,
+                gap: 6,
+              }}>
+                <Ionicons name="time-outline" size={18} color={codeExpiry === 0 ? '#dc2626' : '#ea580c'} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: codeExpiry === 0 ? '#dc2626' : '#475569' }}>
+                  {codeExpiry > 0 
+                    ? `Code expires in: ${Math.floor(codeExpiry / 60).toString().padStart(2, '0')}:${(codeExpiry % 60).toString().padStart(2, '0')}`
+                    : 'Code expired (2 min limit). Please tap Resend.'}
+                </Text>
+              </View>
+
               <Text style={styles.fieldLabel}>VERIFICATION CODE <Text style={styles.reqAsterisk}>*</Text></Text>
               <TextInput
                 style={[styles.textInput, { textAlign: 'center', fontSize: 24, letterSpacing: 8, fontWeight: '800', height: 56 }]}
@@ -592,9 +637,9 @@ const Signup = () => {
               {otpError ? <Text style={styles.errorText}>⚠ {otpError}</Text> : null}
 
               <TouchableOpacity
-                style={[styles.continueBtn, loading && { opacity: 0.6 }]}
+                style={[styles.continueBtn, (loading || codeExpiry === 0) && { opacity: 0.6 }]}
                 onPress={handleVerifyOtp}
-                disabled={loading}
+                disabled={loading || codeExpiry === 0}
                 activeOpacity={0.85}>
                 {loading ? (
                   <ActivityIndicator color="#fff" />
@@ -603,12 +648,17 @@ const Signup = () => {
                 )}
               </TouchableOpacity>
 
+              {/* Resend Code Button with 100-Second Cooldown */}
               <TouchableOpacity
-                style={{ alignItems: 'center', marginTop: 16 }}
+                style={{ alignItems: 'center', marginTop: 16, opacity: (resending || resendCooldown > 0) ? 0.6 : 1 }}
                 onPress={handleResendOtp}
-                disabled={resending}>
-                <Text style={{ color: '#dc2626', fontSize: 14, fontWeight: '700' }}>
-                  {resending ? 'Resending...' : "Didn't receive a code? Resend"}
+                disabled={resending || resendCooldown > 0}>
+                <Text style={{ color: resendCooldown > 0 ? '#64748b' : '#dc2626', fontSize: 14, fontWeight: '700' }}>
+                  {resending 
+                    ? 'Resending code...' 
+                    : resendCooldown > 0 
+                      ? `Didn't get code? Resend in ${resendCooldown}s` 
+                      : "Didn't receive a code? Resend Code"}
                 </Text>
               </TouchableOpacity>
             </View>

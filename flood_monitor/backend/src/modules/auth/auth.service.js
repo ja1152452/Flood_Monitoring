@@ -56,7 +56,7 @@ const sendOtpEmail = async (email, otp, fullName) => {
             
             <div class="otp-box">
               <div class="otp-code">${otp}</div>
-              <div class="otp-notice">⏱️ Valid for 10 minutes only</div>
+              <div class="otp-notice">⏱️ Valid for 2 minutes only</div>
             </div>
 
             <p>For your security, please do not share this code with anyone. System administrators and MDRRMO staff will never ask for your verification code.</p>
@@ -111,8 +111,8 @@ export const register = async (dto) => {
   }
 
   const { rows } = await query(
-    `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified)
-     VALUES ($1, $2, $3, $4, $5, false, false)
+    `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified, otp_attempts, otp_last_sent_at)
+     VALUES ($1, $2, $3, $4, $5, false, false, 0, NOW())
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
     [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
@@ -120,9 +120,9 @@ export const register = async (dto) => {
   const user = rows[0];
 
   const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
   await query(
-    `UPDATE users SET email_otp = $1, email_otp_expires_at = $2 WHERE id = $3`,
+    `UPDATE users SET email_otp = $1, email_otp_expires_at = $2, otp_attempts = 0, otp_last_sent_at = NOW() WHERE id = $3`,
     [otp, expiresAt, user.id]
   );
 
@@ -133,40 +133,97 @@ export const register = async (dto) => {
   return { user, ...signTokens(user.id, user.role), autoVerified: false };
 };
 
-export const verifyEmail = async (userId, otp) => {
-  const { rows } = await query(
-    'SELECT email_otp, email_otp_expires_at, email_verified FROM users WHERE id = $1',
-    [userId]
-  );
-  const user = rows[0];
-  if (!user) throw ApiError.notFound('User not found');
-  if (user.email_verified) return;
-  if (!user.email_otp || user.email_otp !== String(otp).trim()) {
-    throw ApiError.badRequest('Invalid verification code');
-  }
-  if (user.email_otp_expires_at && new Date() > new Date(user.email_otp_expires_at)) {
-    throw ApiError.badRequest('Verification code has expired. Please tap Resend Code.');
+export const verifyEmail = async (userId, otp, email) => {
+  let queryStr = 'SELECT id, email_otp, email_otp_expires_at, email_verified, otp_attempts FROM users WHERE ';
+  let params = [];
+  if (userId) {
+    queryStr += 'id = $1';
+    params = [userId];
+  } else if (email) {
+    queryStr += 'email = $1';
+    params = [email.toLowerCase().trim()];
+  } else {
+    throw ApiError.badRequest('User ID or Email is required');
   }
 
+  const { rows } = await query(queryStr, params);
+  const user = rows[0];
+  if (!user) throw ApiError.notFound('User account not found');
+  if (user.email_verified) return;
+
+  const currentAttempts = Number(user.otp_attempts || 0);
+
+  // Check if locked from 5 attempts
+  if (currentAttempts >= 5) {
+    throw ApiError.badRequest('Maximum verification attempts exceeded (5/5). Your code is locked. Please tap Resend Code.');
+  }
+
+  if (!user.email_otp) {
+    throw ApiError.badRequest('No active verification code. Please tap Resend Code.');
+  }
+
+  if (user.email_otp_expires_at && new Date() > new Date(user.email_otp_expires_at)) {
+    throw ApiError.badRequest('Verification code has expired (2-minute limit). Please tap Resend Code.');
+  }
+
+  // Check if code matches
+  if (String(user.email_otp).trim() !== String(otp).trim()) {
+    const newAttempts = currentAttempts + 1;
+    if (newAttempts >= 5) {
+      await query(
+        `UPDATE users SET otp_attempts = $1, email_otp = NULL, email_otp_expires_at = NULL WHERE id = $2`,
+        [newAttempts, user.id]
+      );
+      throw ApiError.badRequest('Maximum verification attempts exceeded (5/5). Your code has been locked. Please tap Resend Code.');
+    } else {
+      await query(
+        `UPDATE users SET otp_attempts = $1 WHERE id = $2`,
+        [newAttempts, user.id]
+      );
+      const remaining = 5 - newAttempts;
+      throw ApiError.badRequest(`Invalid verification code. ${remaining} attempt(s) remaining.`);
+    }
+  }
+
+  // Success: activate account and clear OTP
   await query(
-    `UPDATE users SET email_verified = true, is_active = true, email_otp = NULL, email_otp_expires_at = NULL WHERE id = $1`,
-    [userId]
+    `UPDATE users SET email_verified = true, is_active = true, email_otp = NULL, email_otp_expires_at = NULL, otp_attempts = 0 WHERE id = $1`,
+    [user.id]
   );
 };
 
-export const resendOtp = async (userId) => {
-  const { rows } = await query(
-    'SELECT id, email, full_name, email_verified FROM users WHERE id = $1',
-    [userId]
-  );
+export const resendOtp = async (userId, email) => {
+  let queryStr = 'SELECT id, email, full_name, email_verified, otp_last_sent_at FROM users WHERE ';
+  let params = [];
+  if (userId) {
+    queryStr += 'id = $1';
+    params = [userId];
+  } else if (email) {
+    queryStr += 'email = $1';
+    params = [email.toLowerCase().trim()];
+  } else {
+    throw ApiError.badRequest('User ID or Email is required');
+  }
+
+  const { rows } = await query(queryStr, params);
   const user = rows[0];
   if (!user) throw ApiError.notFound('User not found');
   if (user.email_verified) throw ApiError.conflict('Email already verified');
 
+  const now = Date.now();
+  if (user.otp_last_sent_at) {
+    const elapsedMs = now - new Date(user.otp_last_sent_at).getTime();
+    const cooldownMs = 100 * 1000; // 100 seconds
+    if (elapsedMs < cooldownMs) {
+      const remainingSec = Math.ceil((cooldownMs - elapsedMs) / 1000);
+      throw ApiError.tooManyRequests(`Please wait ${remainingSec} seconds before requesting a new code.`);
+    }
+  }
+
   const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(now + 2 * 60 * 1000); // 2 minutes
   await query(
-    `UPDATE users SET email_otp = $1, email_otp_expires_at = $2 WHERE id = $3`,
+    `UPDATE users SET email_otp = $1, email_otp_expires_at = $2, otp_attempts = 0, otp_last_sent_at = NOW() WHERE id = $3`,
     [otp, expiresAt, user.id]
   );
 

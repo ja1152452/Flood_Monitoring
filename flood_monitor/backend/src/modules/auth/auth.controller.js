@@ -25,12 +25,16 @@ export const me = asyncHandler(async (req, res) => {
 });
 
 export const verifyEmail = asyncHandler(async (req, res) => {
-  await authService.verifyEmail(req.user.id, req.body.otp);
+  const userId = req.user?.id;
+  const { otp, email } = req.body;
+  await authService.verifyEmail(userId, otp, email);
   res.json({ success: true, message: 'Email verified successfully' });
 });
 
 export const resendOtp = asyncHandler(async (req, res) => {
-  await authService.resendOtp(req.user.id);
+  const userId = req.user?.id;
+  const { email } = req.body;
+  await authService.resendOtp(userId, email);
   res.json({ success: true, message: 'Verification code resent' });
 });
 
