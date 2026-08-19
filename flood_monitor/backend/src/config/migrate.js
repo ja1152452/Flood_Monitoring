@@ -1,4 +1,5 @@
 import pg from 'pg';
+import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -463,15 +464,20 @@ async function migrate() {
     `);
     console.log('  OK emergency contacts seed');
 
+    const defaultHash = await bcrypt.hash('Admin@1234', 10);
+
     await client.query(`
       INSERT INTO users (email, password_hash, role, full_name, is_active, email_verified)
       VALUES
-        ('superadmin@lumban.gov.ph','$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oZ2VQhHiq','SUPER_ADMIN','System Administrator', true, true),
-        ('mdrrmo@lumban.gov.ph',    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oZ2VQhHiq','ADMIN',      'MDRRMO Officer',        true, true),
-        ('rescue1@lumban.gov.ph',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oZ2VQhHiq','RESCUE',     'Rescue Team Alpha',     true, true),
-        ('mswdo@lumban.gov.ph',     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oZ2VQhHiq','MSWDO',      'MSWDO Officer',         true, true)
-      ON CONFLICT (email) DO NOTHING;
-    `);
+        ('superadmin@lumban.gov.ph', $1, 'SUPER_ADMIN', 'System Administrator', true, true),
+        ('mdrrmo@lumban.gov.ph',     $1, 'ADMIN',       'MDRRMO Officer',        true, true),
+        ('rescue1@lumban.gov.ph',    $1, 'RESCUE',      'Rescue Team Alpha',     true, true),
+        ('mswdo@lumban.gov.ph',      $1, 'MSWDO',       'MSWDO Officer',         true, true)
+      ON CONFLICT (email) DO UPDATE 
+        SET password_hash = EXCLUDED.password_hash,
+            is_active = true,
+            email_verified = true;
+    `, [defaultHash]);
     console.log('  OK seed users');
 
     await client.query(`
