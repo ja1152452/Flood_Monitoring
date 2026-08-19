@@ -494,15 +494,15 @@ async function migrate() {
       )
       SELECT
         'CAM-LUMBAN-01',
-        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oZ2VQhHiq',
+        $1,
         'Pagsanjan-Lumban River Bridge',
         b.id,
         14.1688, 121.4956,
         3.1, 827, 191.82,
         'rtsp://FloodMonitoring:FloodCam2026!@192.168.0.103:554/stream1'
       FROM barangays b WHERE b.name = 'Wawa'
-      ON CONFLICT (camera_code) DO NOTHING;
-    `);
+      ON CONFLICT (camera_code) DO UPDATE SET api_key_hash = EXCLUDED.api_key_hash;
+    `, [defaultHash]);
     console.log('  OK seed camera');
 
     await client.query(`
