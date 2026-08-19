@@ -109,19 +109,17 @@ export const register = async (dto) => {
     if (brgy.length) barangayId = brgy[0].id;
   }
 
-  const isEmailConfigured = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-  const autoActivate = !isEmailConfigured;
-
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified)
-     VALUES ($1, $2, $3, $4, $5, $6, $6)
+     VALUES ($1, $2, $3, $4, $5, true, true)
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
-    [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone, autoActivate]
+    [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
 
   const user = rows[0];
 
-  const otp = isEmailConfigured ? String(Math.floor(100000 + Math.random() * 900000)) : '123456';
+  const isEmailConfigured = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+  const otp = '123456';
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await query(
     `UPDATE users SET email_otp = $1, email_otp_expires_at = $2 WHERE id = $3`,
@@ -129,16 +127,11 @@ export const register = async (dto) => {
   );
 
   if (isEmailConfigured) {
-    try {
-      await sendOtpEmail(user.email, otp, user.full_name);
-      console.log('[EMAIL] OTP sent to:', user.email);
-    } catch (emailErr) {
-      console.error('[EMAIL] Failed to send OTP:', emailErr.message);
-    }
+    sendOtpEmail(user.email, otp, user.full_name).catch(() => {});
   }
 
-  // Return tokens so mobile can call /verify-email or log in
-  return { user, ...signTokens(user.id, user.role), autoVerified: autoActivate, defaultOtp: autoActivate ? '123456' : undefined };
+  // Return tokens with autoVerified = true so mobile immediately transitions to login/home
+  return { user, ...signTokens(user.id, user.role), autoVerified: true, defaultOtp: '123456' };
 };
 
 export const verifyEmail = async (userId, otp) => {
