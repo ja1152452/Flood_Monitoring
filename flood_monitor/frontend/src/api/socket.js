@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const URL = typeof window !== 'undefined' ? window.location.origin : (import.meta.env.VITE_API_URL || 'http://localhost:5001');
+const URL = (import.meta.env.VITE_API_URL || 'https://flood-monitoring.up.railway.app').replace(/\/$/, '');
 
 let socket = null;
 
@@ -9,8 +9,9 @@ export function getSocket() {
     const token = localStorage.getItem('accessToken');
     socket = io(URL, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
+      withCredentials: true,
     });
   }
   return socket;

@@ -39,18 +39,18 @@ router.post('/location', authenticate, asyncHandler(async (req, res) => {
 
 // Admin gets all active responder locations & status — accessible by any authenticated user
 router.get('/responder-locations', authenticate, asyncHandler(async (req, res) => {
-  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
   const { role, status } = req.query;
 
   let queryText = `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,
             COALESCE(responder_status, 'AVAILABLE') AS responder_status
      FROM users
-     WHERE role = ANY($1::user_role[]) AND is_active = TRUE`;
+     WHERE role::text = ANY($1::text[]) AND is_active = TRUE`;
   const params = [RESPONDER_ROLES];
 
   if (role) {
     params.push(role);
-    queryText += ` AND role = $${params.length}::user_role`;
+    queryText += ` AND role::text = $${params.length}`;
   }
   if (status) {
     params.push(status);
