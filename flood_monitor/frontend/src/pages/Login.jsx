@@ -45,6 +45,11 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await login(form);
+      const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'MSWDO'];
+      if (!allowedRoles.includes(data.user?.role)) {
+        toast.error('Access Restricted: Responders and citizens must use the ResQConnect mobile app.');
+        return;
+      }
       setAuth(data.user, data.accessToken, data.refreshToken);
       navigate(data.user?.role === 'MSWDO' ? '/mswdo' : '/');
     } catch {

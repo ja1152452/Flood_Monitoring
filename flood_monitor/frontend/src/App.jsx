@@ -40,10 +40,13 @@ function MswdoProtected({ children }) {
   return children;
 }
 
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+
 function AdminProtected({ children }) {
   const { token, user } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
   if (user?.role === 'MSWDO') return <Navigate to="/mswdo" replace />;
+  if (!ADMIN_ROLES.includes(user?.role)) return <Navigate to="/login" replace />;
   return children;
 }
 
