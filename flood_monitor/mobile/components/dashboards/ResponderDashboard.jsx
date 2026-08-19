@@ -391,10 +391,7 @@ export function ResponderDashboard({ user, onLogout }) {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest,
-          mayShowUserSettingsDialog: true,
-        });
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
       } catch (_) { }
     })();
@@ -611,10 +608,7 @@ export function BarangayDashboard({ user, onLogout }) {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-        mayShowUserSettingsDialog: true,
-      });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
     })();
   }, []);

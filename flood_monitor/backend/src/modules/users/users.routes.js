@@ -45,11 +45,7 @@ router.get('/responder-locations', authenticate, asyncHandler(async (req, res) =
   let queryText = `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,
             COALESCE(responder_status, 'AVAILABLE') AS responder_status
      FROM users
-     WHERE role::text = ANY($1::text[]) 
-       AND is_active = TRUE
-       AND last_lat IS NOT NULL 
-       AND last_lng IS NOT NULL
-       AND last_location_at >= NOW() - INTERVAL '24 hours'`;
+     WHERE role::text = ANY($1::text[]) AND is_active = TRUE`;
   const params = [RESPONDER_ROLES];
 
   if (role) {
