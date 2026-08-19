@@ -196,6 +196,12 @@ const Signup = () => {
 
       const { data } = await api.post('/auth/register', payload);
 
+      if (data.data?.autoVerified) {
+        Toast.show({ type: 'success', text1: '✅ Account created!', text2: 'Your account is ready. You can now log in.' });
+        router.replace('/(auth)/login');
+        return;
+      }
+
       setPendingAuth(data.data);
       Toast.show({ type: 'success', text1: 'Account created!', text2: 'Check your email for the verification code' });
       setStep(3);
