@@ -29,28 +29,9 @@ const app = express();
 app.set('trust proxy', 1);
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (
-      !origin ||
-      origin.endsWith('.railway.app') ||
-      origin.endsWith('.up.railway.app') ||
-      origin.endsWith('.trycloudflare.com') ||
-      origin.endsWith('.ngrok.io') ||
-      origin.endsWith('.ngrok-free.app')
-    ) {
-      return callback(null, true);
-    }
-    const allowed = (process.env.CORS_ORIGIN || '*')
-      .split(',')
-      .map(o => o.trim());
-    if (allowed.includes('*') || allowed.includes(origin) || allowed.includes('null')) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
+  origin: true,
   credentials: true,
-  methods:     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Internal-Key', 'ngrok-skip-browser-warning', 'bypass-tunnel-reminder'],
 };
 
