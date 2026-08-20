@@ -317,18 +317,34 @@ HTML_PAGE = """<!DOCTYPE html>
         startX = x;
         startY = y;
       } else if (mode === 'points') {
-        const heightStr = prompt(`Enter real water/meter height at y=${y}px (e.g. 4.0):`);
-        if (heightStr && !isNaN(heightStr)) {
-          calData.points.push({ px: y, m: parseFloat(heightStr) });
-          calData.points.sort((a, b) => a.px - b.px);
-          updatePointsList();
-          draw();
+        // Check if clicking near an existing line to DRAG IT
+        let foundIdx = -1;
+        if (calData.points) {
+          for (let i = 0; i < calData.points.length; i++) {
+            if (Math.abs(calData.points[i].px - y) <= 18) {
+              foundIdx = i;
+              break;
+            }
+          }
+        }
+
+        if (foundIdx !== -1) {
+          // Start dragging existing line
+          draggingPointIdx = foundIdx;
+        } else {
+          // Clicked empty area -> add new line
+          const heightStr = prompt(`Enter real water/meter height at y=${y}px (e.g. 4.0):`);
+          if (heightStr && !isNaN(heightStr)) {
+            calData.points.push({ px: y, m: parseFloat(heightStr) });
+            calData.points.sort((a, b) => a.px - b.px);
+            updatePointsList();
+            draw();
+          }
         }
       } else if (mode === 'waterline') {
         const heightStr = prompt(`Target Real Waterline: Enter current real flood height at y=${y}px (e.g. 2.029):`, '2.029');
         if (heightStr && !isNaN(heightStr)) {
           const val = parseFloat(heightStr);
-          // Remove existing points near this y to avoid duplicates
           calData.points = calData.points.filter(p => Math.abs(p.px - y) > 5);
           calData.points.push({ px: y, m: val });
           calData.points.sort((a, b) => a.px - b.px);
@@ -359,29 +375,44 @@ HTML_PAGE = """<!DOCTYPE html>
     });
 
     canvas.addEventListener('mousemove', (e) => {
-      if (!isDrawing || mode !== 'roi') return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const currentX = (e.clientX - rect.left) * scaleX;
-      const currentY = (e.clientY - rect.top) * scaleY;
+      const x = Math.round((e.clientX - rect.left) * scaleX);
+      const y = Math.round((e.clientY - rect.top) * scaleY);
 
-      const minX = Math.min(startX, currentX);
-      const maxX = Math.max(startX, currentX);
-      const minY = Math.min(startY, currentY);
-      const maxY = Math.max(startY, currentY);
+      if (isDrawing && mode === 'roi') {
+        const w = canvas.width;
+        const h = canvas.height;
+        const left_pct = Math.min(startX, x) / w * 100;
+        const right_pct = Math.max(startX, x) / w * 100;
+        const top_pct = Math.min(startY, y) / h * 100;
+        const bottom_pct = Math.max(startY, y) / h * 100;
 
-      calData.roi = {
-        left_pct: parseFloat(((minX / canvas.width) * 100).toFixed(2)),
-        right_pct: parseFloat(((maxX / canvas.width) * 100).toFixed(2)),
-        top_pct: parseFloat(((minY / canvas.height) * 100).toFixed(2)),
-        bottom_pct: parseFloat(((maxY / canvas.height) * 100).toFixed(2))
-      };
-      updateUiStats();
-      draw();
+        calData.roi = {
+          left_pct: parseFloat(left_pct.toFixed(2)),
+          right_pct: parseFloat(right_pct.toFixed(2)),
+          top_pct: parseFloat(top_pct.toFixed(2)),
+          bottom_pct: parseFloat(bottom_pct.toFixed(2))
+        };
+        updateUiStats();
+        draw();
+      } else if (draggingPointIdx !== null && mode === 'points') {
+        calData.points[draggingPointIdx].px = y;
+        updatePointsList();
+        draw();
+      }
     });
 
-    canvas.addEventListener('mouseup', () => { isDrawing = false; });
+    canvas.addEventListener('mouseup', () => {
+      isDrawing = false;
+      if (draggingPointIdx !== null) {
+        calData.points.sort((a, b) => a.px - b.px);
+        updatePointsList();
+        draw();
+        draggingPointIdx = null;
+      }
+    });
 
     function updateUiStats() {
       if (!calData.roi) return;
