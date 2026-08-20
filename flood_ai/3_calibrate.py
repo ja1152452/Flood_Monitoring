@@ -1,14 +1,16 @@
+import os
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 import cv2
 import numpy as np
 import json
-import os
 
 _DIR     = os.path.dirname(os.path.abspath(__file__))
 CAL_FILE = os.path.join(_DIR, "calibration.json")
 
 with open(CAL_FILE) as f:
     _existing = json.load(f)
-RTSP_URL = _existing["rtsp_url"]
+RTSP_URL = _existing.get("rtsp_url", "")
 
 print("=== Lumban Flood Monitor — Multi-Point Meter Calibration ===")
 print("")
@@ -64,20 +66,27 @@ def click_event(event, x, y, flags, param):
 
 
 print("Grabbing frame from camera...")
-cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
-cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+frame = None
+try:
+    cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-if not cap.isOpened():
-    print("ERROR: Cannot connect to camera.")
-    exit()
+    if cap.isOpened():
+        for _ in range(5):
+            cap.grab()
+        ret, frame = cap.retrieve()
+        cap.release()
+except Exception:
+    pass
 
-for _ in range(5):
-    cap.grab()
-ret, frame = cap.retrieve()
-cap.release()
+if frame is None:
+    test_img = os.path.join(_DIR, "test_frame.jpg")
+    if os.path.exists(test_img):
+        print(f"[INFO] Using saved snapshot {test_img} for calibration...")
+        frame = cv2.imread(test_img)
 
-if not ret or frame is None:
-    print("ERROR: Could not grab frame.")
+if frame is None:
+    print("ERROR: Could not grab frame from camera or find test_frame.jpg.")
     exit()
 
 clone         = frame.copy()
