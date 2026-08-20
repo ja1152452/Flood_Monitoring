@@ -23,63 +23,93 @@ const getTransporter = () => {
 };
 
 const sendOtpEmail = async (email, otp, fullName) => {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 30px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 32px; text-align: center; border-bottom: 3px solid #dc2626; }
+        .brand { color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
+        .subbrand { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; font-weight: 700; }
+        .content { padding: 32px; color: #334155; line-height: 1.6; font-size: 14px; }
+        .salutation { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+        .otp-box { background-color: #f1f5f9; border: 2px dashed #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }
+        .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #0284c7; font-family: monospace; }
+        .otp-notice { font-size: 12px; color: #64748b; margin-top: 8px; font-weight: 600; }
+        .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; line-height: 1.5; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 class="brand">🚨 ResQConnect</h1>
+          <div class="subbrand">Lumban Emergency Rescue & Disaster Monitoring</div>
+        </div>
+        <div class="content">
+          <div class="salutation">Dear ${fullName || 'Resident'},</div>
+          <p>Thank you for registering with <strong>ResQConnect</strong>, the official emergency monitoring and disaster rescue platform for Lumban, Laguna.</p>
+          <p>To complete your account registration and verify your email address, please enter the one-time security verification code below:</p>
+          
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+            <div class="otp-notice">⏱️ Valid for 10 minutes only</div>
+          </div>
+
+          <p>For your security, please do not share this code with anyone. System administrators and MDRRMO staff will never ask for your verification code.</p>
+          <p>If you did not create an account with ResQConnect, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          This is an automated system security message from <strong>ResQConnect</strong> Administration.<br/>
+          Municipal Disaster Risk Reduction and Management Office (MDRRMO) · Lumban, Laguna
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // 1. If RESEND_API_KEY is set, use HTTP REST API over HTTPS port 443 (100% bypasses cloud SMTP port blocks)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM_EMAIL || 'ResQConnect <onboarding@resend.dev>',
+          to: [email],
+          subject: 'ResQConnect - Email Verification Security Code',
+          html: htmlContent,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log('[RESEND API] Verification OTP email sent via HTTPS:', email, 'ID:', data.id);
+        return;
+      }
+      console.error('[RESEND API Error]', data);
+    } catch (apiErr) {
+      console.error('[RESEND API Exception]', apiErr.message);
+    }
+  }
+
+  // 2. Fallback to SMTP
   try {
     const transporter = getTransporter();
     const info = await transporter.sendMail({
       from: `"ResQConnect - Lumban MDRRMO" <${EMAIL_USER}>`,
       to: email,
       subject: 'ResQConnect - Email Verification Security Code',
-      html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
-          .container { max-width: 520px; margin: 30px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-          .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 32px; text-align: center; border-bottom: 3px solid #dc2626; }
-          .brand { color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: 0.5px; margin: 0; }
-          .subbrand { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; font-weight: 700; }
-          .content { padding: 32px; color: #334155; line-height: 1.6; font-size: 14px; }
-          .salutation { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
-          .otp-box { background-color: #f1f5f9; border: 2px dashed #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }
-          .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #0284c7; font-family: monospace; }
-          .otp-notice { font-size: 12px; color: #64748b; margin-top: 8px; font-weight: 600; }
-          .footer { background-color: #f8fafc; padding: 20px 32px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; line-height: 1.5; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 class="brand">🚨 ResQConnect</h1>
-            <div class="subbrand">Lumban Emergency Rescue & Disaster Monitoring</div>
-          </div>
-          <div class="content">
-            <div class="salutation">Dear ${fullName || 'Resident'},</div>
-            <p>Thank you for registering with <strong>ResQConnect</strong>, the official emergency monitoring and disaster rescue platform for Lumban, Laguna.</p>
-            <p>To complete your account registration and verify your email address, please enter the one-time security verification code below:</p>
-            
-            <div class="otp-box">
-              <div class="otp-code">${otp}</div>
-              <div class="otp-notice">⏱️ Valid for 10 minutes only</div>
-            </div>
-
-            <p>For your security, please do not share this code with anyone. System administrators and MDRRMO staff will never ask for your verification code.</p>
-            <p>If you did not create an account with ResQConnect, please ignore this email.</p>
-          </div>
-          <div class="footer">
-            This is an automated system security message from <strong>ResQConnect</strong> Administration.<br/>
-            Municipal Disaster Risk Reduction and Management Office (MDRRMO) · Lumban, Laguna
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+      html: htmlContent,
     });
     console.log('[EMAIL] Verification OTP email successfully sent to:', email, 'MessageID:', info.messageId);
   } catch (emailErr) {
     console.error('[EMAIL] Failed to send OTP email:', emailErr.message);
-    throw ApiError.internal(`Failed to send verification email (${emailErr.message}). Please check email configuration.`);
+    // Don't crash signup if cloud provider blocks SMTP ports
   }
 };
 
