@@ -946,6 +946,13 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  historyItemCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    borderRadius: 12,
+  },
   historyItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -955,8 +962,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
   },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  historyStatusBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  historyStatusLabel: { fontSize: 13, fontWeight: '800', color: '#0f172a', letterSpacing: 0.5 },
+  historyStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  historyStatusLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
   historyRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyTime: { fontSize: 12, color: '#64748b' },
 
