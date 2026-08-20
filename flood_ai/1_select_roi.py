@@ -10,37 +10,46 @@ cal_path = os.path.join(_DIR, "calibration.json")
 with open(cal_path) as f:
     cal = json.load(f)
 
-# 1. Check local snapshots first for instant calibration
-candidate_images = [
-    os.path.join(_DIR, "test_frame.jpg"),
-    os.path.join(_DIR, "..", "test_frame.jpg"),
-    os.path.join(_DIR, "live_debug_frame.jpg"),
-    os.path.join(_DIR, "capture_20260812_211910.jpg"),
-]
+frame = None
+rtsp_url = cal.get("rtsp_url", "")
 
-for img_path in candidate_images:
-    if os.path.exists(img_path):
-        frame = cv2.imread(img_path)
-        if frame is not None and frame.size > 0:
-            print(f"[INFO] Loaded snapshot: {os.path.abspath(img_path)}")
-            break
+# 1. Try grabbing fresh frame from live camera
+print(f"Connecting to live camera: {rtsp_url} ...")
+try:
+    cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    if cap.isOpened():
+        for _ in range(5):
+            cap.grab()
+        ret, fresh_frame = cap.retrieve()
+        cap.release()
+        if ret and fresh_frame is not None and fresh_frame.size > 0:
+            frame = fresh_frame
+            test_img_path = os.path.join(_DIR, "test_frame.jpg")
+            cv2.imwrite(test_img_path, frame)
+            cv2.imwrite(os.path.join(_DIR, "..", "test_frame.jpg"), frame)
+            print("[INFO] Captured FRESH frame from live camera and updated test_frame.jpg!")
+except Exception as e:
+    print(f"[WARN] Live camera connection failed: {e}")
 
-# 2. If no local snapshot, try connecting to camera
+# 2. Fallback to local snapshot only if live camera could not connect
 if frame is None:
-    print("Connecting to camera stream...")
-    try:
-        cap = cv2.VideoCapture(cal.get("rtsp_url", ""), cv2.CAP_FFMPEG)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        if cap.isOpened():
-            for _ in range(5):
-                cap.grab()
-            ret, frame = cap.retrieve()
-            cap.release()
-    except Exception:
-        pass
+    print("[INFO] Falling back to saved snapshot...")
+    candidate_images = [
+        os.path.join(_DIR, "test_frame.jpg"),
+        os.path.join(_DIR, "..", "test_frame.jpg"),
+        os.path.join(_DIR, "live_debug_frame.jpg"),
+    ]
+    for img_path in candidate_images:
+        if os.path.exists(img_path):
+            loaded = cv2.imread(img_path)
+            if loaded is not None and loaded.size > 0:
+                print(f"[INFO] Loaded snapshot: {os.path.abspath(img_path)}")
+                frame = loaded
+                break
 
 if frame is None:
-    print("ERROR: Could not load any camera frame or snapshot.")
+    print("ERROR: Could not capture from live camera or find any valid snapshot.")
     exit(1)
 
 h, w = frame.shape[:2]
