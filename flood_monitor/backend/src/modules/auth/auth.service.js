@@ -73,7 +73,34 @@ const sendOtpEmail = async (email, otp, fullName) => {
     </html>
   `;
 
-  // 1. If RESEND_API_KEY is set, use HTTP REST API over HTTPS port 443 (100% bypasses cloud SMTP port blocks)
+  // 1. If BREVO_API_KEY is set, use Brevo HTTP REST API over HTTPS port 443 (Sends to ANY email address, free 300 emails/day)
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.BREVO_API_KEY.trim(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'ResQConnect - Lumban MDRRMO', email: EMAIL_USER },
+          to: [{ email: email }],
+          subject: 'ResQConnect - Email Verification Security Code',
+          htmlContent: htmlContent,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log('[BREVO API] Verification OTP sent via HTTPS:', email, 'ID:', data.messageId);
+        return;
+      }
+      console.error('[BREVO API Error]', data);
+    } catch (apiErr) {
+      console.error('[BREVO API Exception]', apiErr.message);
+    }
+  }
+
+  // 2. If RESEND_API_KEY is set, use Resend HTTP REST API over HTTPS port 443
   if (process.env.RESEND_API_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
