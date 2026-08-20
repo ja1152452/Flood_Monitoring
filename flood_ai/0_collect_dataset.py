@@ -95,7 +95,8 @@ def main():
             last_capture_time = time.time()
             print(f"Auto-capture set to: {auto_capture}")
 
-    cap.release()
+    if cap is not None:
+        cap.release()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
