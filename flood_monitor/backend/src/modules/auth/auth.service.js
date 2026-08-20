@@ -10,15 +10,18 @@ const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
 const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 465;
 
 const getTransporter = () => {
+  if (!process.env.EMAIL_HOST || process.env.EMAIL_HOST === 'smtp.gmail.com') {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    });
+  }
   const isPort465 = EMAIL_PORT === 465;
   return nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
     secure: isPort465,
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
   });
 };
 
