@@ -207,7 +207,7 @@ export const resendOtp = async (userId, email) => {
   const now = Date.now();
   if (user.otp_last_sent_at) {
     const elapsedMs = now - new Date(user.otp_last_sent_at).getTime();
-    const cooldownMs = 100 * 1000; // 100 seconds
+    const cooldownMs = 30 * 1000; // 30 seconds cooldown
     if (elapsedMs < cooldownMs) {
       const remainingSec = Math.ceil((cooldownMs - elapsedMs) / 1000);
       throw ApiError.tooManyRequests(`Please wait ${remainingSec} seconds before requesting a new code.`);
