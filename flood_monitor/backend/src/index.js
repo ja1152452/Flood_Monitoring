@@ -21,10 +21,14 @@ export const io = new Server(server, {
 
 setIO(io);
 
-// Authenticate socket connection via JWT
+// Authenticate socket connection via JWT (with guest fallback for public live updates)
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error('Unauthorized'));
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (!token) {
+    socket.userId = null;
+    socket.userRole = 'CITIZEN';
+    return next();
+  }
   try {
     const payload = jwt.verify(
       token,
@@ -34,7 +38,9 @@ io.use((socket, next) => {
     socket.userRole = payload.role;
     next();
   } catch {
-    next(new Error('Unauthorized'));
+    socket.userId = null;
+    socket.userRole = 'CITIZEN';
+    next();
   }
 });
 
