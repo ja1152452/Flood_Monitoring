@@ -171,7 +171,8 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="toolbar">
           <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Detection Box (ROI)</button>
           <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Click Height Points</button>
-          <button class="mode-btn" id="modeSampleBtn" onclick="setMode('sample')">3️⃣ Click Water to Sample Color</button>
+          <button class="mode-btn" id="modeSampleBtn" onclick="setMode('sample')">3️⃣ Sample Water Color</button>
+          <button class="mode-btn" id="modeWaterlineBtn" onclick="setMode('waterline')" style="background:#059669;">🎯 4️⃣ Point Real Waterline</button>
           <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh Frame</button>
         </div>
       </div>
@@ -322,6 +323,22 @@ HTML_PAGE = """<!DOCTYPE html>
           calData.points.sort((a, b) => a.px - b.px);
           updatePointsList();
           draw();
+        }
+      } else if (mode === 'waterline') {
+        const heightStr = prompt(`Target Real Waterline: Enter current real flood height at y=${y}px (e.g. 2.029):`, '2.029');
+        if (heightStr && !isNaN(heightStr)) {
+          const val = parseFloat(heightStr);
+          // Remove existing points near this y to avoid duplicates
+          calData.points = calData.points.filter(p => Math.abs(p.px - y) > 5);
+          calData.points.push({ px: y, m: val });
+          calData.points.sort((a, b) => a.px - b.px);
+          updatePointsList();
+          draw();
+
+          const toast = document.getElementById('toast');
+          toast.innerText = `🎯 Target Real Waterline set at y=${y}px -> ${val.toFixed(3)}m!`;
+          toast.style.display = 'block';
+          setTimeout(() => toast.style.display = 'none', 4000);
         }
       } else if (mode === 'sample') {
         try {
