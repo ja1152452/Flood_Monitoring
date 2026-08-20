@@ -117,7 +117,7 @@ export const register = async (dto) => {
 
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified, otp_attempts, otp_last_sent_at)
-     VALUES ($1, $2, $3, $4, $5, false, false, 0, NOW())
+     VALUES ($1, $2, $3, $4, $5, true, true, 0, NOW())
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
     [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
@@ -125,17 +125,17 @@ export const register = async (dto) => {
   const user = rows[0];
 
   const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await query(
     `UPDATE users SET email_otp = $1, email_otp_expires_at = $2, otp_attempts = 0, otp_last_sent_at = NOW() WHERE id = $3`,
     [otp, expiresAt, user.id]
   );
 
-  // Send the actual OTP verification email to user's inbox
+  // Send email notification in background
   sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
 
-  // Return tokens and otp so mobile app can assist user immediately
-  return { user, ...signTokens(user.id, user.role), autoVerified: false, otp };
+  // Return autoVerified: true so mobile app instantly logs resident in without email delays
+  return { user, ...signTokens(user.id, user.role), autoVerified: true, otp };
 };
 
 export const verifyEmail = async (userId, otp, email) => {
