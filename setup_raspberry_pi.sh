@@ -10,9 +10,9 @@ echo "[1/4] Installing system packages..."
 sudo apt update
 sudo apt install -y python3-opencv python3-pip ffmpeg git libgl1 nmap
 
-# 2. Install Python packages
-echo "[2/4] Installing Python requirements..."
-pip3 install requests numpy ultralytics --break-system-packages
+# 2. Install lightweight Python packages (requests & numpy only)
+echo "[2/4] Installing lightweight Python requirements..."
+pip3 install requests numpy --break-system-packages
 
 # 3. Ensure all scripts are executable
 echo "[3/4] Setting execution permissions..."
