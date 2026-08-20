@@ -190,7 +190,11 @@ HTML_PAGE = """<!DOCTYPE html>
 
         <div>
           <div class="section-title">Step 2: Meter Points Calibration</div>
-          <p class="step-desc">Switch to Mode 2 and click points along your gauge (from bottom to top) and input their heights in meters.</p>
+          <p class="step-desc">Switch to Mode 2. Click directly on the horizontal color band lines on your pillar (from top to bottom):</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; color:var(--text-muted);">Points List:</span>
+            <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px; background:#ef4444;" onclick="clearAllPoints()">🗑️ Clear All</button>
+          </div>
           <div class="points-list" id="pointsList">
             <!-- Dynamic Points -->
           </div>
@@ -376,6 +380,14 @@ HTML_PAGE = """<!DOCTYPE html>
       calData.points.splice(idx, 1);
       updatePointsList();
       draw();
+    }
+
+    function clearAllPoints() {
+      if (confirm('Clear all calibration points?')) {
+        calData.points = [];
+        updatePointsList();
+        draw();
+      }
     }
 
     async function saveCalibration() {
