@@ -210,6 +210,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         raw_water_level_m = max(0.0, round(water_level_raw - FLOOD_BASELINE, 3))
 
     if smoother is not None:
+        smoother.deadband_m = float(_cal.get("deadband_m", 0.035))
         smooth_y, smooth_m, confidence = smoother.process(waterline_y, raw_water_level_m)
         waterline_y = smooth_y
         water_level_m = max(0.0, smooth_m)
