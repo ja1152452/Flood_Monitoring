@@ -19,12 +19,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const { setAuth } = useAuthStore();
   const router = useRouter();
 
   const handleLogin = async () => {
+    setErrorMsg('');
     if (!email || !password) {
-      Toast.show({ type: 'error', text1: 'Please enter email and password' });
+      const msg = 'Please enter email and password';
+      setErrorMsg(msg);
+      Toast.show({ type: 'error', text1: 'Login Required', text2: msg });
       return;
     }
     setLoading(true);
@@ -34,7 +38,8 @@ export default function Login() {
       router.replace('/(tabs)');
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Network error';
-      Toast.show({ type: 'error', text1: msg, visibilityTime: 6000 });
+      setErrorMsg(msg);
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: msg, visibilityTime: 8000 });
     } finally {
       setLoading(false);
     }
@@ -83,6 +88,14 @@ export default function Login() {
               </Text>
               <Text style={styles.welcomeSub}>Sign in to your MDRRMO account</Text>
             </View>
+
+            {/* Inline Error Alert Box */}
+            {errorMsg ? (
+              <View style={styles.errorAlertBox}>
+                <Ionicons name="warning-outline" size={20} color="#dc2626" />
+                <Text style={styles.errorAlertText}>{errorMsg}</Text>
+              </View>
+            ) : null}
 
             {/* Email Field */}
             <Text style={styles.fieldLabel}>EMAIL ADDRESS</Text>
@@ -321,6 +334,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   createAccBtnText: { color: '#dc2626', fontSize: 15, fontWeight: '800' },
+
+  errorAlertBox: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fca5a5',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  errorAlertText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#991b1b',
+    lineHeight: 18,
+  },
 
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   footerText: { fontSize: 11, color: '#64748b', fontWeight: '600' },

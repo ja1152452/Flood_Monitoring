@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { View } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { requestNotificationPermission, getFCMToken, registerBackgroundFetch } from '../utils/notifications';
@@ -11,6 +11,77 @@ import { useResponderLocation } from '../hooks/useResponderLocation';
 import { useEmergencyNotifications } from '../hooks/useEmergencyNotifications';
 import { useRescueStatusNotifications } from '../hooks/useRescueStatusNotifications';
 import { queryClient } from '../utils/queryClient';
+
+const toastConfig = {
+  error: (props) => (
+    <ErrorToast
+      {...props}
+      style={{
+        borderLeftColor: '#dc2626',
+        backgroundColor: '#ffffff',
+        height: 'auto',
+        minHeight: 64,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        width: '92%',
+        borderRadius: 14,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 8 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#dc2626',
+      }}
+      text2Style={{
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1e293b',
+        lineHeight: 18,
+      }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={0}
+    />
+  ),
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{
+        borderLeftColor: '#16a34a',
+        backgroundColor: '#ffffff',
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        width: '92%',
+        borderRadius: 14,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 8 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#15803d',
+      }}
+      text2Style={{
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1e293b',
+        lineHeight: 18,
+      }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={0}
+    />
+  ),
+};
 
 function AppInit() {
   const { user, token, loadFromStorage } = useAuthStore();
@@ -48,7 +119,7 @@ export default function RootLayout() {
         <StatusBar style="light" />
         <AppInit />
         <Stack screenOptions={{ headerShown: false }} />
-        <Toast topOffset={60} />
+        <Toast config={toastConfig} topOffset={60} />
       </View>
     </QueryClientProvider>
   );
