@@ -57,6 +57,11 @@ def get_live_frame():
         if os.path.exists(img_path):
             frame = cv2.imread(img_path)
             if frame is not None and frame.size > 0:
+                # Auto-archive to dataset folder for AI training
+                dataset_dir = os.path.join(_DIR, "dataset", "raw_images")
+                os.makedirs(dataset_dir, exist_ok=True)
+                archive_name = f"cctv_frame_{int(time.time())}.jpg"
+                cv2.imwrite(os.path.join(dataset_dir, archive_name), frame)
                 return frame
 
     # 3. Try RTSP
