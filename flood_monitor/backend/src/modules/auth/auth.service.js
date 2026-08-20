@@ -80,23 +80,24 @@ const sendOtpEmail = async (email, otp, fullName) => {
         method: 'POST',
         headers: {
           'api-key': process.env.BREVO_API_KEY.trim(),
-          'Content-Type': 'application/json',
+          'content-type': 'application/json',
+          'accept': 'application/json',
         },
         body: JSON.stringify({
-          sender: { name: 'ResQConnect - Lumban MDRRMO', email: EMAIL_USER },
-          to: [{ email: email }],
+          sender: { name: 'ResQConnect - Lumban MDRRMO', email: EMAIL_USER || 'roelpacia54@gmail.com' },
+          to: [{ email: email, name: fullName || 'Resident' }],
           subject: 'ResQConnect - Email Verification Security Code',
           htmlContent: htmlContent,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        console.log('[BREVO API] Verification OTP sent via HTTPS:', email, 'ID:', data.messageId);
+        console.log('[BREVO API SUCCESS] Verification OTP email sent via HTTPS to:', email, 'ID:', data.messageId);
         return;
       }
-      console.error('[BREVO API Error]', data);
+      console.error('[BREVO API ERROR]', res.status, data);
     } catch (apiErr) {
-      console.error('[BREVO API Exception]', apiErr.message);
+      console.error('[BREVO API EXCEPTION]', apiErr.message);
     }
   }
 
@@ -127,7 +128,7 @@ const sendOtpEmail = async (email, otp, fullName) => {
     }
   }
 
-  // 2. Fallback to SMTP
+  // 3. Fallback to SMTP
   try {
     const transporter = getTransporter();
     const info = await transporter.sendMail({
@@ -139,7 +140,6 @@ const sendOtpEmail = async (email, otp, fullName) => {
     console.log('[EMAIL] Verification OTP email successfully sent to:', email, 'MessageID:', info.messageId);
   } catch (emailErr) {
     console.error('[EMAIL] Failed to send OTP email:', emailErr.message);
-    // Don't crash signup if cloud provider blocks SMTP ports
   }
 };
 
@@ -178,7 +178,7 @@ export const register = async (dto) => {
 
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified, otp_attempts, otp_last_sent_at)
-     VALUES ($1, $2, $3, $4, $5, true, true, 0, NOW())
+     VALUES ($1, $2, $3, $4, $5, false, false, 0, NOW())
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
     [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
@@ -192,11 +192,10 @@ export const register = async (dto) => {
     [otp, expiresAt, user.id]
   );
 
-  // Send email notification non-blockingly in background
-  sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
+  // Send OTP email via Brevo / Resend / SMTP
+  await sendOtpEmail(user.email, otp, user.full_name);
 
-  // Return autoVerified: true so signup is 100% instant and fail-proof
-  return { user, ...signTokens(user.id, user.role), autoVerified: true, otp };
+  return { user, ...signTokens(user.id, user.role), autoVerified: false };
 };
 
 export const verifyEmail = async (userId, otp, email) => {
