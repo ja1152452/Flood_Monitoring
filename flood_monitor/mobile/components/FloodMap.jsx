@@ -17,20 +17,20 @@ const RISK_CFG = {
 
 const BRGY_CENTERS = {
   'Bagong Silang': [14.2951, 121.4648],
-  'Balimbingan (Pob.)': [14.3002, 121.4603],
+  'Balimbingan': [14.3002, 121.4603],
   'Balubad': [14.2766, 121.4779],
   'Caliraya': [14.2968, 121.5562],
   'Concepcion': [14.2986, 121.4540],
   'Lewin': [14.3025, 121.5155],
-  'Maracta (Pob.)': [14.2985, 121.4597],
+  'Maracta': [14.2985, 121.4597],
   'Maytalang I': [14.2884, 121.4583],
   'Maytalang II': [14.2968, 121.4345],
-  'Primera Parang (Pob.)': [14.2924, 121.4613],
-  'Primera Pulo (Pob.)': [14.3013, 121.4601],
-  'Salac (Pob.)': [14.2954, 121.4607],
-  'Segunda Parang (Pob.)': [14.2942, 121.4607],
-  'Segunda Pulo (Pob.)': [14.3031, 121.4607],
-  'Santo Niño (Pob.)': [14.2969, 121.4597],
+  'Primera Parang': [14.2924, 121.4613],
+  'Primera Pulo': [14.3013, 121.4601],
+  'Salac': [14.2954, 121.4607],
+  'Segunda Parang': [14.2942, 121.4607],
+  'Segunda Pulo': [14.3031, 121.4607],
+  'Santo Niño': [14.2969, 121.4597],
   'Wawa': [14.3281, 121.4418],
 };
 

@@ -18,11 +18,10 @@ import { SirenBanner } from '../../components/SirenBanner';
 const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 const LUMBAN_BARANGAYS = [
-  'Bagong Silang', 'Balimbingan (Poblacion)', 'Brgy. 1 (Poblacion)',
-  'Brgy. 2 (Poblacion)', 'Caliraya', 'Concepcion',
-  'Lewin', 'Maracta (Poblacion)', 'Maytalang I',
-  'Maytalang II', 'Prima (Poblacion)', 'Santo Niño (Poblacion)',
-  'Salac (Poblacion)', 'Yunot', 'Vargas'
+  'Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya',
+  'Concepcion', 'Lewin', 'Maracta', 'Maytalang I',
+  'Maytalang II', 'Primera Parang', 'Primera Pulo', 'Salac',
+  'Segunda Parang', 'Segunda Pulo', 'Santo Niño', 'Wawa',
 ];
 
 export default function ProfileScreen() {

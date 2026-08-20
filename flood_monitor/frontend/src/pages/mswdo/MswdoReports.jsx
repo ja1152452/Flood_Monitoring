@@ -9,7 +9,7 @@ import api from '../../api/axios';
 
 const BARANGAYS = [
   'Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya', 'Concepcion',
-  'Lewin', 'Maracta', 'Maytalang I', 'Maytalang II', 'Poblacion',
+  'Lewin', 'Maracta', 'Maytalang I', 'Maytalang II',
   'Primera Parang', 'Primera Pulo', 'Salac', 'Segunda Parang',
   'Segunda Pulo', 'Santo Niño', 'Wawa',
 ];

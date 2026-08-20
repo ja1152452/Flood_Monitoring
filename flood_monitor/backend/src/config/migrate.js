@@ -430,28 +430,38 @@ async function migrate() {
     `);
     console.log('  OK indexes');
 
+    // Clean up outdated barangay names not in the official list
+    await client.query(`
+      DELETE FROM barangays
+      WHERE name NOT IN (
+        'Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya',
+        'Concepcion', 'Lewin', 'Maracta', 'Maytalang I',
+        'Maytalang II', 'Primera Parang', 'Primera Pulo', 'Salac',
+        'Segunda Parang', 'Segunda Pulo', 'Santo Niño', 'Wawa'
+      );
+    `);
+
     await client.query(`
       INSERT INTO barangays (name, risk_level, lat, lng) VALUES
-        ('Concepcion',               'VERY_HIGH', 14.1670, 121.4940),
-        ('Wawa',                     'VERY_HIGH', 14.1650, 121.4980),
         ('Bagong Silang',            'VERY_HIGH', 14.1660, 121.4960),
         ('Balimbingan',              'VERY_HIGH', 14.1700, 121.4950),
         ('Balubad',                  'VERY_HIGH', 14.1690, 121.4970),
+        ('Caliraya',                 'LOW',       14.1500, 121.5100),
+        ('Concepcion',               'VERY_HIGH', 14.1670, 121.4940),
+        ('Lewin',                    'MODERATE',  14.1720, 121.4930),
         ('Maracta',                  'VERY_HIGH', 14.1710, 121.4930),
+        ('Maytalang I',              'HIGH',      14.1600, 121.5010),
+        ('Maytalang II',             'MODERATE',  14.1590, 121.5020),
+        ('Primera Parang',           'HIGH',      14.1730, 121.4920),
         ('Primera Pulo',             'VERY_HIGH', 14.1680, 121.4945),
         ('Salac',                    'VERY_HIGH', 14.1720, 121.4955),
-        ('Segunda Pulo',             'VERY_HIGH', 14.1665, 121.4935),
-        ('Maytalang I',              'HIGH',      14.1600, 121.5010),
-        ('Primera Parang',           'HIGH',      14.1730, 121.4920),
         ('Segunda Parang',           'HIGH',      14.1740, 121.4910),
-        ('Maytalang II',             'MODERATE',  14.1590, 121.5020),
+        ('Segunda Pulo',             'VERY_HIGH', 14.1665, 121.4935),
         ('Santo Niño',               'MODERATE',  14.1750, 121.4900),
-        ('Lewin',                    'MODERATE',  14.1720, 121.4930),
-        ('Caliraya',                 'LOW',       14.1500, 121.5100),
-        ('Poblacion',                'VERY_HIGH', 14.1700, 121.4950)
-      ON CONFLICT (name) DO NOTHING;
+        ('Wawa',                     'VERY_HIGH', 14.1650, 121.4980)
+      ON CONFLICT (name) DO UPDATE SET risk_level = EXCLUDED.risk_level;
     `);
-    console.log('  OK barangays seed (16 barangays)');
+    console.log('  OK barangays seed (Official 16 barangays)');
 
     await client.query(`
       DELETE FROM emergency_contacts;

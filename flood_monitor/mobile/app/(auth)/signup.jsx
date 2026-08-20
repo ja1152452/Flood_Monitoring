@@ -17,7 +17,7 @@ const APP_BG = require('../../assets/images/lumban-bg.jpg');
 const BARANGAYS = [
   'Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya',
   'Concepcion', 'Lewin', 'Maracta', 'Maytalang I', 'Maytalang II',
-  'Poblacion', 'Primera Parang', 'Primera Pulo', 'Salac',
+  'Primera Parang', 'Primera Pulo', 'Salac',
   'Segunda Parang', 'Segunda Pulo', 'Santo Niño', 'Wawa',
 ];
 
