@@ -57,24 +57,44 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=3, max_jump_px=100):
+    def __init__(self, window_size=11, deadband_m=0.035, max_jump_px=120):
         self.window_size = window_size
+        self.deadband_m = deadband_m  # Ignore jitter < 3.5cm unless sustained
         self.max_jump_px = max_jump_px
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
+        self.last_stable_m = None
+        self.last_stable_y = None
 
     def process(self, raw_y, raw_m):
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
-        smooth_y = int(np.median(self.history_y))
-        smooth_m = round(float(np.median(self.history_m)), 3)
+        # Median filter removes sunlight glare spikes
+        median_y = int(np.median(self.history_y))
+        median_m = round(float(np.median(self.history_m)), 3)
+
+        if self.last_stable_m is None:
+            self.last_stable_m = median_m
+            self.last_stable_y = median_y
+
+        # Deadband / Hysteresis Filter: If change < 3.5cm, hold previous stable reading
+        if abs(median_m - self.last_stable_m) < self.deadband_m:
+            smooth_m = self.last_stable_m
+            smooth_y = self.last_stable_y
+        else:
+            # Sustained movement above 3.5cm -> update smoothly
+            alpha = 0.35  # Exponential moving average factor
+            smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
+            smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
+            self.last_stable_m = smooth_m
+            self.last_stable_y = smooth_y
 
         std_y = np.std(self.history_y) if len(self.history_y) > 1 else 0.0
-        stability = max(0.75, min(0.98, 1.0 - (std_y / 50.0)))
+        stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=0.035)
 
 YOLO_MODEL = None
 
