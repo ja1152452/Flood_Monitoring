@@ -162,6 +162,16 @@ export default function Analytics() {
     queryFn:  () => getAllReadings(CAMERA_ID_READINGS, wlParams),
   });
 
+  const processedWlHistory = useMemo(() => {
+    if (!Array.isArray(wlHistory) || wlHistory.length <= 250) return wlHistory;
+    const step = Math.ceil(wlHistory.length / 200);
+    const sampled = [];
+    for (let i = 0; i < wlHistory.length; i += step) {
+      sampled.push(wlHistory[i]);
+    }
+    return sampled;
+  }, [wlHistory]);
+
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation'],
     queryFn:  getEvacuationCenters,
@@ -466,7 +476,7 @@ export default function Analytics() {
             </button>
           </div>
         </div>
-        <WaterLevelChart data={wlHistory} floodLevel={wlFilter.flood_level} title={`Water Level History — ${wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`} />
+        <WaterLevelChart data={processedWlHistory} floodLevel={wlFilter.flood_level} title={`Water Level History — ${wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`} />
 
         {/* Detailed Water Level Readings Table */}
         <div className="mt-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
