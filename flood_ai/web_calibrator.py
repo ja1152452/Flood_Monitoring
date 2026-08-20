@@ -171,8 +171,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="toolbar">
           <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Box (ROI)</button>
           <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Drag Calibration Lines</button>
-          <button class="mode-btn" id="modeSampleBtn" onclick="setMode('sample')">3️⃣ Sample Water Color</button>
-          <button class="mode-btn" id="modeSetWaterBtn" onclick="setMode('set_water')" style="background:#0284c7; font-weight:bold;">💧 1-Click Set Water Line</button>
+          <button class="mode-btn" id="modeTrainBtn" onclick="setMode('train')" style="background:#8b5cf6; font-weight:bold;">🎯 Point & Train AI</button>
           <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh Frame</button>
         </div>
       </div>
@@ -304,7 +303,7 @@ HTML_PAGE = """<!DOCTYPE html>
         });
       }
 
-      // Draw Manual Yellow Flood Waterline if set
+      // Draw Manual/Trained Yellow Flood Waterline if set
       if (calData.manual_waterline_y) {
         const wy = calData.manual_waterline_y;
         ctx.strokeStyle = '#000000';
@@ -322,10 +321,10 @@ HTML_PAGE = """<!DOCTYPE html>
         ctx.stroke();
 
         ctx.fillStyle = '#000000';
-        ctx.fillRect(10, wy - 30, 290, 24);
+        ctx.fillRect(10, wy - 30, 310, 24);
         ctx.fillStyle = '#facc15';
         ctx.font = 'bold 15px Inter, sans-serif';
-        ctx.fillText('🟨 FLOOD WATERLINE (LOCKED HERE)', 16, wy - 13);
+        ctx.fillText('🟨 AI TRAINED FLOOD LEVEL (LOCKED)', 16, wy - 13);
       }
     }
 
@@ -340,16 +339,23 @@ HTML_PAGE = """<!DOCTYPE html>
         isDrawing = true;
         startX = x;
         startY = y;
-      } else if (mode === 'set_water') {
-        // 1-Click: Instantly set Yellow Flood Line to clicked Y
-        calData.manual_waterline_y = y;
-        draw();
-        saveCalibration();
-
-        const toast = document.getElementById('toast');
-        toast.innerText = `✓ Yellow Flood Line locked to clicked position (y=${y}px)!`;
-        toast.style.display = 'block';
-        setTimeout(() => toast.style.display = 'none', 4000);
+      } else if (mode === 'train') {
+        try {
+          const res = await fetch('/api/train_point', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: x, y: y })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            calData.manual_waterline_y = y;
+            draw();
+            const toast = document.getElementById('toast');
+            toast.innerText = `🎯 AI Trained & Calibrated on clicked water sample! (y=${y}px)`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 4000);
+          }
+        } catch(err) { alert('Training failed: ' + err); }
       } else if (mode === 'points') {
         // Check if clicking near an existing line to DRAG IT
         let foundIdx = -1;
@@ -375,21 +381,6 @@ HTML_PAGE = """<!DOCTYPE html>
             draw();
           }
         }
-      } else if (mode === 'sample') {
-        try {
-          const res = await fetch('/api/sample_water', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ x: x, y: y })
-          });
-          const data = await res.json();
-          if (data.status === 'ok') {
-            const toast = document.getElementById('toast');
-            toast.innerText = `✓ Water color sampled at (${x}, ${y})! HSV Range Saved.`;
-            toast.style.display = 'block';
-            setTimeout(() => toast.style.display = 'none', 4000);
-          }
-        } catch(err) { alert('Sample failed: ' + err); }
       }
     });
 
@@ -579,6 +570,41 @@ class CalibratorHandler(BaseHTTPRequestHandler):
                 }
                 save_cal(cal)
                 print(f"[SAMPLE] Clicked ({x},{y}) -> Sampled HSV: [{int(H)},{int(S)},{int(V)}] -> Saved Range: {cal['water_hsv_range']}")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+        elif parsed.path == "/api/train_point":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            data = json.loads(body.decode("utf-8"))
+            x = int(data.get("x", 0))
+            y = int(data.get("y", 0))
+
+            frame = get_live_frame()
+            h, w = frame.shape[:2]
+            cal = load_cal()
+
+            if 0 <= x < w and 0 <= y < h:
+                # 1. Sample 9x9 pixel patch for water HSV color profile
+                y1, y2 = max(0, y - 4), min(h, y + 5)
+                x1, x2 = max(0, x - 4), min(w, x + 5)
+                patch = frame[y1:y2, x1:x2]
+                hsv_patch = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+                avg_hsv = np.mean(hsv_patch, axis=(0, 1))
+                H, S, V = avg_hsv[0], avg_hsv[1], avg_hsv[2]
+
+                cal["water_hsv_range"] = {
+                    "lower": [max(0, int(H - 18)), max(0, int(S - 40)), max(0, int(V - 50))],
+                    "upper": [min(180, int(H + 18)), min(255, int(S + 40)), min(255, int(V + 50))]
+                }
+                
+                # 2. Save manual waterline Y position and auto-tune baseline
+                cal["manual_waterline_y"] = y
+                cal["baseline_pixel_y"] = y
+                save_cal(cal)
+                print(f"[TRAIN] Clicked ({x},{y}) -> Sampled HSV: [{int(H)},{int(S)},{int(V)}] -> Locked Waterline Y: {y}px")
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
