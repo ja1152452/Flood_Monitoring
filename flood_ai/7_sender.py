@@ -57,9 +57,9 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=11, deadband_m=0.035, max_jump_px=120):
+    def __init__(self, window_size=11, deadband_m=0.1, max_jump_px=120):
         self.window_size = window_size
-        self.deadband_m = deadband_m  # Ignore jitter < 3.5cm unless sustained
+        self.deadband_m = deadband_m  # Ignore jitter < 0.1m (10cm) unless sustained
         self.max_jump_px = max_jump_px
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
@@ -78,12 +78,12 @@ class WaterlineSmoother:
             self.last_stable_m = median_m
             self.last_stable_y = median_y
 
-        # Deadband / Hysteresis Filter: If change < 3.5cm, hold previous stable reading
+        # Deadband / Hysteresis Filter: If change < 0.1m (10cm), hold previous stable reading
         if abs(median_m - self.last_stable_m) < self.deadband_m:
             smooth_m = self.last_stable_m
             smooth_y = self.last_stable_y
         else:
-            # Sustained movement above 3.5cm -> update smoothly
+            # Sustained movement above 0.1m -> update smoothly
             alpha = 0.35  # Exponential moving average factor
             smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
             smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
@@ -94,7 +94,7 @@ class WaterlineSmoother:
         stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=0.035)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=0.1)
 
 YOLO_MODEL = None
 

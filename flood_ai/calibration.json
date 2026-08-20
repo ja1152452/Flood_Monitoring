@@ -49,6 +49,6 @@
   },
   "manual_waterline_y": 279,
   "sunlight_filter_enabled": true,
-  "deadband_m": 0.035,
+  "deadband_m": 0.1,
   "model_trained_status": "TRAINED_OK"
 }
