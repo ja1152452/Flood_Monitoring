@@ -10,31 +10,37 @@ cal_path = os.path.join(_DIR, "calibration.json")
 with open(cal_path) as f:
     cal = json.load(f)
 
-print("=== Lumban Flood Monitor — Interactive ROI Box Selector ===")
-print("Connecting to camera stream...")
+# 1. Check local snapshots first for instant calibration
+candidate_images = [
+    os.path.join(_DIR, "test_frame.jpg"),
+    os.path.join(_DIR, "..", "test_frame.jpg"),
+    os.path.join(_DIR, "live_debug_frame.jpg"),
+    os.path.join(_DIR, "capture_20260812_211910.jpg"),
+]
 
-frame = None
-try:
-    cap = cv2.VideoCapture(cal["rtsp_url"], cv2.CAP_FFMPEG)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+for img_path in candidate_images:
+    if os.path.exists(img_path):
+        frame = cv2.imread(img_path)
+        if frame is not None and frame.size > 0:
+            print(f"[INFO] Loaded snapshot: {os.path.abspath(img_path)}")
+            break
 
-    if cap.isOpened():
-        for _ in range(5):
-            cap.grab()
-        ret, frame = cap.retrieve()
-        cap.release()
-except Exception:
-    pass
-
-# Fallback to local snapshot if RTSP is busy
+# 2. If no local snapshot, try connecting to camera
 if frame is None:
-    test_img = os.path.join(_DIR, "test_frame.jpg")
-    if os.path.exists(test_img):
-        print(f"[INFO] Using saved snapshot {test_img} for calibration...")
-        frame = cv2.imread(test_img)
+    print("Connecting to camera stream...")
+    try:
+        cap = cv2.VideoCapture(cal.get("rtsp_url", ""), cv2.CAP_FFMPEG)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if cap.isOpened():
+            for _ in range(5):
+                cap.grab()
+            ret, frame = cap.retrieve()
+            cap.release()
+    except Exception:
+        pass
 
 if frame is None:
-    print("ERROR: Could not connect to camera or find test_frame.jpg.")
+    print("ERROR: Could not load any camera frame or snapshot.")
     exit(1)
 
 h, w = frame.shape[:2]
