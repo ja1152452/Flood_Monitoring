@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import json
 import os
 import time
@@ -27,13 +28,14 @@ def main():
     print("  [A]      : Toggle Auto-capture (every 5 seconds)")
     print("  [Q]      : Quit\n")
 
+    print("Connecting to RTSP Stream or Railway Cloud Feed...")
     cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
+    use_http_fallback = False
     if not cap.isOpened():
-        print(f"ERROR: Could not connect to {rtsp_url}")
-        print("Falling back to local camera / stream check...")
-        return
+        print("RTSP busy/offline. Falling back to Railway Cloud live snapshot feed...")
+        use_http_fallback = True
 
     auto_capture = False
     last_capture_time = 0
@@ -42,9 +44,29 @@ def main():
     cv2.namedWindow("AI Dataset Collector", cv2.WINDOW_NORMAL)
 
     while True:
-        ret, frame = cap.read()
-        if not ret or frame is None:
-            print("Warning: Frame drop. Reconnecting...")
+        frame = None
+        if not use_http_fallback:
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                use_http_fallback = True
+
+        if use_http_fallback or frame is None:
+            # Fallback to Railway live snapshot
+            try:
+                import requests
+                backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
+                r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=3)
+                if r.status_code == 200 and len(r.content) > 1000:
+                    arr = np.frombuffer(r.content, np.uint8)
+                    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            except Exception:
+                pass
+
+            if frame is None and os.path.exists(os.path.join(_DIR, "test_frame.jpg")):
+                frame = cv2.imread(os.path.join(_DIR, "test_frame.jpg"))
+
+        if frame is None:
+            print("Warning: Frame drop. Retrying in 1s...")
             time.sleep(1)
             continue
 
