@@ -171,6 +171,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="toolbar">
           <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Detection Box (ROI)</button>
           <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Click Height Points</button>
+          <button class="mode-btn" id="modeSampleBtn" onclick="setMode('sample')">3️⃣ Click Water to Sample Color</button>
           <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh Frame</button>
         </div>
       </div>
@@ -303,25 +304,40 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    canvas.addEventListener('mousedown', (e) => {
+    canvas.addEventListener('mousedown', async (e) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      const x = Math.round((e.clientX - rect.left) * scaleX);
+      const y = Math.round((e.clientY - rect.top) * scaleY);
 
       if (mode === 'roi') {
         isDrawing = true;
         startX = x;
         startY = y;
       } else if (mode === 'points') {
-        const heightStr = prompt(`Enter real water/meter height at y=${Math.round(y)}px (e.g. 4.0):`);
+        const heightStr = prompt(`Enter real water/meter height at y=${y}px (e.g. 4.0):`);
         if (heightStr && !isNaN(heightStr)) {
-          calData.points.push({ px: Math.round(y), m: parseFloat(heightStr) });
+          calData.points.push({ px: y, m: parseFloat(heightStr) });
           calData.points.sort((a, b) => a.px - b.px);
           updatePointsList();
           draw();
         }
+      } else if (mode === 'sample') {
+        try {
+          const res = await fetch('/api/sample_water', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: x, y: y })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            const toast = document.getElementById('toast');
+            toast.innerText = `✓ Water color sampled at (${x}, ${y})! HSV Range Saved.`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 4000);
+          }
+        } catch(err) { alert('Sample failed: ' + err); }
       }
     });
 
@@ -460,6 +476,43 @@ class CalibratorHandler(BaseHTTPRequestHandler):
                     cal["baseline_meters"] = round(float(np.polyval(coeffs, cal["baseline_pixel_y"])), 4)
             
             save_cal(cal)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+        elif parsed.path == "/api/sample_water":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            data = json.loads(body.decode("utf-8"))
+            x = int(data.get("x", 0))
+            y = int(data.get("y", 0))
+
+            frame = get_live_frame()
+            h, w = frame.shape[:2]
+            if 0 <= x < w and 0 <= y < h:
+                # Sample 9x9 pixel patch around click coordinate
+                y1, y2 = max(0, y - 4), min(h, y + 5)
+                x1, x2 = max(0, x - 4), min(w, x + 5)
+                patch = frame[y1:y2, x1:x2]
+                hsv_patch = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+                avg_hsv = np.mean(hsv_patch, axis=(0, 1))
+                H, S, V = avg_hsv[0], avg_hsv[1], avg_hsv[2]
+
+                h_min = max(0, int(H - 18))
+                h_max = min(180, int(H + 18))
+                s_min = max(0, int(S - 40))
+                s_max = min(255, int(S + 40))
+                v_min = max(0, int(V - 50))
+                v_max = min(255, int(V + 50))
+
+                cal = load_cal()
+                cal["water_hsv_range"] = {
+                    "lower": [h_min, s_min, v_min],
+                    "upper": [h_max, s_max, v_max]
+                }
+                save_cal(cal)
+                print(f"[SAMPLE] Clicked ({x},{y}) -> Sampled HSV: [{int(H)},{int(S)},{int(V)}] -> Saved Range: {cal['water_hsv_range']}")
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
