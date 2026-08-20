@@ -1,0 +1,15 @@
+[Unit]
+Description=Lumban Flood Monitoring AI Edge Telemetry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Flood_Monitoring/flood_ai
+ExecStart=/usr/bin/python3 /home/pi/Flood_Monitoring/flood_ai/7_sender.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

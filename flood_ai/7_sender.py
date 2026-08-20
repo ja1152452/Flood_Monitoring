@@ -219,16 +219,16 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         },
     }
 
-API_URL      = os.environ.get('BACKEND_URL', 'https://quiet-ideas-tease.loca.lt')
-CAMERA_CODE  = os.environ.get('CAMERA_CODE', 'CAM-LUMBAN-01')
-CAMERA_API_KEY = os.environ.get('CAMERA_API_KEY', 'Admin@1234')
-INTERVAL     = int(os.environ.get('INTERVAL', '2'))
-RTSP_URL_ENV = os.environ.get('RTSP_URL', '')
+API_URL        = os.environ.get('BACKEND_URL', CAL.get('backend_url', 'https://flood-backend-production.up.railway.app')).rstrip('/')
+CAMERA_CODE    = os.environ.get('CAMERA_CODE', CAL.get('camera_code', 'CAM-LUMBAN-01'))
+CAMERA_API_KEY = os.environ.get('CAMERA_API_KEY', CAL.get('camera_api_key', 'Admin@1234'))
+INTERVAL       = int(os.environ.get('INTERVAL', str(CAL.get('interval', 2))))
+RTSP_URL_ENV   = os.environ.get('RTSP_URL', '')
 
 if RTSP_URL_ENV:
     RTSP_URL = RTSP_URL_ENV
-EMAIL        = "mdrrmo@lumban.gov.ph"
-PASSWORD     = "Admin@1234"
+EMAIL        = CAL.get('admin_email', "mdrrmo@lumban.gov.ph")
+PASSWORD     = CAL.get('admin_password', "Admin@1234")
 LOG_FILE     = os.path.join(_DIR, "sender_log.csv")
 
 def get_token():
