@@ -19,16 +19,13 @@ def save_cal(data):
 def train_light_model():
     print("=== LUMBAN FLOOD MONITORING - AUTOMATED AI TRAINER ===")
 
+    import glob
     cal = load_cal()
-    candidate_images = [
-        os.path.join(_DIR, "test_frame.jpg"),
-        os.path.join(_DIR, "..", "test_frame.jpg"),
-        os.path.join(_DIR, "live_debug_frame.jpg"),
-        os.path.join(_DIR, "capture_20260812_211910.jpg")
-    ]
+    dataset_dir = os.path.join(_DIR, "dataset", "raw_images")
+    raw_files = glob.glob(os.path.join(dataset_dir, "*.jpg")) + glob.glob(os.path.join(_DIR, "*.jpg"))
 
     frames = []
-    for p in candidate_images:
+    for p in raw_files:
         if os.path.exists(p):
             f = cv2.imread(p)
             if f is not None and f.size > 0:
