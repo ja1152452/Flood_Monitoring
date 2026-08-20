@@ -4,22 +4,26 @@ import nodemailer from 'nodemailer';
 import { query } from '../../config/db.js';
 import { ApiError } from '../../utils/ApiError.js';
 
-const EMAIL_USER = process.env.EMAIL_USER || 'jayzelyasona23@gmail.com';
-const EMAIL_PASS = process.env.EMAIL_PASS || 'vwnrbcswsbufmebo';
+const EMAIL_USER = process.env.EMAIL_USER || 'roelpacia54@gmail.com';
+const EMAIL_PASS = (process.env.EMAIL_PASS || 'umepkdsenooeaxlx').replace(/\s+/g, '');
 const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
 const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 587;
 
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: false,
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  });
+};
+
 const sendOtpEmail = async (email, otp, fullName) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: EMAIL_HOST,
-      port: EMAIL_PORT,
-      secure: false,
-      auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    });
+    const transporter = getTransporter();
     await transporter.sendMail({
       from: `"ResQConnect - Lumban MDRRMO" <${EMAIL_USER}>`,
       to: email,
@@ -296,8 +300,9 @@ export const forgotPassword = async (email) => {
     [otp, expiresAt, user.id]
   );
 
+  const transporter = getTransporter();
   await transporter.sendMail({
-    from: `"ResQConnect" <${process.env.EMAIL_USER}>`,
+    from: `"ResQConnect" <${EMAIL_USER}>`,
     to: user.email,
     subject: 'ResQConnect - Password Reset Verification Code',
     html: `
