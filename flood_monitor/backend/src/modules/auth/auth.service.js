@@ -285,7 +285,17 @@ export const resendOtp = async (userId, email) => {
   sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
 };
 
+const loginAttemptsMap = new Map();
+
 export const login = async (dto) => {
+  const emailKey = dto.email.toLowerCase().trim();
+  const attemptData = loginAttemptsMap.get(emailKey) || { count: 0, lockedUntil: 0 };
+
+  if (attemptData.lockedUntil && Date.now() < attemptData.lockedUntil) {
+    const remainingSec = Math.ceil((attemptData.lockedUntil - Date.now()) / 1000);
+    throw ApiError.tooManyRequests(`Too many failed login attempts (5/5). Account locked for ${remainingSec} seconds. Please wait 2 minutes before trying again.`);
+  }
+
   const { rows } = await query(
     `SELECT u.id, u.email, u.role, u.password_hash, u.full_name, u.is_active,
             u.phone_number, u.evacuation_center_id, u.barangay_id,
@@ -296,15 +306,30 @@ export const login = async (dto) => {
      LEFT JOIN barangays b ON b.id = u.barangay_id
      LEFT JOIN evacuation_centers ec ON ec.id = u.evacuation_center_id
      WHERE u.email = $1`,
-    [dto.email.toLowerCase()]
+    [emailKey]
   );
   const user = rows[0];
-  if (!user)                  throw ApiError.unauthorized('Invalid email or password');
+  if (!user) throw ApiError.unauthorized('Invalid email or password');
   if (!user.is_active && !user.email_verified) throw ApiError.forbidden('Please verify your email before logging in');
-  if (!user.is_active)        throw ApiError.forbidden('Your account has been deactivated. Contact the administrator.');
+  if (!user.is_active) throw ApiError.forbidden('Your account has been deactivated. Contact the administrator.');
 
   const valid = await bcrypt.compare(dto.password, user.password_hash);
-  if (!valid) throw ApiError.unauthorized('Invalid credentials');
+  if (!valid) {
+    const currentCount = (attemptData.lockedUntil && Date.now() >= attemptData.lockedUntil) ? 0 : attemptData.count;
+    const newCount = currentCount + 1;
+    if (newCount >= 5) {
+      const lockTime = Date.now() + 2 * 60 * 1000; // 2 minutes break
+      loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: lockTime });
+      throw ApiError.tooManyRequests('Maximum login attempts exceeded (5/5). Your account is temporarily locked for 2 minutes. Please try again later.');
+    } else {
+      loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: 0 });
+      const remaining = 5 - newCount;
+      throw ApiError.unauthorized(`Invalid credentials. ${remaining} attempt(s) remaining before a 2-minute lockout.`);
+    }
+  }
+
+  // Clear failed attempts on successful login
+  loginAttemptsMap.delete(emailKey);
 
   const { password_hash: _, ...safeUser } = user;
   return { user: safeUser, ...signTokens(user.id, user.role) };
@@ -447,15 +472,37 @@ export const updateProfile = async (userId, dto) => {
   let pi = 1;
   if (dto.full_name    !== undefined) { fields.push(`full_name = $${pi++}`);    values.push(dto.full_name); }
   if (dto.phone_number !== undefined) { fields.push(`phone_number = $${pi++}`); values.push(dto.phone_number || null); }
+
+  if (dto.barangay !== undefined || dto.barangay_id !== undefined) {
+    let barangayId = dto.barangay_id || null;
+    const brgyName = dto.barangay ? dto.barangay.trim() : null;
+    if (brgyName && !barangayId) {
+      const { rows: brgy } = await query(
+        'SELECT id FROM barangays WHERE name ILIKE $1 LIMIT 1',
+        [brgyName]
+      );
+      if (brgy.length) barangayId = brgy[0].id;
+    }
+    fields.push(`barangay_id = $${pi++}`);
+    values.push(barangayId);
+  }
+
   if (!fields.length) throw ApiError.badRequest('Nothing to update');
   values.push(userId);
-  const { rows } = await query(
-    `UPDATE users SET ${fields.join(', ')}, updated_at = NOW()
-     WHERE id = $${pi}
-     RETURNING id, email, full_name, phone_number, role, barangay_id`,
+  await query(
+    `UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${pi}`,
     values
   );
-  return rows[0];
+
+  const { rows: fullUser } = await query(
+    `SELECT u.id, u.email, u.full_name, u.phone_number, u.role, u.barangay_id, u.avatar_url,
+            b.name AS barangay_name
+     FROM users u
+     LEFT JOIN barangays b ON b.id = u.barangay_id
+     WHERE u.id = $1`,
+    [userId]
+  );
+  return fullUser[0];
 };
 
 export const updateAvatar = async (userId, filename) => {

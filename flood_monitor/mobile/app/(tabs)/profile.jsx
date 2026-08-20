@@ -17,6 +17,14 @@ import { SirenBanner } from '../../components/SirenBanner';
 
 const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
+const LUMBAN_BARANGAYS = [
+  'Bagong Silang', 'Balimbingan (Poblacion)', 'Brgy. 1 (Poblacion)',
+  'Brgy. 2 (Poblacion)', 'Caliraya', 'Concepcion',
+  'Lewin', 'Maracta (Poblacion)', 'Maytalang I',
+  'Maytalang II', 'Prima (Poblacion)', 'Santo Niño (Poblacion)',
+  'Salac (Poblacion)', 'Yunot', 'Vargas'
+];
+
 export default function ProfileScreen() {
   const { user, setAuth, logout } = useAuthStore();
   const router = useRouter();
@@ -27,6 +35,8 @@ export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [phone, setPhone] = useState(user?.phone_number || '');
+  const [selectedBarangay, setSelectedBarangay] = useState(user?.barangay_name || 'Balimbingan (Poblacion)');
+  const [showBarangayModal, setShowBarangayModal] = useState(false);
 
   // Change password state
   const [currentPwd, setCurrentPwd] = useState('');
@@ -111,6 +121,7 @@ export default function ProfileScreen() {
         Toast.show({ type: 'error', text1: 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)' }); return;
       }
       payload.phone_number = trimmedPhone || null;
+      payload.barangay = selectedBarangay;
     }
     profileMutation.mutate(payload);
   };
@@ -234,6 +245,25 @@ export default function ProfileScreen() {
                   />
                 </View>
                 <Text style={s.hintSubText}>Format: Exactly 11 digits starting with 09 (e.g. 09171234567)</Text>
+
+                {/* BARANGAY SELECTION */}
+                <Text style={[s.fieldLabel, { marginTop: 12 }]}>BARANGAY (LUMBAN)</Text>
+                <TouchableOpacity
+                  style={[s.inputGroupRow, !isEditing && { backgroundColor: '#f1f5f9' }]}
+                  onPress={() => isEditing && setShowBarangayModal(true)}
+                  disabled={!isEditing}
+                  activeOpacity={0.8}>
+                  <View style={s.inputIconBox}>
+                    <Ionicons name="location-outline" size={18} color="#dc2626" style={{ textAlign: 'center' }} />
+                  </View>
+                  <Text style={[s.textInput, { flex: 1, paddingTop: 12, color: selectedBarangay ? '#0f172a' : '#94a3b8' }]}>
+                    {selectedBarangay || 'Select Barangay'}
+                  </Text>
+                  {isEditing && (
+                    <Ionicons name="chevron-down-outline" size={18} color="#dc2626" style={{ marginRight: 12 }} />
+                  )}
+                </TouchableOpacity>
+                <Text style={s.hintSubText}>Select your Barangay in Lumban, Laguna</Text>
               </>
             )}
 
@@ -384,6 +414,48 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Barangay Selection Modal */}
+      <Modal visible={showBarangayModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>Select Barangay (Lumban)</Text>
+              <TouchableOpacity onPress={() => setShowBarangayModal(false)}>
+                <Ionicons name="close-circle-outline" size={26} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }}>
+              {LUMBAN_BARANGAYS.map((bName) => (
+                <TouchableOpacity
+                  key={bName}
+                  style={{
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    backgroundColor: selectedBarangay === bName ? '#fee2e2' : '#f8fafc',
+                    marginBottom: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justify: 'space-between',
+                  }}
+                  onPress={() => {
+                    setSelectedBarangay(bName);
+                    setShowBarangayModal(false);
+                  }}>
+                  <Text style={{ fontSize: 15, fontWeight: selectedBarangay === bName ? '800' : '600', color: selectedBarangay === bName ? '#dc2626' : '#334155' }}>
+                    {bName}
+                  </Text>
+                  {selectedBarangay === bName && (
+                    <Ionicons name="checkmark-circle" size={20} color="#dc2626" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

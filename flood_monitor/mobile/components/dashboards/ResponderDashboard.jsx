@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
-import { getPendingSOS, respondSOS, declineSOS, completeSOS, getResponderLocations, requestBackup, updateResponderStatus } from '../../api/sos';
+import { getPendingSOS, respondSOS, declineSOS, completeSOS, getResponderLocations, requestBackup, updateResponderStatus, getBackupHistory } from '../../api/sos';
 import { ResponderMap, BarangaySosMap } from '../FloodMap';
 import { getActiveAlerts } from '../../api/alerts';
 import { getLatestReading, getRateOfRise } from '../../api/readings';
@@ -501,6 +501,14 @@ export function ResponderDashboard({ user, onLogout }) {
 
   const availCfg = AVAILABILITY_LABELS[currentDuty] || AVAILABILITY_LABELS.AVAILABLE;
 
+  const [showBackupModal, setShowBackupModal] = useState(false);
+
+  const { data: backupHistory = [] } = useQuery({
+    queryKey: ['backup-history'],
+    queryFn: getBackupHistory,
+    refetchInterval: 10000,
+  });
+
   return (
     <View style={s.container}>
       {/* 1. Agency Role Curved Top Header (Resident App Inspired) */}
@@ -561,8 +569,18 @@ export function ResponderDashboard({ user, onLogout }) {
             <ResponderMap responders={responders} sosList={all} height={300} currentUser={user} userLocation={userLocation} />
           </View>
 
-          {/* Active Rescue Requests List */}
-          <Text style={s.sectionHeaderTitle}>🆘 Active Rescue Requests ({all.length})</Text>
+          {/* Active Rescue Requests List & Backup History Button */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
+            <Text style={[s.sectionHeaderTitle, { marginTop: 0, marginBottom: 0 }]}>🆘 Active Rescue Requests ({all.length})</Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              onPress={() => setShowBackupModal(true)}>
+              <Ionicons name="shield-half-outline" size={14} color="#f59e0b" />
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#ffffff' }}>
+                Backup History ({backupHistory.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {all.length === 0 ? (
             <View style={s.emptyBox}>
@@ -595,6 +613,80 @@ export function ResponderDashboard({ user, onLogout }) {
           )}
         </View>
       </ScrollView>
+
+      {/* Responder Backup Request History Modal */}
+      <Modal visible={showBackupModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="shield-half" size={22} color="#d97706" />
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>Responder Backup History</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowBackupModal(false)}>
+                <Ionicons name="close-circle-outline" size={26} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 420 }}>
+              {backupHistory.length === 0 ? (
+                <View style={{ padding: 30, alignItems: 'center' }}>
+                  <Ionicons name="folder-open-outline" size={36} color="#94a3b8" />
+                  <Text style={{ fontSize: 14, color: '#64748b', marginTop: 8, fontWeight: '600' }}>No backup request records found</Text>
+                </View>
+              ) : (
+                backupHistory.map(bk => (
+                  <View key={bk.id} style={{ backgroundColor: '#f8fafc', borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#fde047' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309' }}>
+                          TARGET ROLE: {bk.target_role || 'ANY RESPONDER'}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '600' }}>{formatDateTime(bk.created_at)}</Text>
+                    </View>
+
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#0f172a' }}>
+                      Requester: {bk.requester_name} ({bk.requester_role})
+                    </Text>
+                    {bk.requester_phone && (
+                      <Text style={{ fontSize: 12, color: '#475569' }}>Contact: {bk.requester_phone}</Text>
+                    )}
+
+                    {bk.assigned_responder_name ? (
+                      <View style={{ backgroundColor: '#f0fdf4', padding: 8, borderRadius: 8, marginTop: 6, borderWidth: 1, borderColor: '#bbf7d0' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: '#16a34a' }}>
+                          Assigned Backup Unit: {bk.assigned_responder_name} ({bk.assigned_responder_role})
+                        </Text>
+                        {bk.assigned_responder_phone && (
+                          <Text style={{ fontSize: 11, color: '#15803d' }}>Phone: {bk.assigned_responder_phone}</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 12, color: '#ea580c', fontWeight: '700', marginTop: 4 }}>
+                        Status: {bk.status || 'ACTIVE'} · Awaiting MDRRMO Backup Assignment
+                      </Text>
+                    )}
+
+                    {bk.message && (
+                      <Text style={{ fontSize: 12, color: '#334155', fontStyle: 'italic', marginTop: 6, backgroundColor: '#ffffff', padding: 8, borderRadius: 6 }}>
+                        "{bk.message}"
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                      <Ionicons name="location" size={13} color="#dc2626" />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#475569' }}>
+                        Location: {bk.barangay_name || 'Lumban'} ({Number(bk.lat).toFixed(4)}, {Number(bk.lng).toFixed(4)})
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

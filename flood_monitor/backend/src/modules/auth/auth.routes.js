@@ -61,6 +61,8 @@ router.patch('/profile',
     phone_number: Joi.string().pattern(/^09\d{9}$/).allow('', null).optional().messages({
       'string.pattern.base': 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)',
     }),
+    barangay: Joi.string().allow('', null).optional(),
+    barangay_id: Joi.string().uuid().allow('', null).optional(),
   })),
   controller.updateProfile
 );
