@@ -297,22 +297,21 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ChartCard title="Users per Barangay" sub="Residents and responders breakdown">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={barangayChartData} margin={{ top: 10, right: 10, left: 0, bottom: 65 }}>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={barangayChartData} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
               <XAxis
                 dataKey="name"
-                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-                angle={-35}
+                tick={{ fill: '#64748b', fontSize: 10 }}
+                angle={-45}
                 textAnchor="end"
                 interval={0}
-                height={60}
               />
               <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
               <Tooltip {...TOOLTIP_STYLE} />
-              <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 15, fontSize: 12 }} />
-              <Bar dataKey="residents" name="Residents"  fill="#3b82f6" radius={[4,4,0,0]} />
-              <Bar dataKey="rescuers"  name="Responders" fill="#22c55e" radius={[4,4,0,0]} />
+              <Legend wrapperStyle={{ color: '#64748b', fontSize: 12, paddingTop: 8 }} />
+              <Bar dataKey="residents" name="Residents"  fill="#3b82f6" radius={[3,3,0,0]} />
+              <Bar dataKey="rescuers"  name="Responders" fill="#22c55e" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -369,22 +368,21 @@ export default function Analytics() {
               No SOS data yet
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={sosBarangayChart} margin={{ top: 10, right: 10, left: 0, bottom: 65 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={sosBarangayChart} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-                  angle={-35}
+                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  angle={-45}
                   textAnchor="end"
                   interval={0}
-                  height={60}
                 />
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                 <Tooltip {...TOOLTIP_STYLE} />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 15, fontSize: 12 }} />
-                <Bar dataKey="total"    name="Total SOS"  fill="#ef4444" radius={[4,4,0,0]} />
-                <Bar dataKey="resolved" name="Resolved"   fill="#22c55e" radius={[4,4,0,0]} />
+                <Legend wrapperStyle={{ color: '#64748b', fontSize: 12, paddingTop: 8 }} />
+                <Bar dataKey="total"    name="Total SOS"  fill="#ef4444" radius={[3,3,0,0]} />
+                <Bar dataKey="resolved" name="Resolved"   fill="#22c55e" radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -396,17 +394,17 @@ export default function Analytics() {
               No SOS data in the last 30 days
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={timelineData} margin={{ top: 10, right: 15, left: 0, bottom: 25 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={timelineData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} />
                 <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                 <Tooltip {...TOOLTIP_STYLE} />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 15, fontSize: 12 }} />
+                <Legend wrapperStyle={{ color: '#64748b', fontSize: 12 }} />
                 <Line type="monotone" dataKey="total"    name="Total SOS"
-                  stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: '#ef4444' }} activeDot={{ r: 6 }} />
+                  stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }} />
                 <Line type="monotone" dataKey="resolved" name="Resolved"
-                  stroke="#22c55e" strokeWidth={2.5} dot={{ r: 4, fill: '#22c55e' }} activeDot={{ r: 6 }} />
+                  stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
               </LineChart>
             </ResponsiveContainer>
           )}
