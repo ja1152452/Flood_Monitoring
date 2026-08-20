@@ -31,9 +31,36 @@ def save_cal(cal):
 
 def get_live_frame():
     cal = load_cal()
+    backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
+
+    # 1. Try fetching live snapshot from Railway backend
+    try:
+        import requests
+        r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=3)
+        if r.status_code == 200 and len(r.content) > 1000:
+            arr = np.frombuffer(r.content, np.uint8)
+            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if frame is not None and frame.size > 0:
+                cv2.imwrite(os.path.join(_DIR, "test_frame.jpg"), frame)
+                return frame
+    except Exception:
+        pass
+
+    # 2. Check local image candidates
+    candidate_images = [
+        os.path.join(_DIR, "..", "test_frame.jpg"),
+        os.path.join(_DIR, "test_frame.jpg"),
+        os.path.join(_DIR, "live_debug_frame.jpg"),
+        os.path.join(_DIR, "capture_20260812_211910.jpg"),
+    ]
+    for img_path in candidate_images:
+        if os.path.exists(img_path):
+            frame = cv2.imread(img_path)
+            if frame is not None and frame.size > 0:
+                return frame
+
+    # 3. Try RTSP
     rtsp_url = cal.get("rtsp_url", "")
-    
-    # 1. Try RTSP
     if rtsp_url:
         try:
             cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
@@ -49,12 +76,7 @@ def get_live_frame():
         except Exception:
             pass
 
-    # 2. Fallback to saved test frame
-    test_img = os.path.join(_DIR, "test_frame.jpg")
-    if os.path.exists(test_img):
-        return cv2.imread(test_img)
-        
-    # 3. Create dummy canvas if all else fails
+    # 4. Create dummy canvas if all else fails
     blank = np.zeros((720, 1280, 3), dtype=np.uint8)
     cv2.putText(blank, "Camera Offline. Check RTSP URL.", (300, 360), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
     return blank
