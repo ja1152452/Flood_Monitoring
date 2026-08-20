@@ -169,10 +169,10 @@ HTML_PAGE = """<!DOCTYPE html>
           <canvas id="canvas"></canvas>
         </div>
         <div class="toolbar">
-          <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Detection Box (ROI)</button>
-          <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Click Height Points</button>
+          <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Box (ROI)</button>
+          <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Drag Calibration Lines</button>
           <button class="mode-btn" id="modeSampleBtn" onclick="setMode('sample')">3️⃣ Sample Water Color</button>
-          <button class="mode-btn" id="modeWaterlineBtn" onclick="setMode('waterline')" style="background:#059669;">🎯 4️⃣ Point Real Waterline</button>
+          <button class="mode-btn" id="modeSetWaterBtn" onclick="setMode('set_water')" style="background:#0284c7; font-weight:bold;">💧 1-Click Set Water Line</button>
           <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh Frame</button>
         </div>
       </div>
@@ -303,6 +303,30 @@ HTML_PAGE = """<!DOCTYPE html>
           ctx.fillText(p.m.toFixed(2) + 'm', w / 2 + 16, py + 4);
         });
       }
+
+      // Draw Manual Yellow Flood Waterline if set
+      if (calData.manual_waterline_y) {
+        const wy = calData.manual_waterline_y;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(0, wy);
+        ctx.lineTo(w, wy);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#facc15'; // Bright Yellow
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, wy);
+        ctx.lineTo(w, wy);
+        ctx.stroke();
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(10, wy - 30, 290, 24);
+        ctx.fillStyle = '#facc15';
+        ctx.font = 'bold 15px Inter, sans-serif';
+        ctx.fillText('🟨 FLOOD WATERLINE (LOCKED HERE)', 16, wy - 13);
+      }
     }
 
     canvas.addEventListener('mousedown', async (e) => {
@@ -316,6 +340,16 @@ HTML_PAGE = """<!DOCTYPE html>
         isDrawing = true;
         startX = x;
         startY = y;
+      } else if (mode === 'set_water') {
+        // 1-Click: Instantly set Yellow Flood Line to clicked Y
+        calData.manual_waterline_y = y;
+        draw();
+        saveCalibration();
+
+        const toast = document.getElementById('toast');
+        toast.innerText = `✓ Yellow Flood Line locked to clicked position (y=${y}px)!`;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 4000);
       } else if (mode === 'points') {
         // Check if clicking near an existing line to DRAG IT
         let foundIdx = -1;
@@ -340,21 +374,6 @@ HTML_PAGE = """<!DOCTYPE html>
             updatePointsList();
             draw();
           }
-        }
-      } else if (mode === 'waterline') {
-        const heightStr = prompt(`Target Real Waterline: Enter current real flood height at y=${y}px (e.g. 2.029):`, '2.029');
-        if (heightStr && !isNaN(heightStr)) {
-          const val = parseFloat(heightStr);
-          calData.points = calData.points.filter(p => Math.abs(p.px - y) > 5);
-          calData.points.push({ px: y, m: val });
-          calData.points.sort((a, b) => a.px - b.px);
-          updatePointsList();
-          draw();
-
-          const toast = document.getElementById('toast');
-          toast.innerText = `🎯 Target Real Waterline set at y=${y}px -> ${val.toFixed(3)}m!`;
-          toast.style.display = 'block';
-          setTimeout(() => toast.style.display = 'none', 4000);
         }
       } else if (mode === 'sample') {
         try {
