@@ -205,6 +205,7 @@ function CitizenSOSView({ qc, user }) {
   const [location, setLocation] = useState(null);
   const [sending, setSending] = useState(false);
   const [recommended, setRecommended] = useState([]);
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   const fetchCurrentLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -559,11 +560,16 @@ function CitizenSOSView({ qc, user }) {
                 const rescuerName = req.assigned_responder_name || (req.dispatched_responders?.[0]?.full_name);
                 const rescuerRole = req.assigned_responder_role || (req.dispatched_responders?.[0]?.role) || 'Rescue Unit';
                 const rescuerPhone = req.assigned_responder_phone || (req.dispatched_responders?.[0]?.phone_number);
+                const isExpanded = expandedHistoryId === req.id;
 
                 return (
-                  <View key={req.id} style={styles.historyItemCard}>
+                  <TouchableOpacity
+                    key={req.id}
+                    style={[styles.historyItemCard, isExpanded && { borderColor: '#dc2626', borderWidth: 1.5 }]}
+                    onPress={() => setExpandedHistoryId(isExpanded ? null : req.id)}
+                    activeOpacity={0.88}>
                     {/* Header Row */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                       <View style={[
                         styles.historyStatusBadge,
                         isResolved ? { backgroundColor: '#dcfce7', borderColor: '#86efac' } :
@@ -583,55 +589,87 @@ function CitizenSOSView({ qc, user }) {
                         </Text>
                       </View>
 
-                      <Text style={styles.historyTime}>{formatDateTime(req.created_at)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.historyTime}>{formatDateTime(req.created_at)}</Text>
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle'}
+                          size={18}
+                          color={isExpanded ? '#dc2626' : '#94a3b8'}
+                        />
+                      </View>
                     </View>
 
-                    {/* Where (Location & Barangay) */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    {/* Summary Row (Always Visible) */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Ionicons name="location" size={15} color="#dc2626" />
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e293b' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e293b', flex: 1 }}>
                         Where: <Text style={{ fontWeight: '500', color: '#334155' }}>
-                          {req.barangay_name || 'Lumban'}, Laguna ({req.lat ? `${Number(req.lat).toFixed(4)}, ${Number(req.lng).toFixed(4)}` : 'GPS Coordinates'})
+                          {req.barangay_name || 'Lumban'}, Laguna
                         </Text>
                       </Text>
                     </View>
 
-                    {/* Who Rescued Them */}
-                    {isResolved && rescuerName ? (
-                      <View style={{ backgroundColor: '#f0fdf4', padding: 10, borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: '#bbf7d0' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                            <Ionicons name="shield-checkmark" size={18} color="#16a34a" />
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 12, fontWeight: '800', color: '#15803d' }}>
-                                Rescued By: {rescuerName} ({rescuerRole})
-                              </Text>
-                              {req.resolved_at && (
-                                <Text style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>
-                                  When: Safe & Rescued at {formatDateTime(req.resolved_at)}
-                                </Text>
+                    {/* Expandable Details Body */}
+                    {isExpanded && (
+                      <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+                        {/* Coordinates */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          <Ionicons name="navigate-outline" size={14} color="#64748b" />
+                          <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>
+                            GPS Coordinates: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{req.lat ? `${Number(req.lat).toFixed(4)}, ${Number(req.lng).toFixed(4)}` : 'Not available'}</Text>
+                          </Text>
+                        </View>
+
+                        {/* Message / Notes if present */}
+                        {req.message ? (
+                          <View style={{ backgroundColor: '#f8fafc', padding: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#475569', marginBottom: 2 }}>Emergency Note:</Text>
+                            <Text style={{ fontSize: 12, color: '#1e293b' }}>{req.message}</Text>
+                          </View>
+                        ) : null}
+
+                        {/* Who Rescued Them Details Box */}
+                        {isResolved && rescuerName ? (
+                          <View style={{ backgroundColor: '#f0fdf4', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#bbf7d0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                                <Ionicons name="shield-checkmark" size={20} color="#16a34a" />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#15803d' }}>
+                                    Rescued By: {rescuerName}
+                                  </Text>
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534', marginTop: 1 }}>
+                                    Role: {rescuerRole}
+                                  </Text>
+                                  {req.resolved_at && (
+                                    <Text style={{ fontSize: 11, color: '#166534', marginTop: 3 }}>
+                                      When: Safe & Rescued at {formatDateTime(req.resolved_at)}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                              {rescuerPhone && (
+                                <TouchableOpacity
+                                  style={{ backgroundColor: '#16a34a', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                                  onPress={() => Linking.openURL(`tel:${rescuerPhone}`)}>
+                                  <Ionicons name="call" size={13} color="#fff" />
+                                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>Call</Text>
+                                </TouchableOpacity>
                               )}
                             </View>
                           </View>
-                          {rescuerPhone && (
-                            <TouchableOpacity
-                              style={{ backgroundColor: '#16a34a', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
-                              onPress={() => Linking.openURL(`tel:${rescuerPhone}`)}>
-                              <Ionicons name="call" size={12} color="#fff" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                        ) : isCancelled ? (
+                          <Text style={{ fontSize: 12, fontStyle: 'italic', color: '#94a3b8' }}>
+                            Request was cancelled by resident.
+                          </Text>
+                        ) : (
+                          <Text style={{ fontSize: 12, color: '#0284c7', fontWeight: '600' }}>
+                            ⏳ Rescue Operation Active · Command Center Monitoring
+                          </Text>
+                        )}
                       </View>
-                    ) : isCancelled ? (
-                      <Text style={{ fontSize: 12, fontStyle: 'italic', color: '#94a3b8', marginTop: 4 }}>
-                        Request was cancelled by resident.
-                      </Text>
-                    ) : (
-                      <Text style={{ fontSize: 12, color: '#0284c7', fontWeight: '600', marginTop: 4 }}>
-                        ⏳ Rescue Operation Active · Command Center Monitoring
-                      </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
