@@ -1,6 +1,6 @@
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, Image,
+  TextInput, Alert, ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -438,7 +438,7 @@ export default function ProfileScreen() {
                     marginBottom: 8,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                   }}
                   onPress={() => {
                     setSelectedBarangay(bName);
