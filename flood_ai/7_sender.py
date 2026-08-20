@@ -150,45 +150,39 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         except Exception as err:
             print(f"[AI Predict Warning] {err}")
 
-    # --- 2. FALLBACK: SHADOW-PROOF BOTTOM-UP SATURATION & COLOR DETECTOR ---
+    # --- 2. FALLBACK: SUNLIGHT-PROOF SATURATION BOUNDARY DETECTOR ---
     if waterline_y is None:
         hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
 
-        combined_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
+        # 1. Mask for vivid staff gauge painted colors (Yellow, Orange, Red, Purple)
+        gauge_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
         for name, (lower, upper) in MARKER_RANGES.items():
-            combined_mask = cv2.bitwise_or(combined_mask,
+            gauge_mask = cv2.bitwise_or(gauge_mask,
                 cv2.inRange(hsv_roi, np.array(lower), np.array(upper)))
 
-        # Remove extreme glare
-        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 240]), np.array([180, 30, 255]))
-        combined_mask = cv2.bitwise_and(combined_mask, cv2.bitwise_not(glare_mask))
+        # Remove extreme sunlight white glare (V > 240, S < 30)
+        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 235]), np.array([180, 45, 255]))
+        gauge_mask = cv2.bitwise_and(gauge_mask, cv2.bitwise_not(glare_mask))
 
         kernel = np.ones((5, 5), np.uint8)
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN,  kernel)
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
+        gauge_mask = cv2.morphologyEx(gauge_mask, cv2.MORPH_OPEN,  kernel)
+        gauge_mask = cv2.morphologyEx(gauge_mask, cv2.MORPH_CLOSE, kernel)
 
-        row_counts = np.sum(combined_mask > 0, axis=1)
-        min_band_px = max(5, int(roi_w * 0.18))
-        valid_rows = np.where(row_counts >= min_band_px)[0]
+        row_counts = np.sum(gauge_mask > 0, axis=1)
+        min_band_px = max(4, int(roi_w * 0.15))
+        valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
-        # Detect brown water surface edge
-        water_mask = cv2.inRange(hsv_roi, np.array([0, 15, 10]), np.array([35, 255, 140]))
-        row_water = np.sum(water_mask > 0, axis=1)
-        water_rows = np.where(row_water > (roi_w * 0.25))[0]
-
-        if len(water_rows) > 0:
-            top_water_y = roi_top + int(water_rows[0])
-            waterline_y = top_water_y
-        elif len(valid_rows) > 0:
-            # Bottom-Up Scanning: Use lowest detected dry row
-            waterline_y = roi_top + int(valid_rows[-1])
+        if len(valid_gauge_rows) > 0:
+            # Bottom-Up Scanning: The lowest row where painted gauge is visible IS the waterline!
+            lowest_dry_row = valid_gauge_rows[-1]
+            waterline_y = roi_top + int(lowest_dry_row)
         else:
-            # Saturation transition: find where painted board (S>45) turns to water
+            # Saturation transition: find where painted board (S > 35) transitions to water
             sat = hsv_roi[:, :, 1]
             row_sat = np.mean(sat, axis=1)
-            sat_y = 0
+            sat_y = roi_h - 1
             for y in range(len(row_sat) - 1, -1, -1):
-                if row_sat[y] > 45:
+                if row_sat[y] > 35:
                     sat_y = y
                     break
             waterline_y = roi_top + sat_y
