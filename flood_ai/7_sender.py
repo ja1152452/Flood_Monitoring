@@ -94,8 +94,7 @@ class WaterlineSmoother:
         stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-DEADBAND_M = float(CAL.get("deadband_m", 0.035))
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=DEADBAND_M)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=0.035)
 
 YOLO_MODEL = None
 

@@ -4,7 +4,6 @@
   "camera_code": "CAM-LUMBAN-01",
   "camera_api_key": "Admin@1234",
   "youtube_stream_key": "y6p8-k923-9s6z-5ub0-7sss",
-  "deadband_m": 0.035,
   "baseline_pixel_y": 402,
   "baseline_meters": 3.7756,
   "px_per_meter": 871.8168,
