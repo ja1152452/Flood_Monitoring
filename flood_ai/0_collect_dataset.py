@@ -26,47 +26,39 @@ def main():
     print("CONTROLS:")
     print("  [SPACE]  : Snap and save single frame")
     print("  [A]      : Toggle Auto-capture (every 5 seconds)")
-    print("  [Q]      : Quit\n")
-
-    print("Connecting to RTSP Stream or Railway Cloud Feed...")
-    cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-    use_http_fallback = False
-    if not cap.isOpened():
-        print("RTSP busy/offline. Falling back to Railway Cloud live snapshot feed...")
-        use_http_fallback = True
-
+    print("Connecting to live camera feed...")
+    
     auto_capture = False
     last_capture_time = 0
     saved_count = 0
 
     cv2.namedWindow("AI Dataset Collector", cv2.WINDOW_NORMAL)
+    backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
+
+    cap = None
 
     while True:
         frame = None
-        if not use_http_fallback:
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                use_http_fallback = True
 
-        if use_http_fallback or frame is None:
-            # Fallback to Railway live snapshot
-            try:
-                import requests
-                backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
-                r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=3)
-                if r.status_code == 200 and len(r.content) > 1000:
-                    arr = np.frombuffer(r.content, np.uint8)
-                    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-            except Exception:
-                pass
+        # 1. Try Railway Cloud Live Snapshot first (instant <0.2s)
+        try:
+            import requests
+            r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=2)
+            if r.status_code == 200 and len(r.content) > 1000:
+                arr = np.frombuffer(r.content, np.uint8)
+                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        except Exception:
+            pass
 
-            if frame is None and os.path.exists(os.path.join(_DIR, "test_frame.jpg")):
-                frame = cv2.imread(os.path.join(_DIR, "test_frame.jpg"))
+        # 2. Try saved test frame if offline
+        if frame is None:
+            for p in [os.path.join(_DIR, "test_frame.jpg"), os.path.join(_DIR, "..", "test_frame.jpg")]:
+                if os.path.exists(p):
+                    frame = cv2.imread(p)
+                    break
 
         if frame is None:
-            print("Warning: Frame drop. Retrying in 1s...")
+            print("Waiting for camera feed...")
             time.sleep(1)
             continue
 
