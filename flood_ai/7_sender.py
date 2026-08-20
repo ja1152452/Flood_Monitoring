@@ -260,20 +260,29 @@ def annotate_frame(frame, result):
     h, w = out.shape[:2]
     roi  = result.get('roi', {})
 
-    # ROI box
+    # 1. ROI Box (Sky Blue border)
     cv2.rectangle(out,
         (roi.get('left', 0),  roi.get('top', 0)),
         (roi.get('right', w), roi.get('bottom', h)),
-        (255, 255, 0), 1)
+        (248, 189, 56), 2)
 
-    # Waterline
+    # 2. DETECTED WATERLINE INDICATOR: BOLD BRIGHT YELLOW LINE (0, 255, 255)
     wy = result['waterline_pixel_y']
-    cv2.line(out, (0, wy), (w, wy), (0, 255, 255), 2)
 
-    # Label
-    label = f"{result['water_level_m']:.3f}m  {result['flood_level']}  {result['confidence']:.0%}"
-    cv2.rectangle(out, (8, 8), (len(label) * 9 + 12, 30), (0, 0, 0), -1)
-    cv2.putText(out, label, (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 1)
+    # Black shadow outline for high contrast against glare/river
+    cv2.line(out, (0, wy), (w, wy), (0, 0, 0), 6)
+    # Thick Bright Yellow Line
+    cv2.line(out, (0, wy), (w, wy), (0, 255, 255), 4)
+
+    # 3. Floating Tag directly on the Yellow Waterline
+    lvl_str = f" DETECTED FLOOD LEVEL: {result['water_level_m']:.3f}m [{result['flood_level']}] "
+    cv2.rectangle(out, (10, wy - 32), (len(lvl_str) * 11 + 10, wy - 6), (0, 0, 0), -1)
+    cv2.putText(out, lvl_str, (12, wy - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 255), 2)
+
+    # Top-left HUD Card
+    hud = f" {result['water_level_m']:.3f}m  {result['flood_level']}  ({result['confidence']:.0%}) "
+    cv2.rectangle(out, (8, 8), (len(hud) * 12 + 10, 36), (0, 0, 0), -1)
+    cv2.putText(out, hud, (12, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 255), 2)
 
     return out
 
