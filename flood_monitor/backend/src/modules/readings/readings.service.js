@@ -135,13 +135,13 @@ export const getWaterLevelInterpretation = async (cameraId) => {
   const flood_level = current.flood_level || 'NORMAL';
   const flood_level_label = getFloodLevelLabel(flood_level);
 
-  // 2. Fetch baseline comparison reading (prefer reading from 2-15 mins ago, fallback to previous reading)
+  // 2. Fetch baseline comparison reading (prefer reading from 10-30 mins ago for accurate rate-of-change)
   let previous = null;
   const { rows: baselineRows } = await query(
     `SELECT water_level_m, flood_level, captured_at
      FROM water_level_readings
      WHERE camera_id = $1
-       AND captured_at <= $2::timestamp - INTERVAL '2 minutes'
+       AND captured_at <= $2::timestamp - INTERVAL '10 minutes'
      ORDER BY captured_at DESC
      LIMIT 1`,
     [cameraId, current.captured_at]
@@ -150,7 +150,7 @@ export const getWaterLevelInterpretation = async (cameraId) => {
   if (baselineRows && baselineRows.length > 0) {
     previous = baselineRows[0];
   } else {
-    // Fallback to second latest reading
+    // Fallback to second latest reading if less than 10 mins of history exists
     const { rows: fallbackRows } = await query(
       `SELECT water_level_m, flood_level, captured_at
        FROM water_level_readings
@@ -200,7 +200,9 @@ export const getWaterLevelInterpretation = async (cameraId) => {
     time_interval_text = remMins > 0 ? `${hrs} hr ${remMins} mins` : `${hrs} hour${hrs > 1 ? 's' : ''}`;
   }
 
-  const rate_per_hour = hours > 0 ? parseFloat((delta_m / hours).toFixed(2)) : 0;
+  // Hydrologic Rate Smoothing: For short intervals, scale rate smoothly over a minimum 15-minute divisor to prevent artificial rate spikes
+  const effective_hours = Math.max(0.25, hours);
+  const rate_per_hour = hours > 0 ? parseFloat((delta_m / effective_hours).toFixed(2)) : 0;
   const rate_text = rate_per_hour > 0 ? `+${rate_per_hour.toFixed(2)} m/hr` : `${rate_per_hour.toFixed(2)} m/hr`;
 
   let trend = 'STABLE';
