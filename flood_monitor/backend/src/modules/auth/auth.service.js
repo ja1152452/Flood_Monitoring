@@ -25,7 +25,7 @@ const getTransporter = () => {
 const sendOtpEmail = async (email, otp, fullName) => {
   try {
     const transporter = getTransporter();
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"ResQConnect - Lumban MDRRMO" <${EMAIL_USER}>`,
       to: email,
       subject: 'ResQConnect - Email Verification Security Code',
@@ -61,7 +61,7 @@ const sendOtpEmail = async (email, otp, fullName) => {
             
             <div class="otp-box">
               <div class="otp-code">${otp}</div>
-              <div class="otp-notice">⏱️ Valid for 2 minutes only</div>
+              <div class="otp-notice">⏱️ Valid for 10 minutes only</div>
             </div>
 
             <p>For your security, please do not share this code with anyone. System administrators and MDRRMO staff will never ask for your verification code.</p>
@@ -76,9 +76,10 @@ const sendOtpEmail = async (email, otp, fullName) => {
       </html>
     `,
     });
-    console.log('[EMAIL] Verification OTP email successfully sent to:', email);
+    console.log('[EMAIL] Verification OTP email successfully sent to:', email, 'MessageID:', info.messageId);
   } catch (emailErr) {
     console.error('[EMAIL] Failed to send OTP email:', emailErr.message);
+    throw ApiError.internal(`Failed to send verification email (${emailErr.message}). Please check email configuration.`);
   }
 };
 
@@ -117,7 +118,7 @@ export const register = async (dto) => {
 
   const { rows } = await query(
     `INSERT INTO users (email, password_hash, full_name, barangay_id, phone_number, is_active, email_verified, otp_attempts, otp_last_sent_at)
-     VALUES ($1, $2, $3, $4, $5, true, true, 0, NOW())
+     VALUES ($1, $2, $3, $4, $5, false, false, 0, NOW())
      RETURNING id, email, role, full_name, created_at, is_active, email_verified`,
     [dto.email.toLowerCase(), hash, dto.full_name, barangayId, phone]
   );
@@ -131,11 +132,10 @@ export const register = async (dto) => {
     [otp, expiresAt, user.id]
   );
 
-  // Send email notification in background
-  sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
+  // Send email and await delivery
+  await sendOtpEmail(user.email, otp, user.full_name);
 
-  // Return autoVerified: true so mobile app instantly logs resident in without email delays
-  return { user, ...signTokens(user.id, user.role), autoVerified: true, otp };
+  return { user, ...signTokens(user.id, user.role), autoVerified: false };
 };
 
 export const verifyEmail = async (userId, otp, email) => {
@@ -157,7 +157,7 @@ export const verifyEmail = async (userId, otp, email) => {
   if (user.email_verified) return;
 
   const enteredOtp = String(otp).trim();
-  const isMatch = enteredOtp === '123456' || (user.email_otp && String(user.email_otp).trim() === enteredOtp);
+  const isMatch = Boolean(user.email_otp && String(user.email_otp).trim() === enteredOtp);
 
   if (!isMatch) {
     if (user.email_otp_expires_at && new Date() > new Date(user.email_otp_expires_at)) {
@@ -222,7 +222,7 @@ export const resendOtp = async (userId, email) => {
     [otp, expiresAt, user.id]
   );
 
-  sendOtpEmail(user.email, otp, user.full_name).catch(console.error);
+  await sendOtpEmail(user.email, otp, user.full_name);
 };
 
 export const login = async (dto) => {
