@@ -163,7 +163,7 @@ def main():
     print("="*55)
     
     cal = load_calibration()
-    rtsp_url = cal.get("rtsp_url", "rtsp://FloodMonitoring:FloodCam2026@192.168.1.149:554/stream1")
+    rtsp_url = cal.get("rtsp_url", "rtsp://Flood_monitoring:FloodCam2026@192.168.1.149:554/stream1")
     backend_url = cal.get("backend_url", "https://flood-backend-production.up.railway.app").rstrip('/')
     camera_code = cal.get("camera_code", "CAM-LUMBAN-01")
     api_key = cal.get("camera_api_key", "Admin@1234")
@@ -185,7 +185,7 @@ def main():
         print(" [!] Searching for correct camera credentials & network IP...")
 
         # Extract current host and stream
-        user_candidates = ["FloodMonitoring", "admin"]
+        user_candidates = ["Flood_monitoring", "FloodMonitoring", "admin"]
         pass_candidates = ["FloodCam2026", "FloodCam2026!", "Admin@1234", "admin", "123456"]
         stream_candidates = ["stream1", "stream2"]
         
