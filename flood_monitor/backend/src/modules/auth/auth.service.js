@@ -7,17 +7,18 @@ import { ApiError } from '../../utils/ApiError.js';
 const EMAIL_USER = process.env.EMAIL_USER || 'roelpacia54@gmail.com';
 const EMAIL_PASS = (process.env.EMAIL_PASS || 'umepkdsenooeaxlx').replace(/\s+/g, '');
 const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
-const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 587;
+const EMAIL_PORT = Number(process.env.EMAIL_PORT) || 465;
 
 const getTransporter = () => {
+  const isPort465 = EMAIL_PORT === 465;
   return nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
-    secure: false,
+    secure: isPort465,
     auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
 };
 
