@@ -81,16 +81,44 @@ export default function MswdoDashboard() {
   });
 
   const handleAdd = () => {
-    const n = parseInt(delta);
+    const n = parseInt(delta, 10);
     if (!n || n <= 0 || !center) return;
-    const next = Math.min((center.capacity_current || 0) + n, center.capacity_total);
+
+    const currentCount = center.capacity_current || 0;
+    const maxCapacity = center.capacity_total || 0;
+    const remaining = Math.max(0, maxCapacity - currentCount);
+
+    if (maxCapacity > 0 && currentCount >= maxCapacity) {
+      toast.error(`⚠️ "${center.name}" is already at FULL CAPACITY (${maxCapacity}/${maxCapacity}). Cannot add more evacuees.`);
+      return;
+    }
+
+    if (maxCapacity > 0 && n > remaining) {
+      toast.error(`⚠️ Capacity Exceeded! "${center.name}" only has ${remaining} available spot(s) (Max: ${maxCapacity}). Cannot add ${n} evacuee(s).`);
+      return;
+    }
+
+    const next = currentCount + n;
     updateCount.mutate({ id: center.id, capacity_current: next });
   };
 
   const handleReduce = () => {
-    const n = parseInt(delta);
+    const n = parseInt(delta, 10);
     if (!n || n <= 0 || !center) return;
-    const next = Math.max((center.capacity_current || 0) - n, 0);
+
+    const currentCount = center.capacity_current || 0;
+
+    if (currentCount <= 0) {
+      toast.error('⚠️ Evacuee count is already 0.');
+      return;
+    }
+
+    if (n > currentCount) {
+      toast.error(`⚠️ Cannot reduce ${n} evacuee(s). Current count is only ${currentCount}.`);
+      return;
+    }
+
+    const next = currentCount - n;
     updateCount.mutate({ id: center.id, capacity_current: next });
   };
 
@@ -168,8 +196,10 @@ export default function MswdoDashboard() {
             <div className="flex-1">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Number of Evacuees</label>
               <input
-                type="number" min="1" value={delta}
-                onChange={e => setDelta(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={delta}
+                onChange={e => setDelta(e.target.value.replace(/\D/g, ''))}
                 placeholder="Enter number"
                 className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-red-500 transition-colors shadow-sm"
               />
