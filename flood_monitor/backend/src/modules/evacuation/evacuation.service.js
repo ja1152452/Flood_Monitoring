@@ -156,6 +156,27 @@ export const getFamilies = async (centerId) => {
   return rows;
 };
 
+const safeParseDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date && !isNaN(val.getTime())) return val;
+  const str = String(val).trim();
+  if (!str) return null;
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(am|pm))?)?$/i);
+  if (dmyMatch) {
+    const [, day, month, year, rawHours, mins, secs, ampm] = dmyMatch;
+    let hours = rawHours ? parseInt(rawHours, 10) : 0;
+    if (ampm) {
+      if (ampm.toLowerCase() === 'pm' && hours < 12) hours += 12;
+      if (ampm.toLowerCase() === 'am' && hours === 12) hours = 0;
+    }
+    const parsed = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), hours, mins ? parseInt(mins, 10) : 0, secs ? parseInt(secs, 10) : 0);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
 export const addFamily = async (centerId, dto, actorId) => {
   const { rows: centerCheck } = await query(
     'SELECT name, capacity_total, capacity_current FROM evacuation_centers WHERE id = $1',
@@ -178,14 +199,8 @@ export const addFamily = async (centerId, dto, actorId) => {
   const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
   const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
 
-  const headDob = (dto.head_dob && String(dto.head_dob).trim() !== '' && !isNaN(new Date(dto.head_dob).getTime()))
-    ? dto.head_dob
-    : null;
-
-  const arrivalDate = (dto.arrival_date && String(dto.arrival_date).trim() !== '' && !isNaN(new Date(dto.arrival_date).getTime()))
-    ? new Date(dto.arrival_date)
-    : new Date();
-
+  const headDob = safeParseDate(dto.head_dob);
+  const arrivalDate = safeParseDate(dto.arrival_date) || new Date();
   const headAge = (dto.age && !isNaN(parseInt(dto.age, 10))) ? parseInt(dto.age, 10) : null;
 
   const { rows } = await query(
@@ -224,7 +239,7 @@ export const addFamily = async (centerId, dto, actorId) => {
     for (const m of dto.members_list) {
       if (m.name?.trim()) {
         const mAge = (m.age && !isNaN(parseInt(m.age, 10))) ? parseInt(m.age, 10) : null;
-        const mBirthdate = (m.birthdate && String(m.birthdate).trim() !== '' && !isNaN(new Date(m.birthdate).getTime())) ? m.birthdate : null;
+        const mBirthdate = safeParseDate(m.birthdate);
 
         await query(
           `INSERT INTO evacuation_family_members (
@@ -284,14 +299,8 @@ export const updateFamily = async (centerId, familyId, dto, actorId) => {
   const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
   const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
 
-  const headDob = (dto.head_dob && String(dto.head_dob).trim() !== '' && !isNaN(new Date(dto.head_dob).getTime()))
-    ? dto.head_dob
-    : null;
-
-  const arrivalDate = (dto.arrival_date && String(dto.arrival_date).trim() !== '' && !isNaN(new Date(dto.arrival_date).getTime()))
-    ? new Date(dto.arrival_date)
-    : null;
-
+  const headDob = safeParseDate(dto.head_dob);
+  const arrivalDate = safeParseDate(dto.arrival_date);
   const headAge = (dto.age && !isNaN(parseInt(dto.age, 10))) ? parseInt(dto.age, 10) : null;
 
   const { rows } = await query(
