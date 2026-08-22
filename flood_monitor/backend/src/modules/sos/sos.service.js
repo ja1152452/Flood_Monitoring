@@ -4,7 +4,7 @@ import { writeAuditLog } from '../../middleware/audit.js';
 import { sendPushNotification } from '../../services/firebase.js';
 import { getIO } from '../../config/socket.js';
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 export const createSOS = async (userId, dto) => {
   const { rows: user } = await query(

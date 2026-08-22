@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { getPendingSOS, getActiveBackups } from '../api/sos';
 import { sendLocalNotification } from '../utils/notifications';
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 const POLL_MS = 5000;
 
 export function useEmergencyNotifications() {

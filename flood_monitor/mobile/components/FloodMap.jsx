@@ -73,7 +73,17 @@ export function FloodRiskMap({ height = 400, areas = [], userLocation = null }) 
     }
 
     var map = L.map('map',{zoomControl:false}).setView([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'\u00a9 CARTO',maxZoom:19}).addTo(map);
+    var streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:19});
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    streetLayer.addTo(map);
+
+    var baseMaps = {
+      "🗺️ Street": streetLayer,
+      "🛰️ Satellite": satelliteLayer,
+      "⛰️ Topographic": topoLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
 
     window.loadGeoJSON = function(geojsonStr) {
       var geojson = JSON.parse(geojsonStr);
@@ -109,11 +119,7 @@ export function FloodRiskMap({ height = 400, areas = [], userLocation = null }) 
       });
     };
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,opacity:0.5}).addTo(map);
-
-    L.marker([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],{
-      icon:L.divIcon({html:'<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#60a5fa);border:2px solid #fff;box-shadow:0 0 16px rgba(59,130,246,0.9);display:flex;align-items:center;justify-content:center;font-size:13px;">\uD83D\uDCF7</div>',className:'',iconSize:[30,30],iconAnchor:[15,15]}),
-    }).addTo(map).bindPopup('<div style="background:#0f172a;color:#e2e8f0;padding:10px;border-radius:10px;border-left:4px solid #3b82f6"><b style="color:#60a5fa">\uD83D\uDCF7 CAM-LUMBAN-01</b><br/><span style="color:#64748b;font-size:11px">Lumban Bridge \u2014 Active</span></div>');
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,opacity:0.6}).addTo(map);
 
     ${userMarkerJS}
 
@@ -207,20 +213,20 @@ export function EvacuationMap({ centers = [], height = 400, userLocation = null 
   </style>
   </head><body><div id="map"></div><script>
     var map=L.map('map',{zoomControl:true}).setView([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'\u00a9 <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom:19
-    }).addTo(map);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    streetLayer.addTo(map);
+
+    var baseMaps = {
+      "🗺️ Street": streetLayer,
+      "🛰️ Satellite": satelliteLayer,
+      "⛰️ Topographic": topoLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
 
     var border = ${borderJS};
     L.geoJSON(border,{style:{color:'#ef4444',weight:3,fillOpacity:0,dashArray:'6 3'},interactive:false}).addTo(map);
-
-    L.marker([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],{
-      icon:L.divIcon({
-        html:'<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#60a5fa);border:2px solid #fff;box-shadow:0 0 16px rgba(59,130,246,0.9);display:flex;align-items:center;justify-content:center;font-size:13px;">\uD83D\uDCF7</div>',
-        className:'',iconSize:[30,30],iconAnchor:[15,15]
-      })
-    }).addTo(map).bindPopup('<div style="min-width:200px;font-size:13px;line-height:1.6"><strong style="font-size:14px">\uD83D\uDCF7 CAM-LUMBAN-01</strong><br/>Lumban Bridge<br/><span style="color:#16a34a;font-weight:bold">\u25CF Active Monitoring</span></div>');
 
     ${userMarkerJS}
     ${markersJS}
@@ -248,12 +254,12 @@ export function EvacuationMap({ centers = [], height = 400, userLocation = null 
 }
 
 const RESPONDER_ROLE_CFG = {
-  PNP: { color: '#1d4ed8', emoji: '\uD83D\uDC6E' },
   PNP: { color: '#1d4ed8', emoji: '👮' },
   BFP: { color: '#ea580c', emoji: '🚒' },
+  COAST_GUARD: { color: '#0284c7', emoji: '⚓' },
   RHU: { color: '#16a34a', emoji: '🏥' },
-  MDRRMO: { color: '#dc2626', emoji: '🛡️' },
-  MDRRMO_RESPONDER: { color: '#dc2626', emoji: '🛡️' },
+  MDRRMO: { color: '#dc2626', emoji: '🚨' },
+  MDRRMO_RESPONDER: { color: '#dc2626', emoji: '🚨' },
   BARANGAY_OFFICIAL: { color: '#7e22ce', emoji: '🏢' },
   RESCUE: { color: '#0ea5e9', emoji: '⛑️' },
 };
@@ -355,7 +361,17 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
   </style>
   </head><body><div id="map"></div><script>
     var map=L.map('map',{zoomControl:true});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    streetLayer.addTo(map);
+
+    var baseMaps = {
+      "🗺️ Street": streetLayer,
+      "🛰️ Satellite": satelliteLayer,
+      "⛰️ Topographic": topoLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
     ${sosMarkerJS}
     ${responderMarkersJS}
     ${navigationLinesArr.join('\n')}
@@ -519,7 +535,17 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
   </style>
   </head><body><div id="map"></div><script>
     var map=L.map('map',{zoomControl:true});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    streetLayer.addTo(map);
+
+    var baseMaps = {
+      "🗺️ Street": streetLayer,
+      "🛰️ Satellite": satelliteLayer,
+      "⛰️ Topographic": topoLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
     ${currentUserMarkerJS}
     ${sosMarkersJS}
     ${markersJS}
@@ -634,7 +660,17 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
       </style>
   </head><body><div id="map"></div><script>
     var map=L.map('map',{zoomControl:true}).setView([${center.lat},${center.lng}],15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    streetLayer.addTo(map);
+
+    var baseMaps = {
+      "🗺️ Street": streetLayer,
+      "🛰️ Satellite": satelliteLayer,
+      "⛰️ Topographic": topoLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topleft', collapsed: true }).addTo(map);
     ${userMarkerJS}
     ${sosMarkersJS}
     ${sosList.length === 0 ? `

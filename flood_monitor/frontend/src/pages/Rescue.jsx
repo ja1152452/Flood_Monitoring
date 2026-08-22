@@ -48,6 +48,12 @@ const ROLE_CONFIG = {
     cardBorder: 'border-l-amber-600',
     icon: '🚒',
   },
+  COAST_GUARD: {
+    label: 'Coast Guard (PCG)',
+    badge: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/40',
+    cardBorder: 'border-l-sky-600',
+    icon: '⚓',
+  },
   RHU: {
     label: 'RHU Health',
     badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40',
@@ -55,13 +61,13 @@ const ROLE_CONFIG = {
     icon: '🏥',
   },
   MDRRMO: {
-    label: 'MDRRMO',
+    label: 'MDRRMO Official',
     badge: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40',
     cardBorder: 'border-l-red-600',
     icon: '🚨',
   },
   MDRRMO_RESPONDER: {
-    label: 'MDRRMO',
+    label: 'MDRRMO Official',
     badge: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40',
     cardBorder: 'border-l-red-600',
     icon: '🚨',
@@ -608,7 +614,7 @@ export default function Rescue() {
               <Filter size={14} /> Filter Responders by Agency / Role:
             </div>
             <div className="flex flex-wrap gap-2">
-              {['ALL', 'PNP', 'BFP', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'].map(roleKey => {
+              {['ALL', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'].map(roleKey => {
                 const isSel = roleFilter === roleKey;
                 const roleCfg = ROLE_CONFIG[roleKey] || { label: 'All Responders', icon: '🛡️' };
                 return (
@@ -621,7 +627,7 @@ export default function Rescue() {
                         : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
                     }`}>
                     <span>{roleCfg.icon}</span>
-                    <span>{roleCfg.label}</span>
+                    <span>{roleKey === 'BFP' ? 'BFP (Fire & Coast Guard)' : roleCfg.label}</span>
                   </button>
                 );
               })}
@@ -629,7 +635,7 @@ export default function Rescue() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {safeResponders.filter(r => roleFilter === 'ALL' || r.role === roleFilter || (roleFilter === 'MDRRMO' && r.role === 'MDRRMO_RESPONDER')).map(r => {
+            {safeResponders.filter(r => roleFilter === 'ALL' || r.role === roleFilter || (roleFilter === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) || (roleFilter === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))).map(r => {
               const statusCfg = STATUS_LABELS[r.responder_status] || STATUS_LABELS.AVAILABLE;
               const roleCfg = ROLE_CONFIG[r.role] || ROLE_CONFIG.RESCUE;
 
@@ -1232,7 +1238,12 @@ export default function Rescue() {
 
               <div className="max-h-48 overflow-y-auto space-y-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2">
                 {safeResponders.filter(r => 
-                  (!dispatchBackupModalRequest.target_role || r.role === dispatchBackupModalRequest.target_role) &&
+                  (!dispatchBackupModalRequest.target_role || 
+                   r.role === dispatchBackupModalRequest.target_role || 
+                   (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
+                   (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && r.role === 'COAST_GUARD') ||
+                   (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
+                  ) &&
                   !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)
                 ).length === 0 ? (
                   <div className="text-xs text-amber-600 dark:text-amber-400 text-center py-4 font-medium">
@@ -1241,7 +1252,12 @@ export default function Rescue() {
                 ) : (
                   safeResponders
                     .filter(r => 
-                      (!dispatchBackupModalRequest.target_role || r.role === dispatchBackupModalRequest.target_role) &&
+                      (!dispatchBackupModalRequest.target_role || 
+                       r.role === dispatchBackupModalRequest.target_role || 
+                       (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
+                       (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && r.role === 'COAST_GUARD') ||
+                       (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
+                      ) &&
                       !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)
                     )
                     .sort((a, b) => {

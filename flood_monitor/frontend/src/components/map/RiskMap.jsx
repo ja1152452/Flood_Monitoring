@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import lumbanBoundary from '../../lumban-boundary.geojson';
+import lumbanBoundary from '../../data/ADM4 Lumban.geojson';
 
 const LUMBAN_CENTER = [14.291969, 121.460112];
 

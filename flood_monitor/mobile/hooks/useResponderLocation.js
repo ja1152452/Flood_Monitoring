@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/axios';
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 const MIN_SEND_INTERVAL_MS = 3000; // throttle: don't send more than once every 3s
 
 export function useResponderLocation() {

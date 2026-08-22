@@ -39,7 +39,7 @@ router.post('/location', authenticate, asyncHandler(async (req, res) => {
 
 // Admin gets all active responder locations & status — accessible by any authenticated user
 router.get('/responder-locations', authenticate, asyncHandler(async (req, res) => {
-  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
   const { role, status } = req.query;
 
   let queryText = `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,
@@ -93,7 +93,7 @@ router.get('/responder-locations/:userId', authenticate, asyncHandler(async (req
 // All routes below require ADMIN or SUPER_ADMIN
 router.use(authenticate, authorize('ADMIN', 'SUPER_ADMIN'));
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 const createSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -101,7 +101,7 @@ const createSchema = Joi.object({
   full_name: Joi.string().min(2).max(100).pattern(/^[a-zA-Z\s.'-]+$/).required().messages({
     'string.pattern.base': 'Full name must contain alphabetic letters and valid text symbols only',
   }),
-  role: Joi.string().valid('ADMIN', 'PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'SUPER_ADMIN', 'MSWDO', 'CITIZEN', 'RESCUE').required(),
+  role: Joi.string().valid('ADMIN', 'PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'SUPER_ADMIN', 'MSWDO', 'CITIZEN', 'RESCUE').required(),
   barangay: Joi.string().max(100).optional().allow('', null),
   phone_number: Joi.string().pattern(/^09\d{9}$/).optional().allow('', null).messages({
     'string.pattern.base': 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)',
@@ -113,7 +113,7 @@ const updateSchema = Joi.object({
   full_name: Joi.string().min(2).max(100).pattern(/^[a-zA-Z\s.'-]+$/).optional().messages({
     'string.pattern.base': 'Full name must contain alphabetic letters and valid text symbols only',
   }),
-  role: Joi.string().valid('ADMIN', 'PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'SUPER_ADMIN', 'MSWDO', 'CITIZEN', 'RESCUE').optional(),
+  role: Joi.string().valid('ADMIN', 'PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'SUPER_ADMIN', 'MSWDO', 'CITIZEN', 'RESCUE').optional(),
   barangay: Joi.string().max(100).optional().allow('', null),
   phone_number: Joi.string().pattern(/^09\d{9}$/).optional().allow('', null).messages({
     'string.pattern.base': 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)',

@@ -129,7 +129,7 @@ export default function MapScreen() {
                   <Ionicons name="warning" size={16} color="#dc2626" />
                   <Text style={s.mapHeaderTitle}>Flood Risk Zone Map</Text>
                 </View>
-                <Text style={s.mapHeaderSub}>Tap any zone for details</Text>
+                <Text style={s.mapHeaderSub}>Tap zone or ⛯ layer for Satellite/Topo</Text>
               </View>
               <FloodRiskMap height={320} areas={riskAreas} userLocation={userLocation} />
             </View>
@@ -175,7 +175,7 @@ export default function MapScreen() {
                   <Text style={s.mapHeaderTitle}>Evacuation Centers</Text>
                 </View>
                 <Text style={s.mapHeaderSub}>
-                  {openCentersCnt} open · {centers.length} total
+                  {openCentersCnt} open · Tap ⛯ layer for Satellite/Topo
                 </Text>
               </View>
               <EvacuationMap centers={centers} height={280} userLocation={userLocation} />

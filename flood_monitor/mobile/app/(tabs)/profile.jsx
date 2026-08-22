@@ -15,7 +15,7 @@ import api from '../../api/axios';
 import { API_URL } from '../../api/axios';
 import { SirenBanner } from '../../components/SirenBanner';
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 const LUMBAN_BARANGAYS = [
   'Bagong Silang', 'Balimbingan', 'Balubad', 'Caliraya',

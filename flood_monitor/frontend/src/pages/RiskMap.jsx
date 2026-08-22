@@ -1,199 +1,281 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getRiskAreas, createRiskArea, updateRiskArea, deleteRiskArea } from '../api/risk';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import {
+  Plus, Edit2, Trash2, Layers, Search, Compass,
+  Maximize2, Minimize2, RotateCcw, ShieldAlert,
+  Waves, Route, Sliders, ChevronDown,
+  ChevronUp, X, Filter, Info, Navigation, Shield
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+
+// Datasets
 import lumbanBoundary from '../data/ADM4 Lumban.geojson';
+import lumbanBorder from '../data/lumban-border.geojson';
+import lumbanFlood from '../data/Lumban Flood/Lumban Flood.geojson';
+import lumbanRoads from '../data/Road/Lumban Roads.geojson';
 
 const LUMBAN_CENTER = [14.291969, 121.460112];
+const DEFAULT_ZOOM = 13;
 
-const RISK_CONFIG = {
-  VERY_HIGH: { color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib', icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.', bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',    text: 'text-red-800 dark:text-red-300'    },
-  HIGH:      { color: '#c2410c', fill: '#f97316', label: 'High Risk',      tagalog: 'Mataas na Panganib',     icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',          bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800', text: 'text-orange-800 dark:text-orange-300' },
-  MODERATE:  { color: '#a16207', fill: '#eab308', label: 'Moderate Risk',  tagalog: 'Katamtamang Panganib',   icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',                 bg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800', text: 'text-amber-800 dark:text-yellow-300' },
-  LOW:       { color: '#15803d', fill: '#22c55e', label: 'Low Risk',       tagalog: 'Mababang Panganib',      icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',              bg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-green-900/40  dark:text-green-300 dark:border-green-800',  text: 'text-emerald-800 dark:text-green-300'  },
+// -------------------------------------------------------------
+// CONFIGURATIONS
+// -------------------------------------------------------------
+
+export const RISK_CONFIG = {
+  VERY_HIGH: {
+    color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib',
+    icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.',
+    bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',
+    text: 'text-red-800 dark:text-red-300',
+  },
+  HIGH: {
+    color: '#c2410c', fill: '#f97316', label: 'High Risk', tagalog: 'Mataas na Panganib',
+    icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',
+    bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800',
+    text: 'text-orange-800 dark:text-orange-300',
+  },
+  MODERATE: {
+    color: '#a16207', fill: '#eab308', label: 'Moderate Risk', tagalog: 'Katamtamang Panganib',
+    icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',
+    bg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800',
+    text: 'text-amber-800 dark:text-yellow-300',
+  },
+  LOW: {
+    color: '#15803d', fill: '#22c55e', label: 'Low Risk', tagalog: 'Mababang Panganib',
+    icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',
+    bg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800',
+    text: 'text-emerald-800 dark:text-green-300',
+  },
 };
 
-const EMPTY = { name: '', risk_level: 'MODERATE', lat: '', lng: '', radius: '250', note: '' };
+export const FLOOD_HAZARD_CONFIG = {
+  3: {
+    levelKey: 'high',
+    label: 'High Flood Hazard',
+    tagalog: 'Mataas na Hazard (Lagpas-tao)',
+    depth: '> 1.5 meters',
+    depthDesc: 'Deep & rapid inundation (>1.5m)',
+    color: '#991b1b',
+    fill: '#dc2626',
+    icon: '🔴',
+    badge: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/60 dark:text-red-300',
+    advisory: 'Critical flood zone. High risk to life and structures. Urgent evacuation advised.',
+  },
+  2: {
+    levelKey: 'moderate',
+    label: 'Moderate Flood Hazard',
+    tagalog: 'Katamtamang Hazard (Tuhod–Baywang)',
+    depth: '0.5m – 1.5m',
+    depthDesc: 'Medium depth (0.5m – 1.5m)',
+    color: '#ea580c',
+    fill: '#f97316',
+    icon: '🟠',
+    badge: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300',
+    advisory: 'Moderate hazard. Impassable to light vehicles. Prepare emergency kit & monitor alerts.',
+  },
+  1: {
+    levelKey: 'low',
+    label: 'Low Flood Hazard',
+    tagalog: 'Mababang Hazard (Bukong-bukong)',
+    depth: '0.1m – 0.5m',
+    depthDesc: 'Shallow floodwater (0.1m – 0.5m)',
+    color: '#ca8a04',
+    fill: '#facc15',
+    icon: '🟡',
+    badge: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-yellow-950/60 dark:text-yellow-300',
+    advisory: 'Low hazard. Localized ankle-deep pooling. Be vigilant during continuous heavy rain.',
+  },
+};
 
-function RiskGeoJSON({ areas, boundary }) {
-  const riskMap = {};
-  areas.forEach(a => { riskMap[a.name] = a; });
+export const ROAD_CLASS_CONFIG = {
+  'National Road': {
+    color: '#2563eb',
+    weight: 4.5,
+    label: 'National Highway',
+    icon: '🛣️',
+    badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300',
+    desc: 'Primary arterial route & national transit corridor',
+  },
+  'Provincial Road': {
+    color: '#9333ea',
+    weight: 4,
+    label: 'Provincial Road',
+    icon: '🛤️',
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300',
+    desc: 'Main arterial connector linking municipalities',
+  },
+  'Municipal Road': {
+    color: '#0d9488',
+    weight: 3.5,
+    label: 'Municipal Road',
+    icon: '🚗',
+    badge: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-300',
+    desc: 'Town center collector & access routes',
+  },
+  'Barangay Road': {
+    color: '#475569',
+    weight: 2.2,
+    label: 'Barangay & Residential',
+    icon: '🏘️',
+    badge: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-300',
+    desc: 'Local community roads & residential access streets',
+  },
+  'Other': {
+    color: '#94a3b8',
+    weight: 1.8,
+    label: 'Local Access & Trails',
+    icon: '🚶',
+    badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-300',
+    desc: 'Pedestrian paths, service ways, & tracks',
+  },
+};
 
-  const findArea = (adm4en) => riskMap[adm4en] || null;
+export const BASEMAPS = {
+  streets: {
+    id: 'streets',
+    name: 'Carto Light',
+    icon: '🗺️',
+    url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  },
+  satellite: {
+    id: 'satellite',
+    name: 'Satellite',
+    icon: '🛰️',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; Esri &copy; OpenStreetMap',
+  },
+  dark: {
+    id: 'dark',
+    name: 'Dark Mode',
+    icon: '🌙',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  },
+  topo: {
+    id: 'topo',
+    name: 'Terrain Topo',
+    icon: '⛰️',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenTopoMap &copy; OpenStreetMap',
+  },
+};
 
-  const styleFeature = (feature) => {
-    const area = findArea(feature.properties.ADM4_EN);
-    if (area) {
-      const cfg = RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE;
-      return { color: cfg.color, weight: 2, fillColor: cfg.fill, fillOpacity: 0.5 };
-    }
-    return { color: '#2980b9', weight: 2.5, fillColor: 'transparent', fillOpacity: 0, dashArray: '5 4' };
-  };
-
-  const onEachFeature = (feature, layer) => {
-    const area = findArea(feature.properties.ADM4_EN);
-    if (!area) return;
-    const cfg = RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE;
-    layer.bindPopup(`
-      <div style="min-width:200px;font-family:sans-serif;padding:4px">
-        <div style="font-weight:800;font-size:15px;color:${cfg.color};margin-bottom:4px">${area.name}</div>
-        <div style="font-size:11px;color:#888;margin-bottom:8px">Lumban, Laguna</div>
-        <span style="background:${cfg.fill};color:#fff;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700">${cfg.icon} ${cfg.label}</span>
-        <div style="margin-top:8px;font-size:11px;color:#555;line-height:1.6">${cfg.desc}</div>
-        ${area.note ? `<div style="margin-top:6px;font-size:11px;color:#888">${area.note}</div>` : ''}
-      </div>
-    `);
-  };
-
-  return (
-    <>
-      <GeoJSON key={areas.map(a => `${a.id}-${a.risk_level}`).join()} data={boundary} style={styleFeature} onEachFeature={onEachFeature} />
-      {Object.entries(BRGY_CENTERS).map(([name, pos]) => {
-        const area = riskMap[name] || null;
-        const cfg = area ? RISK_CONFIG[area.risk_level] : null;
-        return (
-          <Marker key={name} position={pos} interactive={false}
-            icon={L.divIcon({
-              className: '',
-              iconAnchor: [0, 0],
-              html: `<div style="
-                font-family:sans-serif;
-                pointer-events:none;
-                text-align:center;
-                transform:translate(-50%,-50%);
-                white-space:nowrap;
-              ">
-                <div style="
-                  font-size:10px;
-                  font-weight:700;
-                  color:#1a1a2e;
-                  text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 10px #fff;
-                  line-height:1.3;
-                ">${name}</div>
-                ${cfg ? `<div style="
-                  font-size:9px;
-                  font-weight:600;
-                  color:${cfg.color};
-                  text-shadow:0 0 3px #fff,0 0 6px #fff;
-                  line-height:1.2;
-                ">${cfg.icon} ${cfg.label}</div>` : ''}
-              </div>`,
-            })}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function Legend() {
-  return (
-    <div style={{
-      position: 'absolute', bottom: 20, right: 12, zIndex: 1000,
-      background: 'rgba(255,255,255,0.96)', border: '1px solid #c8d8e0',
-      borderRadius: 10, padding: '12px 14px',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.15)', minWidth: 185,
-      fontFamily: 'sans-serif',
-    }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: '#4a6572', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2 }}>
-        Flood Risk Level
-      </div>
-      {Object.entries(RISK_CONFIG).map(([key, cfg]) => (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <div style={{ width: 18, height: 14, borderRadius: 3, flexShrink: 0, background: cfg.fill, opacity: 0.55, border: `1.5px solid ${cfg.color}` }} />
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#2c3e50', lineHeight: 1.3 }}>{cfg.label}</div>
-            <div style={{ fontSize: 9.5, color: '#7f8c8d', lineHeight: 1.3 }}>{cfg.tagalog}</div>
-          </div>
-        </div>
-      ))}
-      <div style={{ borderTop: '1px solid #dde', marginTop: 6, paddingTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 18, height: 14, borderRadius: 3, background: 'linear-gradient(135deg,#1d4ed8,#60a5fa)', border: '1.5px solid #1d4ed8', flexShrink: 0 }} />
-        <div style={{ fontSize: 10, color: '#2c3e50', fontWeight: 600 }}>📷 Camera</div>
-      </div>
-    </div>
-  );
-}
-
-const BRGY_CENTERS = {
-  'Bagong Silang':          [14.2951, 121.4648],
-  'Balimbingan (Pob.)':     [14.3002, 121.4603],
-  'Balubad':                [14.2766, 121.4779],
-  'Caliraya':               [14.2968, 121.5562],
-  'Concepcion':             [14.2986, 121.4540],
-  'Lewin':                  [14.3025, 121.5155],
-  'Maracta (Pob.)':         [14.2985, 121.4597],
-  'Maytalang I':            [14.2884, 121.4583],
-  'Maytalang II':           [14.2968, 121.4345],
-  'Primera Parang (Pob.)':  [14.2924, 121.4613],
-  'Primera Pulo (Pob.)':    [14.3013, 121.4601],
-  'Salac (Pob.)':           [14.2954, 121.4607],
-  'Segunda Parang (Pob.)':  [14.2942, 121.4607],
-  'Segunda Pulo (Pob.)':    [14.3031, 121.4607],
-  'Santo Niño (Pob.)':      [14.2969, 121.4597],
-  'Wawa':                   [14.3281, 121.4418],
+export const BRGY_CENTERS = {
+  'Bagong Silang':         [14.2951, 121.4648],
+  'Balimbingan (Pob.)':    [14.3002, 121.4603],
+  'Balubad':               [14.2766, 121.4779],
+  'Caliraya':              [14.2968, 121.5562],
+  'Concepcion':            [14.2986, 121.4540],
+  'Lewin':                 [14.3025, 121.5155],
+  'Maracta (Pob.)':        [14.2985, 121.4597],
+  'Maytalang I':           [14.2884, 121.4583],
+  'Maytalang II':          [14.2968, 121.4345],
+  'Primera Parang (Pob.)': [14.2924, 121.4613],
+  'Primera Pulo (Pob.)':   [14.3013, 121.4601],
+  'Salac (Pob.)':          [14.2954, 121.4607],
+  'Segunda Parang (Pob.)': [14.2942, 121.4607],
+  'Segunda Pulo (Pob.)':   [14.3031, 121.4607],
+  'Santo Niño (Pob.)':     [14.2969, 121.4597],
+  'Wawa':                  [14.3281, 121.4418],
 };
 
 const BARANGAY_NAMES = Object.keys(BRGY_CENTERS);
 
-const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
-const labelCls = 'text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1';
-
-function FieldInput({ label, children }) {
-  return <div><span className={labelCls}>{label}</span>{children}</div>;
+function cleanName(n) {
+  return (n || '').replace(/\s*\(.*?\)/g, '').trim().toLowerCase();
 }
 
-function FormFields({ form, setForm }) {
-  return (
-    <div className="space-y-3">
-      <FieldInput label="Barangay *">
-        <select className={inputCls} value={form.name} onChange={e => {
-          const name = e.target.value;
-          const center = BRGY_CENTERS[name];
-          setForm(f => ({ ...f, name, lat: center ? String(center[0]) : f.lat, lng: center ? String(center[1]) : f.lng }));
-        }}>
-          <option value="">— Select Barangay —</option>
-          {BARANGAY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </FieldInput>
-      <FieldInput label="Risk Level *">
-        <select className={inputCls} value={form.risk_level} onChange={e => setForm(f => ({ ...f, risk_level: e.target.value }))}>
-          <option value="VERY_HIGH">🔴 Very High Risk</option>
-          <option value="HIGH">🟠 High Risk</option>
-          <option value="MODERATE">🟡 Moderate Risk</option>
-          <option value="LOW">🟢 Low Risk</option>
-        </select>
-      </FieldInput>
-      <FieldInput label="Notes (optional)">
-        <textarea className={`${inputCls} resize-none`} rows={2} value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Additional description..." />
-      </FieldInput>
-    </div>
-  );
+// -------------------------------------------------------------
+// MAP CONTROLLER (Fly-To & Bounds Helper)
+// -------------------------------------------------------------
+function MapController({ targetCenter, targetZoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (targetCenter) {
+      map.flyTo(targetCenter, targetZoom || 15, { duration: 1.2 });
+    }
+  }, [targetCenter, targetZoom, map]);
+  return null;
 }
 
+// -------------------------------------------------------------
+// COMPONENT: MAIN PAGE
+// -------------------------------------------------------------
 export default function RiskMapPage() {
   const { user } = useAuthStore();
-  const qc       = useQueryClient();
-  const isAdmin  = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  const qc = useQueryClient();
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role);
 
-  const [showAdd,  setShowAdd]  = useState(false);
+  // Tab & View States
+  const [viewTab, setViewTab] = useState('map');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [showLegend, setShowLegend] = useState(true);
+  const [selectedFeature, setSelectedFeature] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [targetView, setTargetView] = useState(null);
+
+  // Layer Visibility Toggles (Cleaned - Risk Map focused)
+  const [layerVisibility, setLayerVisibility] = useState({
+    municipalBorder: true,
+    riskMap: true,
+    riskLabels: true,
+    floodMap: true,
+    roads: true,
+  });
+
+  // Layer Sub-Filters
+  const [riskFilters, setRiskFilters] = useState({
+    VERY_HIGH: true,
+    HIGH: true,
+    MODERATE: true,
+    LOW: true,
+  });
+
+  const [floodFilters, setFloodFilters] = useState({
+    3: true, // High
+    2: true, // Moderate
+    1: true, // Low
+  });
+
+  const [roadFilters, setRoadFilters] = useState({
+    'National Road': true,
+    'Provincial Road': true,
+    'Municipal Road': true,
+    'Barangay Road': true,
+    'Other': true,
+  });
+
+  // Layer Opacities
+  const [riskOpacity, setRiskOpacity] = useState(0.5);
+  const [floodOpacity, setFloodOpacity] = useState(0.65);
+  const [basemap, setBasemap] = useState('streets');
+
+  // Modal / Form States
+  const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form,     setForm]     = useState(EMPTY);
-  const [viewTab,  setViewTab]  = useState('map');
+  const [form, setForm] = useState({ name: '', risk_level: 'MODERATE', lat: '', lng: '', radius: '250', note: '' });
 
+  // Data Queries
   const { data: areas = [] } = useQuery({ queryKey: ['risk-areas'], queryFn: getRiskAreas });
 
+  // Mutations
   const create = useMutation({
     mutationFn: createRiskArea,
-    onSuccess: () => { toast.success('Risk area added'); qc.invalidateQueries(['risk-areas']); setShowAdd(false); setForm(EMPTY); },
+    onSuccess: () => { toast.success('Risk area added'); qc.invalidateQueries(['risk-areas']); setShowAdd(false); setForm({ name: '', risk_level: 'MODERATE', lat: '', lng: '', radius: '250', note: '' }); },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to add'),
   });
 
@@ -208,87 +290,968 @@ export default function RiskMapPage() {
     onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries(['risk-areas']); },
   });
 
+  // Area Lookup Map
+  const riskMapByName = useMemo(() => {
+    const map = {};
+    areas.forEach(a => {
+      map[cleanName(a.name)] = a;
+      map[a.name] = a;
+    });
+    return map;
+  }, [areas]);
+
+  // Filtered Datasets
+  const filteredRiskGeoJSON = useMemo(() => {
+    if (!layerVisibility.riskMap) return null;
+    const filteredFeatures = lumbanBoundary.features.filter(f => {
+      const name = f.properties.ADM4_EN;
+      const area = riskMapByName[cleanName(name)] || riskMapByName[name];
+      const level = area ? area.risk_level : 'MODERATE';
+      return riskFilters[level];
+    });
+    return { ...lumbanBoundary, features: filteredFeatures };
+  }, [layerVisibility.riskMap, riskFilters, riskMapByName]);
+
+  const filteredFloodGeoJSON = useMemo(() => {
+    if (!layerVisibility.floodMap) return null;
+    const filteredFeatures = lumbanFlood.features.filter(f => floodFilters[f.properties.Var]);
+    return { ...lumbanFlood, features: filteredFeatures };
+  }, [layerVisibility.floodMap, floodFilters]);
+
+  const filteredRoadsGeoJSON = useMemo(() => {
+    if (!layerVisibility.roads) return null;
+    const filteredFeatures = lumbanRoads.features.filter(f => {
+      const cls = f.properties.Road_Class || 'Other';
+      return roadFilters[cls];
+    });
+    return { ...lumbanRoads, features: filteredFeatures };
+  }, [layerVisibility.roads, roadFilters]);
+
+  // Search Results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    const results = [];
+
+    // Search Barangays
+    BARANGAY_NAMES.forEach(name => {
+      if (name.toLowerCase().includes(q)) {
+        const area = riskMapByName[cleanName(name)] || riskMapByName[name];
+        results.push({
+          type: 'barangay',
+          title: name,
+          subtitle: `Barangay • ${area?.risk_level ? RISK_CONFIG[area.risk_level]?.label : 'Classified Zone'}`,
+          coords: BRGY_CENTERS[name],
+          data: area,
+        });
+      }
+    });
+
+    // Search Named Roads
+    const roadSeen = new Set();
+    lumbanRoads.features.forEach(f => {
+      const roadName = f.properties.name;
+      if (roadName && roadName.toLowerCase().includes(q) && !roadSeen.has(roadName)) {
+        roadSeen.add(roadName);
+        const coords = f.geometry.type === 'LineString'
+          ? [f.geometry.coordinates[0][1], f.geometry.coordinates[0][0]]
+          : [f.geometry.coordinates[0][0][1], f.geometry.coordinates[0][0][0]];
+        results.push({
+          type: 'road',
+          title: roadName,
+          subtitle: `${f.properties.Road_Class || 'Road'} • ${f.properties.surface || 'Paved'}`,
+          coords,
+          data: f.properties,
+        });
+      }
+    });
+
+    return results.slice(0, 6);
+  }, [searchQuery, riskMapByName]);
+
+  // Handlers
+  const handleSelectSearchResult = (res) => {
+    setTargetView({ center: res.coords, zoom: 16 });
+    setSearchQuery('');
+    if (res.type === 'barangay') {
+      setSelectedFeature({
+        type: 'barangay',
+        title: res.title,
+        data: res.data,
+      });
+    } else if (res.type === 'road') {
+      setSelectedFeature({
+        type: 'road',
+        title: res.title,
+        data: res.data,
+      });
+    }
+  };
+
+  const handleResetView = () => {
+    setTargetView({ center: LUMBAN_CENTER, zoom: DEFAULT_ZOOM });
+    setSelectedFeature(null);
+  };
+
   const handleCreate = () => {
     if (!form.name || !form.lat || !form.lng) { toast.error('Name, lat, and lng are required'); return; }
-    create.mutate({ name: form.name, risk_level: form.risk_level, lat: parseFloat(form.lat), lng: parseFloat(form.lng), radius: parseInt(form.radius || '250'), note: form.note || null });
+    create.mutate({
+      name: form.name,
+      risk_level: form.risk_level,
+      lat: parseFloat(form.lat),
+      lng: parseFloat(form.lng),
+      radius: parseInt(form.radius || '250'),
+      note: form.note || null,
+    });
   };
 
   const handleUpdate = () => {
-    update.mutate({ id: editItem.id, data: { name: form.name, risk_level: form.risk_level, lat: parseFloat(form.lat), lng: parseFloat(form.lng), radius: parseInt(form.radius || '250'), note: form.note || null } });
+    update.mutate({
+      id: editItem.id,
+      data: {
+        name: form.name,
+        risk_level: form.risk_level,
+        lat: parseFloat(form.lat),
+        lng: parseFloat(form.lng),
+        radius: parseInt(form.radius || '250'),
+        note: form.note || null,
+      },
+    });
   };
 
   const openEdit = (area) => {
     setEditItem(area);
-    setForm({ name: area.name, risk_level: area.risk_level, lat: String(area.lat), lng: String(area.lng), radius: String(area.radius), note: area.note || '' });
+    setForm({
+      name: area.name,
+      risk_level: area.risk_level,
+      lat: String(area.lat),
+      lng: String(area.lng),
+      radius: String(area.radius),
+      note: area.note || '',
+    });
     setShowEdit(true);
   };
 
-  const grouped = areas.reduce((acc, a) => { if (!acc[a.risk_level]) acc[a.risk_level] = []; acc[a.risk_level].push(a); return acc; }, {});
+  const grouped = areas.reduce((acc, a) => {
+    if (!acc[a.risk_level]) acc[a.risk_level] = [];
+    acc[a.risk_level].push(a);
+    return acc;
+  }, {});
+
+  const activeRoadCount = filteredRoadsGeoJSON?.features?.length || 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="page-header flex items-center justify-between">
+    <div className="space-y-5">
+      {/* ------------------------------------------------------------- */}
+      {/* TOP HEADER & CONTROLS */}
+      {/* ------------------------------------------------------------- */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Flood Risk Map</h1>
-          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Lumban, Laguna — {areas.length} areas classified</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden p-0.5">
-            {['map', 'list'].map(tab => (
-              <button key={tab} onClick={() => setViewTab(tab)}
-                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${viewTab === tab ? 'bg-red-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}`}>
-                {tab === 'map' ? '🗺 Map' : '📋 List'}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
+              <span className="p-2 bg-red-600 text-white rounded-xl shadow-md">
+                <Waves size={20} />
+              </span>
+              Flood Risk & Hazard Map
+            </h1>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <Compass size={13} className="text-blue-500" />
+              Lumban, Laguna
+            </span>
           </div>
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
+            Integrated multi-layer GIS overlay: Scientific Flood Model, Road Network & LDRRMP Risk Assessment
+          </p>
+        </div>
+
+        {/* View Mode & Actions */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Quick Search */}
+          <div className="relative min-w-[220px] sm:min-w-[260px]">
+            <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm shadow-sm focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500 transition-all">
+              <Search size={16} className="text-slate-400 mr-2 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search Barangay or Road..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Autocomplete Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-[2000] overflow-hidden">
+                <div className="p-1.5 space-y-1">
+                  {searchResults.map((res, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSelectSearchResult(res)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 flex items-center justify-between transition-colors"
+                    >
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                          {res.type === 'barangay' ? '📍' : '🛣️'} {res.title}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{res.subtitle}</div>
+                      </div>
+                      <Navigation size={13} className="text-blue-500 opacity-60" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* View Tab Switcher */}
+          <div className="flex bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-0.5">
+            <button
+              onClick={() => setViewTab('map')}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                viewTab === 'map' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              🗺️ Map View
+            </button>
+            <button
+              onClick={() => setViewTab('list')}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                viewTab === 'list' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              📋 Risk List ({areas.length})
+            </button>
+          </div>
+
+          {/* Admin Add Button */}
           {isAdmin && (
-            <button onClick={() => { setForm(EMPTY); setShowAdd(true); }}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-              <Plus size={16} /> Add Area
+            <button
+              onClick={() => { setForm({ name: '', risk_level: 'MODERATE', lat: '', lng: '', radius: '250', note: '' }); setShowAdd(true); }}
+              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm active:scale-95"
+            >
+              <Plus size={15} /> Add Area
             </button>
           )}
         </div>
       </div>
 
-      {/* Map Tab */}
+      {/* ------------------------------------------------------------- */}
+      {/* QUICK LAYER FILTER PILL BAR */}
+      {/* ------------------------------------------------------------- */}
       {viewTab === 'map' && (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">⚠️ Interactive Risk Zone Map</span>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Click a zone for details</span>
-          </div>
-          <div style={{ position: 'relative', height: 520 }}>
-            <MapContainer center={LUMBAN_CENTER} zoom={12} style={{ height: '100%', width: '100%', background: '#b8d4e8' }}>
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                attribution="&copy; OpenStreetMap &copy; CARTO"
-              />
-              <RiskGeoJSON areas={areas} boundary={lumbanBoundary} />
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
-                attribution=""
-              />
+        <div className="flex flex-wrap items-center gap-2 p-2 bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-sm backdrop-blur-md">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1.5">
+            <Layers size={14} /> Layers:
+          </span>
 
-              <Marker position={[14.291969, 121.460112]}
-                icon={L.divIcon({
-                  html: `<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#60a5fa);border:2px solid white;box-shadow:0 0 20px rgba(59,130,246,0.9),0 0 40px rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:14px;">📷</div>`,
-                  className: '', iconSize: [34, 34], iconAnchor: [17, 17],
-                })}>
-                <Popup>
-                  <div style={{ background: '#0f172a', color: '#e2e8f0', padding: 10, borderRadius: 10, borderLeft: '4px solid #3b82f6' }}>
-                    <strong style={{ color: '#60a5fa' }}>📷 CAM-LUMBAN-01</strong><br />
-                    <span style={{ color: '#94a3b8', fontSize: 11 }}>Lumban Bridge — Active Monitoring</span>
-                  </div>
-                </Popup>
-              </Marker>
-            </MapContainer>
-            <Legend />
+          {/* 1. Municipal Border Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, municipalBorder: !v.municipalBorder }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.municipalBorder
+                ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <Shield size={13} className={layerVisibility.municipalBorder ? 'text-blue-600' : 'text-slate-400'} />
+            Municipal Border
+          </button>
+
+          {/* 2. Flood Map Layer Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, floodMap: !v.floodMap }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.floodMap
+                ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <Waves size={13} className={layerVisibility.floodMap ? 'text-red-600' : 'text-slate-400'} />
+            Flood Hazard Map
+            {layerVisibility.floodMap && (
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+            )}
+          </button>
+
+          {/* 3. Road Network Layer Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, roads: !v.roads }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.roads
+                ? 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <Route size={13} className={layerVisibility.roads ? 'text-purple-600' : 'text-slate-400'} />
+            Road Network ({activeRoadCount})
+          </button>
+
+          {/* 4. Barangay Risk Zones Layer Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, riskMap: !v.riskMap }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.riskMap
+                ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <ShieldAlert size={13} className={layerVisibility.riskMap ? 'text-amber-600' : 'text-slate-400'} />
+            Barangay Risk Map
+          </button>
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Filter Drawer Toggle */}
+            <button
+              onClick={() => setShowFilterDrawer(d => !d)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                showFilterDrawer
+                  ? 'bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Filter size={13} />
+              Filter Options
+              {showFilterDrawer ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
           </div>
         </div>
       )}
 
-      {/* List Tab */}
+      {/* ------------------------------------------------------------- */}
+      {/* FILTER & OPACITY DRAWER */}
+      {/* ------------------------------------------------------------- */}
+      {viewTab === 'map' && showFilterDrawer && (
+        <div className="bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-lg space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <Sliders size={16} className="text-red-600" />
+              <span className="text-sm font-bold text-slate-900 dark:text-white">Map Layer Customization & Filters</span>
+            </div>
+            <button
+              onClick={() => {
+                setRiskFilters({ VERY_HIGH: true, HIGH: true, MODERATE: true, LOW: true });
+                setFloodFilters({ 3: true, 2: true, 1: true });
+                setRoadFilters({ 'National Road': true, 'Provincial Road': true, 'Municipal Road': true, 'Barangay Road': true, 'Other': true });
+                setRiskOpacity(0.5);
+                setFloodOpacity(0.65);
+                toast.success('All filters reset');
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1"
+            >
+              <RotateCcw size={12} /> Reset Filters
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 1. Basemap Style Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                🗺️ Basemap Style
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.values(BASEMAPS).map(bm => (
+                  <button
+                    key={bm.id}
+                    onClick={() => setBasemap(bm.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left ${
+                      basemap === bm.id
+                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{bm.icon}</span>
+                    <span className="truncate">{bm.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. Flood Hazard Map Sub-Filters */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Waves size={13} className="text-red-500" /> Flood Hazard (NOAH)
+                </label>
+                <span className="text-[11px] font-mono text-slate-400">Opacity: {Math.round(floodOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={floodOpacity}
+                onChange={(e) => setFloodOpacity(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-600"
+              />
+              <div className="space-y-1.5 pt-1">
+                {[3, 2, 1].map(varKey => {
+                  const cfg = FLOOD_HAZARD_CONFIG[varKey];
+                  const active = floodFilters[varKey];
+                  return (
+                    <button
+                      key={varKey}
+                      onClick={() => setFloodFilters(f => ({ ...f, [varKey]: !f[varKey] }))}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        active
+                          ? 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
+                          : 'opacity-40 line-through bg-transparent border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cfg.fill }} />
+                        <span>{cfg.label}</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{cfg.depth}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Road Classification Sub-Filters */}
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Route size={13} className="text-purple-500" /> Road Filter ({activeRoadCount})
+              </label>
+              <div className="space-y-1.5">
+                {Object.entries(ROAD_CLASS_CONFIG).map(([clsKey, cfg]) => {
+                  const active = roadFilters[clsKey];
+                  return (
+                    <button
+                      key={clsKey}
+                      onClick={() => setRoadFilters(r => ({ ...r, [clsKey]: !r[clsKey] }))}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        active
+                          ? 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
+                          : 'opacity-40 line-through bg-transparent border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-1 rounded" style={{ backgroundColor: cfg.color }} />
+                        <span>{clsKey}</span>
+                      </div>
+                      <span className="text-[11px]">{cfg.icon}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Barangay Risk Assessment Filters */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <ShieldAlert size={13} className="text-amber-500" /> Barangay Risk Level
+                </label>
+                <span className="text-[11px] font-mono text-slate-400">Opacity: {Math.round(riskOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={riskOpacity}
+                onChange={(e) => setRiskOpacity(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-600"
+              />
+              <div className="space-y-1.5 pt-1">
+                {Object.entries(RISK_CONFIG).map(([lvlKey, cfg]) => {
+                  const active = riskFilters[lvlKey];
+                  const count = (grouped[lvlKey] || []).length;
+                  return (
+                    <button
+                      key={lvlKey}
+                      onClick={() => setRiskFilters(rf => ({ ...rf, [lvlKey]: !rf[lvlKey] }))}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        active
+                          ? 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
+                          : 'opacity-40 line-through bg-transparent border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cfg.fill }} />
+                        <span>{cfg.label}</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MAP VIEW TAB */}
+      {/* ------------------------------------------------------------- */}
+      {viewTab === 'map' && (
+        <div className={`relative bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-3xl overflow-hidden shadow-xl transition-all ${
+          isFullScreen ? 'fixed inset-0 z-[5000] rounded-none' : 'h-[620px]'
+        }`}>
+          {/* Map Viewport */}
+          <MapContainer
+            center={LUMBAN_CENTER}
+            zoom={DEFAULT_ZOOM}
+            style={{ height: '100%', width: '100%', background: '#09101d' }}
+          >
+            {/* Map Controller for programmatic movement */}
+            {targetView && <MapController targetCenter={targetView.center} targetZoom={targetView.zoom} />}
+
+            {/* Active Base Tile Layer */}
+            <TileLayer
+              url={BASEMAPS[basemap].url}
+              attribution={BASEMAPS[basemap].attribution}
+              maxZoom={19}
+            />
+
+            {/* 1. LUMBAN MUNICIPAL OUTER BORDER OVERLAY */}
+            {layerVisibility.municipalBorder && (
+              <GeoJSON
+                key="lumban-border"
+                data={lumbanBorder}
+                style={{
+                  color: '#2563eb',
+                  weight: 3,
+                  fillColor: 'transparent',
+                  fillOpacity: 0,
+                  dashArray: '6 4',
+                }}
+                interactive={false}
+              />
+            )}
+
+            {/* 2. FLOOD HAZARD GEOJSON OVERLAY */}
+            {filteredFloodGeoJSON && (
+              <GeoJSON
+                key={`flood-${floodOpacity}-${Object.values(floodFilters).join()}`}
+                data={filteredFloodGeoJSON}
+                style={(feature) => {
+                  const cfg = FLOOD_HAZARD_CONFIG[feature.properties.Var] || FLOOD_HAZARD_CONFIG[2];
+                  return {
+                    color: cfg.color,
+                    weight: 1.5,
+                    fillColor: cfg.fill,
+                    fillOpacity: floodOpacity,
+                  };
+                }}
+                onEachFeature={(feature, layer) => {
+                  const cfg = FLOOD_HAZARD_CONFIG[feature.properties.Var] || FLOOD_HAZARD_CONFIG[2];
+                  layer.on({
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      setSelectedFeature({
+                        type: 'flood',
+                        title: cfg.label,
+                        data: { ...feature.properties, ...cfg },
+                      });
+                    },
+                    mouseover: () => layer.setStyle({ fillOpacity: Math.min(1.0, floodOpacity + 0.25), weight: 2.5 }),
+                    mouseout: () => layer.setStyle({ fillOpacity: floodOpacity, weight: 1.5 }),
+                  });
+                  layer.bindPopup(`
+                    <div style="min-width:210px;font-family:sans-serif;padding:6px 4px;">
+                      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <span style="font-size:16px">${cfg.icon}</span>
+                        <div style="font-weight:900;font-size:14px;color:${cfg.fill}">${cfg.label}</div>
+                      </div>
+                      <div style="background:${cfg.fill}22;color:${cfg.color};border:1px solid ${cfg.fill}55;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:800;margin-bottom:8px;">
+                        Depth: ${cfg.depth} (${cfg.depthDesc})
+                      </div>
+                      <div style="font-size:11px;color:#cbd5e1;line-height:1.5">${cfg.advisory}</div>
+                    </div>
+                  `);
+                }}
+              />
+            )}
+
+            {/* 3. BARANGAY RISK BOUNDARY GEOJSON OVERLAY */}
+            {filteredRiskGeoJSON && (
+              <GeoJSON
+                key={`risk-${riskOpacity}-${areas.map(a => `${a.id}-${a.risk_level}`).join()}-${Object.values(riskFilters).join()}`}
+                data={filteredRiskGeoJSON}
+                style={(feature) => {
+                  const name = feature.properties.ADM4_EN;
+                  const area = riskMapByName[cleanName(name)] || riskMapByName[name];
+                  if (area) {
+                    const cfg = RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE;
+                    return {
+                      color: cfg.color,
+                      weight: 2,
+                      fillColor: cfg.fill,
+                      fillOpacity: riskOpacity,
+                    };
+                  }
+                  return { color: '#0ea5e9', weight: 2, fillColor: 'transparent', fillOpacity: 0, dashArray: '5 4' };
+                }}
+                onEachFeature={(feature, layer) => {
+                  const name = feature.properties.ADM4_EN;
+                  const area = riskMapByName[cleanName(name)] || riskMapByName[name];
+                  const cfg = area ? (RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE) : null;
+
+                  layer.on({
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      setSelectedFeature({
+                        type: 'barangay',
+                        title: name,
+                        data: area || { name, risk_level: 'MODERATE' },
+                      });
+                    },
+                    mouseover: () => layer.setStyle({ fillOpacity: Math.min(1.0, riskOpacity + 0.25), weight: 3 }),
+                    mouseout: () => layer.setStyle({ fillOpacity: riskOpacity, weight: 2 }),
+                  });
+
+                  if (cfg) {
+                    layer.bindPopup(`
+                      <div style="min-width:210px;font-family:sans-serif;padding:6px 4px;">
+                        <div style="font-weight:900;font-size:15px;color:${cfg.color};margin-bottom:2px">${name}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Lumban, Laguna • CDRA Classified</div>
+                        <span style="background:${cfg.fill};color:#fff;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800">${cfg.icon} ${cfg.label}</span>
+                        <div style="margin-top:8px;font-size:11px;color:#cbd5e1;line-height:1.5">${cfg.desc}</div>
+                        ${area.note ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #334155;font-size:11px;color:#94a3b8;font-style:italic">Note: ${area.note}</div>` : ''}
+                      </div>
+                    `);
+                  }
+                }}
+              />
+            )}
+
+            {/* 4. ROAD NETWORK GEOJSON OVERLAY */}
+            {filteredRoadsGeoJSON && (
+              <GeoJSON
+                key={`roads-${Object.values(roadFilters).join()}`}
+                data={filteredRoadsGeoJSON}
+                style={(feature) => {
+                  const cls = feature.properties.Road_Class || 'Other';
+                  const cfg = ROAD_CLASS_CONFIG[cls] || ROAD_CLASS_CONFIG.Other;
+                  return {
+                    color: cfg.color,
+                    weight: cfg.weight,
+                    opacity: 0.95,
+                  };
+                }}
+                onEachFeature={(feature, layer) => {
+                  const p = feature.properties;
+                  const cls = p.Road_Class || 'Other';
+                  const cfg = ROAD_CLASS_CONFIG[cls] || ROAD_CLASS_CONFIG.Other;
+                  const title = p.name || `${cls} Segment`;
+
+                  layer.on({
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      setSelectedFeature({
+                        type: 'road',
+                        title,
+                        data: p,
+                      });
+                    },
+                    mouseover: () => layer.setStyle({ weight: cfg.weight + 3, color: '#f59e0b' }),
+                    mouseout: () => layer.setStyle({ weight: cfg.weight, color: cfg.color }),
+                  });
+
+                  layer.bindPopup(`
+                    <div style="min-width:200px;font-family:sans-serif;padding:6px 4px;">
+                      <div style="font-weight:900;font-size:13px;color:#0f172a;margin-bottom:2px">🛣️ ${title}</div>
+                      <div style="font-size:11px;font-weight:700;color:${cfg.color};margin-bottom:6px">${cls}</div>
+                      <div style="font-size:11px;color:#475569;line-height:1.6">
+                        ${p.surface ? `<b>Surface:</b> ${p.surface}<br/>` : ''}
+                        ${p.highway ? `<b>Type:</b> ${p.highway}<br/>` : ''}
+                        ${p.lanes ? `<b>Lanes:</b> ${p.lanes}<br/>` : ''}
+                        ${p.ref ? `<b>Route Ref:</b> ${p.ref}<br/>` : ''}
+                      </div>
+                    </div>
+                  `);
+                }}
+              />
+            )}
+
+            {/* Labels Base Tile Layer (Overlay on top of polygons) */}
+            {BASEMAPS[basemap].labelsUrl && (
+              <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
+            )}
+
+            {/* Centroid Barangay Label Pins */}
+            {layerVisibility.riskLabels && Object.entries(BRGY_CENTERS).map(([name, pos]) => {
+              const area = riskMapByName[cleanName(name)] || riskMapByName[name];
+              const cfg = area ? RISK_CONFIG[area.risk_level] : null;
+              if (cfg && !riskFilters[area.risk_level]) return null;
+
+              return (
+                <Marker
+                  key={name}
+                  position={pos}
+                  icon={L.divIcon({
+                    className: '',
+                    iconAnchor: [0, 0],
+                    html: `
+                      <div style="
+                        font-family:sans-serif;
+                        pointer-events:none;
+                        text-align:center;
+                        transform:translate(-50%,-50%);
+                        white-space:nowrap;
+                      ">
+                        <div style="
+                          font-size:10px;
+                          font-weight:800;
+                          color:#ffffff;
+                          background:rgba(15,23,42,0.85);
+                          padding:2px 6px;
+                          border-radius:6px;
+                          border:1px solid rgba(255,255,255,0.25);
+                          box-shadow:0 2px 6px rgba(0,0,0,0.5);
+                          line-height:1.2;
+                        ">${name.replace(/\s*\(.*?\)/g, '')}</div>
+                        ${cfg ? `
+                          <div style="
+                            font-size:9px;
+                            font-weight:800;
+                            color:${cfg.fill};
+                            text-shadow:0 0 4px #000;
+                            margin-top:1px;
+                          ">${cfg.icon} ${cfg.label}</div>
+                        ` : ''}
+                      </div>
+                    `,
+                  })}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedFeature({
+                        type: 'barangay',
+                        title: name,
+                        data: area || { name, risk_level: 'MODERATE' },
+                      });
+                    },
+                  }}
+                />
+              );
+            })}
+          </MapContainer>
+
+          {/* ------------------------------------------------------------- */}
+          {/* FLOATING MAP CONTROLS OVERLAY */}
+          {/* ------------------------------------------------------------- */}
+          <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+            <button
+              onClick={handleResetView}
+              title="Reset View to Lumban Center"
+              className="p-2.5 bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button
+              onClick={() => setIsFullScreen(f => !f)}
+              title={isFullScreen ? 'Exit Full Screen' : 'Full Screen Map'}
+              className="p-2.5 bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button
+              onClick={() => setShowLegend(l => !l)}
+              title="Toggle Legend"
+              className={`p-2.5 rounded-xl shadow-lg border transition-all ${
+                showLegend
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <Info size={16} />
+            </button>
+          </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* SELECTED FEATURE INSPECTOR CARD */}
+          {/* ------------------------------------------------------------- */}
+          {selectedFeature && (
+            <div className="absolute bottom-6 left-6 z-[1000] max-w-sm sm:max-w-md w-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  {selectedFeature.type === 'flood' && <Waves size={18} className="text-red-500" />}
+                  {selectedFeature.type === 'road' && <Route size={18} className="text-blue-500" />}
+                  {selectedFeature.type === 'barangay' && <ShieldAlert size={18} className="text-amber-500" />}
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {selectedFeature.type === 'flood' && 'Flood Hazard Model'}
+                      {selectedFeature.type === 'road' && 'Road Network'}
+                      {selectedFeature.type === 'barangay' && 'Barangay Risk Profile'}
+                    </span>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                      {selectedFeature.title}
+                    </h4>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelectedFeature(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Inspector Content by Type */}
+              <div className="mt-3 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                {selectedFeature.type === 'flood' && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                        Estimated Depth: {selectedFeature.data.depth}
+                      </span>
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                      {selectedFeature.data.advisory}
+                    </p>
+                  </div>
+                )}
+
+                {selectedFeature.type === 'road' && (
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                        {selectedFeature.data.Road_Class || 'Road'}
+                      </span>
+                      {selectedFeature.data.surface && (
+                        <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          Surface: {selectedFeature.data.surface}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400">
+                      {selectedFeature.data.highway ? `Type: ${selectedFeature.data.highway}` : 'Maintained transportation artery in Lumban.'}
+                    </p>
+                  </div>
+                )}
+
+                {selectedFeature.type === 'barangay' && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const lvl = selectedFeature.data.risk_level || 'MODERATE';
+                        const cfg = RISK_CONFIG[lvl] || RISK_CONFIG.MODERATE;
+                        return (
+                          <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] border ${cfg.bg}`}>
+                            {cfg.icon} {cfg.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    {selectedFeature.data.note && (
+                      <p className="text-slate-700 dark:text-slate-300 font-medium">
+                        <b>Advisory:</b> {selectedFeature.data.note}
+                      </p>
+                    )}
+                    {isAdmin && (
+                      <div className="pt-2 flex gap-2">
+                        <button
+                          onClick={() => openEdit(selectedFeature.data)}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] flex items-center gap-1"
+                        >
+                          <Edit2 size={12} /> Edit Risk Level
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* DYNAMIC MULTI-LAYER MAP LEGEND */}
+          {/* ------------------------------------------------------------- */}
+          {showLegend && (
+            <div className="absolute bottom-6 right-6 z-[1000] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-xl backdrop-blur-md max-w-xs w-full max-h-[360px] overflow-y-auto space-y-3 font-sans">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <Layers size={13} className="text-red-500" /> Active Map Legend
+                </span>
+                <button onClick={() => setShowLegend(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                  <X size={13} />
+                </button>
+              </div>
+
+              {/* Municipal Border Legend */}
+              {layerVisibility.municipalBorder && (
+                <div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className="w-4 h-0.5 border-t-2 border-dashed border-blue-600 shrink-0" />
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Lumban Municipal Border</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Flood Hazard Legend Section */}
+              {layerVisibility.floodMap && (
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    🌊 Flood Inundation Hazard
+                  </div>
+                  <div className="space-y-1">
+                    {[3, 2, 1].map(k => {
+                      const cfg = FLOOD_HAZARD_CONFIG[k];
+                      return (
+                        <div key={k} className="flex items-center gap-2 text-xs">
+                          <div className="w-3.5 h-3 rounded shrink-0" style={{ backgroundColor: cfg.fill, opacity: floodOpacity, border: `1px solid ${cfg.color}` }} />
+                          <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">{cfg.label}</span>
+                          <span className="text-[10px] text-slate-400 font-mono ml-auto">{cfg.depth}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Road Class Legend Section */}
+              {layerVisibility.roads && (
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    🛣️ Road Classification
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(ROAD_CLASS_CONFIG).slice(0, 4).map(([cls, cfg]) => (
+                      <div key={cls} className="flex items-center gap-2 text-xs">
+                        <div className="w-4 h-1.5 rounded shrink-0" style={{ backgroundColor: cfg.color }} />
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-[11px] truncate">{cls}</span>
+                        <span className="text-[11px] ml-auto">{cfg.icon}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Risk Level Legend Section */}
+              {layerVisibility.riskMap && (
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-2">
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                    🛡️ Barangay Disaster Risk (CDRA)
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(RISK_CONFIG).map(([k, cfg]) => (
+                      <div key={k} className="flex items-center gap-2 text-xs">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cfg.fill, opacity: riskOpacity, border: `1px solid ${cfg.color}` }} />
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">{cfg.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* LIST VIEW TAB */}
+      {/* ------------------------------------------------------------- */}
       {viewTab === 'list' && (
         <div className="space-y-4">
           {Object.entries(RISK_CONFIG).map(([level, cfg]) => {
@@ -303,23 +1266,36 @@ export default function RiskMapPage() {
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{cfg.tagalog}</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-auto">{levelAreas.length} areas</span>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {levelAreas.map(area => (
-                    <div key={area.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div key={area.id} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }} />
                           <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{area.name}</span>
                         </div>
-                        {area.note && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 ml-5 truncate font-medium">{area.note}</p>}
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-5 font-mono">📍 {area.lat.toFixed(4)}, {area.lng.toFixed(4)} · r={area.radius}m</p>
+                        {area.note && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 ml-4 truncate font-medium">{area.note}</p>}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 ml-4 font-mono">📍 {area.lat.toFixed(4)}, {area.lng.toFixed(4)} · r={area.radius}m</p>
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-2 ml-3 shrink-0">
-                          <button onClick={() => openEdit(area)} className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Edit2 size={14} /></button>
-                          <button onClick={() => window.confirm(`Delete "${area.name}"?`) && remove.mutate(area.id)} className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Trash2 size={14} /></button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                        <button
+                          onClick={() => {
+                            setViewTab('map');
+                            setTargetView({ center: [area.lat, area.lng], zoom: 16 });
+                            setSelectedFeature({ type: 'barangay', title: area.name, data: area });
+                          }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                          title="Locate on Map"
+                        >
+                          <Navigation size={14} />
+                        </button>
+                        {isAdmin && (
+                          <>
+                            <button onClick={() => openEdit(area)} className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Edit2 size={14} /></button>
+                            <button onClick={() => window.confirm(`Delete "${area.name}"?`) && remove.mutate(area.id)} className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><Trash2 size={14} /></button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -329,14 +1305,32 @@ export default function RiskMapPage() {
         </div>
       )}
 
+      {/* ------------------------------------------------------------- */}
+      {/* METADATA & SCIENTIFIC SOURCES CARD */}
+      {/* ------------------------------------------------------------- */}
       <Card>
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">Data Source</h3>
-        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-          Risk classifications are based on the Climate and Disaster Risk Assessment (CDRA) included in the Local Disaster Risk Reduction and Management Plan (LDRRMP) of Lumban, Laguna.
-        </p>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+          <Info size={16} className="text-blue-500" /> Scientific & Administrative Data Sources
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium pt-2">
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+            <b className="text-slate-900 dark:text-white block mb-1">🌊 Flood Hazard Modeling</b>
+            Project NOAH / Mines and Geosciences Bureau (MGB) 100-year return period scientific flood simulation with 3-tier depth classification.
+          </div>
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+            <b className="text-slate-900 dark:text-white block mb-1">🛣️ Road Network GIS</b>
+            OpenStreetMap & DPWH vector layers categorized into National Highways, Provincial Arterials, Municipal, and Barangay streets.
+          </div>
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+            <b className="text-slate-900 dark:text-white block mb-1">🛡️ Local Risk Assessment (CDRA)</b>
+            Local Disaster Risk Reduction and Management Plan (LDRRMP) of Lumban, Laguna municipal government disaster preparedness index.
+          </div>
+        </div>
       </Card>
 
-      {/* Add Modal */}
+      {/* ------------------------------------------------------------- */}
+      {/* ADD MODAL */}
+      {/* ------------------------------------------------------------- */}
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Flood Risk Area">
         <div className="space-y-4">
           <FormFields form={form} setForm={setForm} />
@@ -349,7 +1343,9 @@ export default function RiskMapPage() {
         </div>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* ------------------------------------------------------------- */}
+      {/* EDIT MODAL */}
+      {/* ------------------------------------------------------------- */}
       <Modal isOpen={showEdit} onClose={() => setShowEdit(false)} title="Edit Flood Risk Area">
         <div className="space-y-4">
           <FormFields form={form} setForm={setForm} />
@@ -361,6 +1357,84 @@ export default function RiskMapPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// FORM FIELDS HELPER
+// -------------------------------------------------------------
+function FormFields({ form, setForm }) {
+  const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
+  const labelCls = 'text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1';
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className={labelCls}>Barangay *</span>
+        <select
+          className={inputCls}
+          value={form.name}
+          onChange={e => {
+            const name = e.target.value;
+            const center = BRGY_CENTERS[name];
+            setForm(f => ({ ...f, name, lat: center ? String(center[0]) : f.lat, lng: center ? String(center[1]) : f.lng }));
+          }}
+        >
+          <option value="">— Select Barangay —</option>
+          {BARANGAY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <span className={labelCls}>Risk Level *</span>
+        <select
+          className={inputCls}
+          value={form.risk_level}
+          onChange={e => setForm(f => ({ ...f, risk_level: e.target.value }))}
+        >
+          <option value="VERY_HIGH">🔴 Very High Risk</option>
+          <option value="HIGH">🟠 High Risk</option>
+          <option value="MODERATE">🟡 Moderate Risk</option>
+          <option value="LOW">🟢 Low Risk</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <span className={labelCls}>Latitude *</span>
+          <input
+            type="number"
+            step="any"
+            className={inputCls}
+            value={form.lat}
+            onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
+            placeholder="14.29xx"
+          />
+        </div>
+        <div>
+          <span className={labelCls}>Longitude *</span>
+          <input
+            type="number"
+            step="any"
+            className={inputCls}
+            value={form.lng}
+            onChange={e => setForm(f => ({ ...f, lng: e.target.value }))}
+            placeholder="121.46xx"
+          />
+        </div>
+      </div>
+
+      <div>
+        <span className={labelCls}>Notes (optional)</span>
+        <textarea
+          className={`${inputCls} resize-none`}
+          rows={2}
+          value={form.note}
+          onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+          placeholder="Additional local description or critical notes..."
+        />
+      </div>
     </div>
   );
 }

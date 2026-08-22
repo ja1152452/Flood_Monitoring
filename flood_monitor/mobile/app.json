@@ -37,8 +37,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
-      "package": "ph.gov.lumban.floodmonitor",
-      "usesCleartextTraffic": true
+      "package": "ph.gov.lumban.floodmonitor"
     },
     "extra": {
       "router": {},

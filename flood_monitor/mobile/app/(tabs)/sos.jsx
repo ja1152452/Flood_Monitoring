@@ -23,7 +23,7 @@ import { SOSTrackingMap } from '../../components/FloodMap';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-const RESPONDER_ROLES = ['PNP', 'RHU', 'BFP', 'MDRRMO', 'MDRRMO_RESPONDER', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'RHU', 'BFP', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'RESCUE'];
 
 const RESCUE_TRACKING_STEPS = [
   { id: 1, key: 'SUBMITTED',          label: '1. Request Submitted',   sub: 'GPS Location Received' },

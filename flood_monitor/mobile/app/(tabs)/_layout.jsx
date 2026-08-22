@@ -40,7 +40,7 @@ export default function TabLayout() {
   }
   const role = user?.role || 'CITIZEN';
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-  const isResponder = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'].includes(role);
+  const isResponder = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'].includes(role);
 
   const sosTab = isAdmin
     ? { icon: 'business', label: 'Centers' }

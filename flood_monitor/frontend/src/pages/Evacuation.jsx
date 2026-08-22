@@ -20,6 +20,41 @@ L.Icon.Default.mergeOptions({
 
 const LUMBAN_CENTER = [14.291969, 121.460112];
 
+const BASEMAPS = {
+  streets: {
+    id: 'streets',
+    name: 'Street',
+    icon: '🗺️',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  satellite: {
+    id: 'satellite',
+    name: 'Satellite',
+    icon: '🛰️',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; Esri &copy; OpenStreetMap',
+  },
+  topo: {
+    id: 'topo',
+    name: 'Topographic',
+    icon: '⛰️',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenTopoMap &copy; OpenStreetMap',
+  },
+  dark: {
+    id: 'dark',
+    name: 'Dark',
+    icon: '🌙',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  },
+};
+
 const EMPTY_FORM = {
   name: '', barangay: '', address: '',
   lat: '', lng: '', capacity_total: '',
@@ -80,6 +115,7 @@ export default function Evacuation() {
   const [filterGender, setFilterGender] = useState('');
   const [filterAgeMin, setFilterAgeMin] = useState('');
   const [filterAgeMax, setFilterAgeMax] = useState('');
+  const [mapBasemap, setMapBasemap] = useState('streets');
 
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation'],
@@ -575,16 +611,40 @@ export default function Evacuation() {
       {activeTab === 'centers' && (<>
 
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">Map — Lumban, Laguna</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Click a marker to see details</p>
+          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">Evacuation Centers Map — Lumban, Laguna</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Click a marker to see capacity and contact details</p>
+            </div>
+            {/* Basemap Switcher */}
+            <div className="flex bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              {Object.values(BASEMAPS).map(bm => (
+                <button
+                  key={bm.id}
+                  onClick={() => setMapBasemap(bm.id)}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    mapBasemap === bm.id
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{bm.icon}</span>
+                  <span className="hidden sm:inline">{bm.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ height: '420px', width: '100%' }}>
+          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ height: '440px', width: '100%', background: '#09101d' }}>
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              key={mapBasemap}
+              url={BASEMAPS[mapBasemap].url}
+              attribution={BASEMAPS[mapBasemap].attribution}
+              maxZoom={19}
             />
-            <GeoJSON key="lumban-border" data={lumbanBoundary} style={{ color: '#ef4444', weight: 1, fillOpacity: 0, dashArray: '6 3' }} interactive={false} />
+            {BASEMAPS[mapBasemap].labelsUrl && (
+              <TileLayer url={BASEMAPS[mapBasemap].labelsUrl} maxZoom={19} />
+            )}
+            <GeoJSON key="lumban-border" data={lumbanBoundary} style={{ color: '#ef4444', weight: 2, fillOpacity: 0, dashArray: '6 3' }} interactive={false} />
             {centers.map(center => (
               <Marker
                 key={center.id}

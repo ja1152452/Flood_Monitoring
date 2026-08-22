@@ -32,6 +32,7 @@ async function migrate() {
     await client.query(`DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'BFP'; EXCEPTION WHEN others THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'RHU'; EXCEPTION WHEN others THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'MDRRMO_RESPONDER'; EXCEPTION WHEN others THEN NULL; END $$;`);
+    await client.query(`DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'COAST_GUARD'; EXCEPTION WHEN others THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'BARANGAY_OFFICIAL'; EXCEPTION WHEN others THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE flood_level AS ENUM ('NORMAL','MONITOR','ALERT','EVACUATION','CRITICAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
     await client.query(`DO $$ BEGIN CREATE TYPE alert_trigger AS ENUM ('THRESHOLD_BREACH','FORECAST_WARNING','MANUAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);

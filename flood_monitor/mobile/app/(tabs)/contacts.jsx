@@ -237,20 +237,21 @@ function ContactsView() {
 // ─── Backup View for Responders ───────────────────────────────────────────────
 
 const ROLE_COLORS = {
-  PNP: { bg: '#eff6ff', border: '#bfdbfe', icon: '#1e40af', iconName: 'shield' },
-  BFP: { bg: '#fff7ed', border: '#fed7aa', icon: '#ea580c', iconName: 'flame' },
-  RHU: { bg: '#f0fdf4', border: '#bbf7d0', icon: '#16a34a', iconName: 'medical' },
-  MDRRMO: { bg: '#fff1f2', border: '#fca5a5', icon: '#dc2626', iconName: 'shield-checkmark' },
-  MDRRMO_RESPONDER: { bg: '#fff1f2', border: '#fca5a5', icon: '#dc2626', iconName: 'shield-checkmark' },
-  BARANGAY_OFFICIAL: { bg: '#f3e8ff', border: '#e9d5ff', icon: '#9333ea', iconName: 'business' },
-  RESCUE: { bg: '#e0f2fe', border: '#bae6fd', icon: '#0284c7', iconName: 'body' },
+  PNP: { bg: '#eff6ff', border: '#bfdbfe', icon: '#1e40af', iconName: 'shield', label: 'PNP (Police)' },
+  BFP: { bg: '#fff7ed', border: '#fed7aa', icon: '#ea580c', iconName: 'flame', label: 'BFP (Fire)' },
+  COAST_GUARD: { bg: '#e0f2fe', border: '#bae6fd', icon: '#0284c7', iconName: 'boat', label: 'Coast Guard' },
+  RHU: { bg: '#f0fdf4', border: '#bbf7d0', icon: '#16a34a', iconName: 'medical', label: 'RHU (Health)' },
+  MDRRMO: { bg: '#fff1f2', border: '#fca5a5', icon: '#dc2626', iconName: 'shield-checkmark', label: 'MDRRMO Official' },
+  MDRRMO_RESPONDER: { bg: '#fff1f2', border: '#fca5a5', icon: '#dc2626', iconName: 'shield-checkmark', label: 'MDRRMO Official' },
+  BARANGAY_OFFICIAL: { bg: '#f3e8ff', border: '#e9d5ff', icon: '#9333ea', iconName: 'business', label: 'Brgy. Official' },
+  RESCUE: { bg: '#e0f2fe', border: '#bae6fd', icon: '#0284c7', iconName: 'body', label: 'Rescue Team' },
 };
 
 function BackupView({ user }) {
   const qc = useQueryClient();
   const [sending, setSending] = useState(null);
 
-  const OTHER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'].filter(r => r !== user?.role);
+  const OTHER_ROLES = ['PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'].filter(r => r !== user?.role);
 
   const { data: backups = [] } = useQuery({
     queryKey: ['active-backups'],
@@ -376,7 +377,7 @@ function BackupView({ user }) {
                       <Ionicons name={cfg.iconName} size={22} color={cfg.icon} />
                     </View>
                     <Text style={[s.roleLabel, { color: cfg.icon }]}>
-                      {role === 'BARANGAY_OFFICIAL' ? 'Brgy. Official' : role}
+                      {cfg.label || (role === 'BARANGAY_OFFICIAL' ? 'Brgy. Official' : role)}
                     </Text>
                     {sending === role && (
                       <Text style={{ fontSize: 10, color: cfg.icon, marginTop: 2 }}>Sending…</Text>

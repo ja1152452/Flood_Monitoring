@@ -1,9 +1,9 @@
+import React, { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatDateTime } from '../../utils/floodUtils';
 import lumbanBoundary from '../../data/lumban-border.geojson';
-
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -12,11 +12,48 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+const BASEMAPS = {
+  streets: {
+    id: 'streets',
+    name: 'Street',
+    icon: '🗺️',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  satellite: {
+    id: 'satellite',
+    name: 'Satellite',
+    icon: '🛰️',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; Esri &copy; OpenStreetMap',
+  },
+  topo: {
+    id: 'topo',
+    name: 'Topographic',
+    icon: '⛰️',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenTopoMap &copy; OpenStreetMap',
+  },
+  dark: {
+    id: 'dark',
+    name: 'Dark',
+    icon: '🌙',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    labelsUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  },
+};
+
 const ROLE_CFG = {
   PNP: { color: '#1e40af', emoji: '👮', label: 'PNP' },
   BFP: { color: '#f97316', emoji: '🚒', label: 'BFP' },
+  COAST_GUARD: { color: '#0284c7', emoji: '⚓', label: 'Coast Guard' },
   RHU: { color: '#16a34a', emoji: '🏥', label: 'RHU' },
-  MDRRMO: { color: '#dc2626', emoji: '🛡', label: 'MDRRMO' },
+  MDRRMO: { color: '#dc2626', emoji: '🚨', label: 'MDRRMO Official' },
+  MDRRMO_RESPONDER: { color: '#dc2626', emoji: '🚨', label: 'MDRRMO Official' },
   BARANGAY_OFFICIAL: { color: '#6b21a8', emoji: '🏛', label: 'Barangay' },
   RESCUE: { color: '#38bdf8', emoji: '⛑', label: 'Rescue' },
 };
@@ -82,6 +119,8 @@ const CAMERA_ICON = L.divIcon({
 const LUMBAN_CENTER = [14.291969, 121.460112];
 
 export function RescueMap({ sosList = [], evacuationCenters = [], responders = [], onRespond, onComplete }) {
+  const [basemap, setBasemap] = useState('streets');
+
   // Compute vector lines for dispatched responders to SOS location
   const vectorLines = [];
   sosList.forEach(sos => {
@@ -106,138 +145,168 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
   });
 
   return (
-    <MapContainer
-      center={LUMBAN_CENTER}
-      zoom={14}
-      style={{ height: '480px', width: '100%', borderRadius: '14px' }}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
+    <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
+      {/* Floating Basemap Switcher */}
+      <div className="absolute top-3 right-3 z-[1000] flex bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+        {Object.values(BASEMAPS).map(bm => (
+          <button
+            key={bm.id}
+            onClick={() => setBasemap(bm.id)}
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+              basemap === bm.id
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <span>{bm.icon}</span>
+            <span className="hidden sm:inline">{bm.name}</span>
+          </button>
+        ))}
+      </div>
 
-      <GeoJSON key="lumban-border" data={lumbanBoundary} style={{ color: '#ef4444', weight: 1.5, fillOpacity: 0, dashArray: '6 3' }} interactive={false} />
-
-      <Marker position={[14.291969, 121.460112]} icon={CAMERA_ICON}>
-        <Popup>
-          <div style={{ fontSize: '13px' }}>
-            <strong>📷 CAM-LUMBAN-01</strong><br />
-            Lumban Bridge<br />
-            Pagsanjan–Lumban River<br />
-            <span style={{ color: '#16a34a', fontWeight: 'bold' }}>● Active Monitoring</span>
-          </div>
-        </Popup>
-      </Marker>
-
-      {/* Vector connecting lines for active operations */}
-      {vectorLines.map(line => (
-        <Polyline
-          key={line.id}
-          positions={line.positions}
-          pathOptions={{ color: line.color, weight: line.weight, dashArray: line.dashArray, opacity: 0.9 }}
+      <MapContainer
+        center={LUMBAN_CENTER}
+        zoom={14}
+        style={{ height: '490px', width: '100%', background: '#09101d' }}
+      >
+        <TileLayer
+          key={basemap}
+          url={BASEMAPS[basemap].url}
+          attribution={BASEMAPS[basemap].attribution}
+          maxZoom={19}
         />
-      ))}
 
-      {evacuationCenters.map(center => (
-        <Marker
-          key={center.id}
-          position={[center.lat, center.lng]}
-          icon={L.divIcon({
-            html: `<div style="
-              width:28px;height:28px;border-radius:6px;
-              background:${center.is_open ? '#22c55e' : '#6b7280'};
-              border:2px solid white;
-              box-shadow:0 2px 8px rgba(0,0,0,0.3);
-              display:flex;align-items:center;justify-content:center;
-              font-size:14px;
-            ">🏠</div>`,
-            className: '',
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
-          })}
-        >
+        {BASEMAPS[basemap].labelsUrl && (
+          <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
+        )}
+
+        <GeoJSON
+          key="lumban-border"
+          data={lumbanBoundary}
+          style={{ color: '#ef4444', weight: 2, fillOpacity: 0, dashArray: '6 3' }}
+          interactive={false}
+        />
+
+        <Marker position={[14.291969, 121.460112]} icon={CAMERA_ICON}>
           <Popup>
-            <div style={{ minWidth: '180px', fontSize: '13px' }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                🏠 {center.name}
-              </div>
-              <div style={{ color: '#666', marginBottom: '2px' }}>
-                Barangay: {center.barangay_name || center.barangay || '--'}
-              </div>
-              <div style={{ marginBottom: '2px' }}>
-                Capacity: {center.capacity_current} / {center.capacity_total}
-              </div>
-              <div style={{ marginBottom: '4px' }}>
-                Contact: {center.contact_person || '--'}
-              </div>
-              <div style={{
-                display: 'inline-block',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                background: center.is_open ? '#dcfce7' : '#f3f4f6',
-                color: center.is_open ? '#16a34a' : '#6b7280',
-              }}>
-                {center.is_open ? '✓ OPEN' : '✗ CLOSED'}
-              </div>
+            <div style={{ fontSize: '13px' }}>
+              <strong>📷 CAM-LUMBAN-01</strong><br />
+              Lumban Bridge<br />
+              Pagsanjan–Lumban River<br />
+              <span style={{ color: '#16a34a', fontWeight: 'bold' }}>● Active Monitoring</span>
             </div>
           </Popup>
         </Marker>
-      ))}
 
-      {sosList.map(sos => (
-        <Marker key={sos.id} position={[sos.lat, sos.lng]} icon={getSosIcon(sos.status)}>
-          <Popup>
-            <div style={{ minWidth: '200px', fontSize: '13px' }}>
-              <div style={{ fontWeight: 'bold', color: sos.status === 'PENDING' ? '#dc2626' : '#2563eb', marginBottom: '4px' }}>
-                🆘 SOS Rescue Request
-              </div>
-              <div><strong>Status:</strong> {sos.status === 'PENDING' ? 'Pending MDRRMO Dispatch' : sos.status}</div>
-              <div><strong>Victim:</strong> {sos.citizen_name || 'Unknown'}</div>
-              <div><strong>Phone:</strong> {sos.citizen_phone || '--'}</div>
-              <div><strong>Barangay:</strong> {sos.barangay_name || '--'}</div>
-              <div><strong>Submitted:</strong> {formatDateTime(sos.created_at)}</div>
-              {sos.message && <div style={{ fontStyle: 'italic', marginTop: '4px' }}>"{sos.message}"</div>}
+        {/* Vector connecting lines for active operations */}
+        {vectorLines.map(line => (
+          <Polyline
+            key={line.id}
+            positions={line.positions}
+            pathOptions={{ color: line.color, weight: line.weight, dashArray: line.dashArray, opacity: 0.9 }}
+          />
+        ))}
 
-              <div style={{ marginTop: '10px', display: 'flex', gap: '6px' }}>
-                {['PENDING', 'DISPATCHED'].includes(sos.status) && (
-                  <button
-                    onClick={() => onRespond?.(sos.id)}
-                    style={{
-                      background: '#dc2626', color: 'white',
-                      border: 'none', borderRadius: '6px',
-                      padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
-                    }}>
-                    Dispatch Responder
-                  </button>
-                )}
-                {sos.status === 'RESPONDING' && (
-                  <button
-                    onClick={() => onComplete?.(sos.id)}
-                    style={{
-                      background: '#16a34a', color: 'white',
-                      border: 'none', borderRadius: '6px',
-                      padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
-                    }}>
-                    ✓ Rescue Completed
-                  </button>
-                )}
-              </div>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-
-      {responders.map(r => {
-        const cfg = ROLE_CFG[r.role] || { color: '#64748b', label: r.role };
-        if (!r.last_lat || !r.last_lng) return null;
-
-        return (
+        {evacuationCenters.map(center => (
           <Marker
-            key={`${r.id}-${r.last_lat}-${r.last_lng}`}
-            position={[r.last_lat, r.last_lng]}
-            icon={responderIcon(r.role, r.responder_status)}>
+            key={center.id}
+            position={[center.lat, center.lng]}
+            icon={L.divIcon({
+              html: `<div style="
+                width:28px;height:28px;border-radius:6px;
+                background:${center.is_open ? '#22c55e' : '#6b7280'};
+                border:2px solid white;
+                box-shadow:0 2px 8px rgba(0,0,0,0.3);
+                display:flex;align-items:center;justify-content:center;
+                font-size:14px;
+              ">🏠</div>`,
+              className: '',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14],
+            })}
+          >
+            <Popup>
+              <div style={{ minWidth: '180px', fontSize: '13px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                  🏠 {center.name}
+                </div>
+                <div style={{ color: '#666', marginBottom: '2px' }}>
+                  Barangay: {center.barangay_name || center.barangay || '--'}
+                </div>
+                <div style={{ marginBottom: '2px' }}>
+                  Capacity: {center.capacity_current} / {center.capacity_total}
+                </div>
+                <div style={{ marginBottom: '4px' }}>
+                  Contact: {center.contact_person || '--'}
+                </div>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  background: center.is_open ? '#dcfce7' : '#f3f4f6',
+                  color: center.is_open ? '#16a34a' : '#6b7280',
+                }}>
+                  {center.is_open ? '✓ OPEN' : '✗ CLOSED'}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {sosList.map(sos => (
+          <Marker key={sos.id} position={[sos.lat, sos.lng]} icon={getSosIcon(sos.status)}>
+            <Popup>
+              <div style={{ minWidth: '200px', fontSize: '13px' }}>
+                <div style={{ fontWeight: 'bold', color: sos.status === 'PENDING' ? '#dc2626' : '#2563eb', marginBottom: '4px' }}>
+                  🆘 SOS Rescue Request
+                </div>
+                <div><strong>Status:</strong> {sos.status === 'PENDING' ? 'Pending MDRRMO Dispatch' : sos.status}</div>
+                <div><strong>Victim:</strong> {sos.citizen_name || 'Unknown'}</div>
+                <div><strong>Phone:</strong> {sos.citizen_phone || '--'}</div>
+                <div><strong>Barangay:</strong> {sos.barangay_name || '--'}</div>
+                <div><strong>Submitted:</strong> {formatDateTime(sos.created_at)}</div>
+                {sos.message && <div style={{ fontStyle: 'italic', marginTop: '4px' }}>"{sos.message}"</div>}
+
+                <div style={{ marginTop: '10px', display: 'flex', gap: '6px' }}>
+                  {['PENDING', 'DISPATCHED'].includes(sos.status) && (
+                    <button
+                      onClick={() => onRespond?.(sos.id)}
+                      style={{
+                        background: '#dc2626', color: 'white',
+                        border: 'none', borderRadius: '6px',
+                        padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
+                      }}>
+                      Dispatch Responder
+                    </button>
+                  )}
+                  {sos.status === 'RESPONDING' && (
+                    <button
+                      onClick={() => onComplete?.(sos.id)}
+                      style={{
+                        background: '#16a34a', color: 'white',
+                        border: 'none', borderRadius: '6px',
+                        padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
+                      }}>
+                      ✓ Rescue Completed
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {responders.map(r => {
+          const cfg = ROLE_CFG[r.role] || { color: '#64748b', label: r.role };
+          if (!r.last_lat || !r.last_lng) return null;
+
+          return (
+            <Marker
+              key={`${r.id}-${r.last_lat}-${r.last_lng}`}
+              position={[r.last_lat, r.last_lng]}
+              icon={responderIcon(r.role, r.responder_status)}>
             <Popup>
               <div style={{ minWidth: '170px', fontSize: '13px', lineHeight: '1.6' }}>
                 <div style={{ fontWeight: 'bold', color: cfg.color, marginBottom: '2px' }}>
@@ -260,6 +329,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
           </Marker>
         );
       })}
-    </MapContainer>
+      </MapContainer>
+    </div>
   );
 }
