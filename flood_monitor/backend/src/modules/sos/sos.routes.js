@@ -19,7 +19,7 @@ const createSchema = Joi.object({
 });
 
 router.post('/',
-  authorize('CITIZEN','RESCUE','RHU','PNP','BFP','BARANGAY_OFFICIAL','ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER','MSWDO'),
+  authorize('CITIZEN','RESCUE','RHU','PNP','BFP','COAST_GUARD','BARANGAY_OFFICIAL','ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER','MSWDO'),
   validate(createSchema),
   asyncHandler(async (req, res) => {
     const data = await service.createSOS(req.user.id, req.body);
@@ -36,7 +36,7 @@ router.get('/mine',
 );
 
 router.get('/pending',
-  authorize('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.getPending(req.user);
     res.json({ success: true, data });
@@ -44,7 +44,7 @@ router.get('/pending',
 );
 
 router.get('/history',
-  authorize('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.getHistory(req.user);
     res.json({ success: true, data });
@@ -65,17 +65,17 @@ router.patch('/:id/dispatch',
 );
 
 router.patch('/:id/respond',
-  authorize('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   controller.respond
 );
 
 router.patch('/:id/decline',
-  authorize('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE'),
   controller.decline
 );
 
 router.patch('/:id/complete',
-  authorize('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   controller.resolve
 );
 
@@ -92,11 +92,11 @@ const backupSchema = Joi.object({
   lat:         Joi.number().min(-90).max(90).required(),
   lng:         Joi.number().min(-180).max(180).required(),
   message:     Joi.string().max(300).optional().allow('', null),
-  target_role: Joi.string().valid('PNP','BFP','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE').required(),
+  target_role: Joi.string().valid('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE').required(),
 });
 
 router.post('/backup',
-  authorize('PNP','BFP','RHU','MDRRMO','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   validate(backupSchema),
   asyncHandler(async (req, res) => {
     const data = await service.requestBackup(req.user.id, req.body);
@@ -105,7 +105,7 @@ router.post('/backup',
 );
 
 router.get('/backup',
-  authorize('PNP','BFP','RHU','MDRRMO','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.getActiveBackups(req.user);
     res.json({ success: true, data });
@@ -127,7 +127,7 @@ router.post('/backup/:id/dispatch',
 );
 
 router.patch('/backup/:id/resolve',
-  authorize('PNP','BFP','RHU','MDRRMO','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.resolveBackup(req.params.id, req.user.id);
     res.json({ success: true, data });

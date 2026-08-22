@@ -14,7 +14,7 @@ export const getAll = async (queryParams) => {
   const params     = [];
   let   i          = 1;
 
-  if (role)     { conditions.push(`role = $${i++}::user_role`); params.push(role); }
+  if (role)     { conditions.push(`role::text = $${i++}`); params.push(role); }
   if (search)   {
     conditions.push(`(full_name ILIKE $${i} OR email ILIKE $${i})`);
     params.push(`%${search}%`);

@@ -284,36 +284,50 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
     `
     : '';
 
-  const navigationLinesArr = [];
-  if (sosLocation && sosLocation.lat && sosLocation.lng) {
-    const assignedIds = new Set();
-    if (Array.isArray(assignedResponders)) {
-      assignedResponders.forEach(dr => { if (dr.responder_id) assignedIds.add(String(dr.responder_id)); });
-    }
-    if (assignedRescueId) assignedIds.add(String(assignedRescueId));
+  const assignedIds = new Set();
+  if (Array.isArray(assignedResponders)) {
+    assignedResponders.forEach(dr => { if (dr.responder_id) assignedIds.add(String(dr.responder_id)); });
+  }
+  if (assignedRescueId) assignedIds.add(String(assignedRescueId));
 
+  // Filter responders to only active, valid, non-stale locations:
+  const validResponders = (responders || []).filter(r => {
+    if (!r.last_lat || !r.last_lng) return false;
+    if (r.responder_status === 'OFF_DUTY' || r.responder_status === 'UNAVAILABLE') return false;
+    // If specific units have been assigned to this rescue, ONLY display assigned units
     if (assignedIds.size > 0) {
-      responders.forEach(r => {
-        if (r.last_lat && r.last_lng && assignedIds.has(String(r.id))) {
-          const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id) === String(r.id)) : null;
-          const isBackup = matchDr?.dispatch_type === 'BACKUP';
-          const lineCol = isBackup ? '#f59e0b' : '#dc2626';
-          const dashArr = isBackup ? '8, 8' : '10, 10';
-          navigationLinesArr.push(`
-            L.polyline([[${r.last_lat}, ${r.last_lng}], [${sosLocation.lat}, ${sosLocation.lng}]], {
-              color: '${lineCol}',
-              weight: 5,
-              opacity: 0.95,
-              dashArray: '${dashArr}',
-              lineCap: 'round'
-            }).addTo(map);
-          `);
-        }
-      });
+      return assignedIds.has(String(r.id));
     }
+    // If no units assigned yet, only show online/active units that updated within the last 3 hours
+    if (r.last_location_at) {
+      const ageMs = Date.now() - new Date(r.last_location_at).getTime();
+      if (ageMs > 3 * 60 * 60 * 1000) return false;
+    }
+    return true;
+  });
+
+  const navigationLinesArr = [];
+  if (sosLocation && sosLocation.lat && sosLocation.lng && assignedIds.size > 0) {
+    validResponders.forEach(r => {
+      if (assignedIds.has(String(r.id))) {
+        const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id) === String(r.id)) : null;
+        const isBackup = matchDr?.dispatch_type === 'BACKUP';
+        const lineCol = isBackup ? '#f59e0b' : '#dc2626';
+        const dashArr = isBackup ? '8, 8' : '10, 10';
+        navigationLinesArr.push(`
+          L.polyline([[${r.last_lat}, ${r.last_lng}], [${sosLocation.lat}, ${sosLocation.lng}]], {
+            color: '${lineCol}',
+            weight: 5,
+            opacity: 0.95,
+            dashArray: '${dashArr}',
+            lineCap: 'round'
+          }).addTo(map);
+        `);
+      }
+    });
   }
 
-  const responderMarkersJS = responders.map(r => {
+  const responderMarkersJS = validResponders.map(r => {
     const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
     const time = r.last_location_at ? new Date(r.last_location_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Live';
     const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
@@ -341,7 +355,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
 
   const boundsPoints = [];
   if (sosLocation && sosLocation.lat && sosLocation.lng) boundsPoints.push([sosLocation.lat, sosLocation.lng]);
-  responders.forEach(r => { if (r.last_lat && r.last_lng) boundsPoints.push([r.last_lat, r.last_lng]); });
+  validResponders.forEach(r => { boundsPoints.push([r.last_lat, r.last_lng]); });
 
   let fitBoundsJS = `map.setView([${center.lat},${center.lng}], 15);`;
   if (boundsPoints.length > 1) {
@@ -492,7 +506,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
     `;
   }).join('\n');
 
-  const markersJS = responders.filter(r => r.last_lat && r.last_lng && (currentUser ? r.id !== currentUser.id : true)).map(r => {
+  const markersJS = responders.filter(r => r.last_lat && r.last_lng && r.responder_status !== 'OFF_DUTY' && (currentUser ? r.id !== currentUser.id : true)).map(r => {
     const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
     const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
     let dispatchBadge = '';

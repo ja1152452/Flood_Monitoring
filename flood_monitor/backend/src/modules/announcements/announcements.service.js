@@ -24,18 +24,22 @@ export const create = async (userId, dto) => {
   });
 
   // send FCM push to all users with fcm_token
-  const targetRoles = dto.target_roles || ['RESCUE', 'CITIZEN'];
-  const { rows: recipients } = await query(
-    `SELECT fcm_token FROM users
-     WHERE role = ANY($1::user_role[]) AND is_active = TRUE AND fcm_token IS NOT NULL`,
-    [targetRoles]
-  );
-  const TYPE_ICON = {
-    FLOOD_WARNING: '⚠️', EVACUATION_ORDER: '🚨', ALL_CLEAR: '✅', GENERAL: '📢',
-  };
-  const icon = TYPE_ICON[dto.type] || '📢';
-  for (const user of recipients) {
-    await sendPushNotification(user.fcm_token, `${icon} ${dto.title}`, dto.message);
+  try {
+    const targetRoles = dto.target_roles || ['RESCUE', 'CITIZEN'];
+    const { rows: recipients } = await query(
+      `SELECT fcm_token FROM users
+       WHERE role::text = ANY($1::text[]) AND is_active = TRUE AND fcm_token IS NOT NULL`,
+      [targetRoles]
+    );
+    const TYPE_ICON = {
+      FLOOD_WARNING: '⚠️', EVACUATION_ORDER: '🚨', ALL_CLEAR: '✅', GENERAL: '📢',
+    };
+    const icon = TYPE_ICON[dto.type] || '📢';
+    for (const user of recipients) {
+      sendPushNotification(user.fcm_token, `${icon} ${dto.title}`, dto.message).catch(() => {});
+    }
+  } catch (notifErr) {
+    console.error('[createAnnouncement] Notification dispatch error (non-fatal):', notifErr.message);
   }
 
   return rows[0];

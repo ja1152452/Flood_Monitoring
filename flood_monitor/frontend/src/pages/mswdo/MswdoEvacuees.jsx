@@ -325,16 +325,30 @@ export default function MswdoEvacuees() {
     });
   };
 
+  const currentMembersCount = (form.members_list?.filter(m => m.name.trim()).length || 0) + 1;
+  const capacityTotal = center?.capacity_total || 0;
+  const capacityCurrent = center?.capacity_current || 0;
+  const oldFamilyMembers = editing ? (editing.members || 1) : 0;
+  const remainingSpots = Math.max(0, capacityTotal - (capacityCurrent - oldFamilyMembers));
+  const isOverCapacity = capacityTotal > 0 && currentMembersCount > remainingSpots;
+
   const handleSave = () => {
     const headFullName = form.head_name.trim() || `${form.head_first_name} ${form.head_middle_name || ''} ${form.head_last_name} ${form.head_name_ext || ''}`.trim();
     if (!headFullName) { toast.error('Head of family name is required'); return; }
     if (!form.barangay) { toast.error('Barangay is required'); return; }
 
+    const newMembersCount = (form.members_list?.filter(m => m.name.trim()).length || 0) + 1;
+
+    if (capacityTotal > 0 && newMembersCount > remainingSpots) {
+      toast.error(`⚠️ Capacity Exceeded! "${center?.name || 'This Center'}" only has ${remainingSpots} spot(s) remaining (Max Capacity: ${capacityTotal}). Cannot register ${newMembersCount} evacuee(s).`);
+      return;
+    }
+
     saveFamily.mutate({
       ...form,
       head_name: headFullName,
       age: form.age ? parseInt(form.age) : null,
-      members: (form.members_list?.filter(m => m.name.trim()).length || 0) + 1,
+      members: newMembersCount,
       members_list: form.members_list.filter(m => m.name.trim()),
     });
   };
@@ -895,6 +909,36 @@ export default function MswdoEvacuees() {
         maxWidth="max-w-4xl"
         title={editing ? 'Edit FACED Evacuee Record' : 'MSWDO Family Assistance Card (FACED) Registration'}>
         <div className="space-y-5">
+          {/* Evacuation Center Capacity Status Banner */}
+          {center && (
+            <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all ${
+              isOverCapacity
+                ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-900 dark:text-red-200'
+                : remainingSpots <= 10
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                  : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-950 dark:text-blue-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shrink-0 ${
+                  isOverCapacity ? 'bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200' : 'bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                }`}>
+                  🏠
+                </div>
+                <div>
+                  <div className="font-bold text-sm">{center.name || 'Assigned Evacuation Center'}</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">
+                    Max Capacity: <b>{capacityTotal}</b> · Current Occupancy: <b>{capacityCurrent}</b> · Available: <b className={isOverCapacity ? 'text-red-600 dark:text-red-400 font-extrabold text-xs' : 'text-emerald-700 dark:text-emerald-400 font-bold'}>{remainingSpots} spots</b>
+                  </div>
+                </div>
+              </div>
+              {isOverCapacity && (
+                <div className="bg-red-600 text-white font-bold px-3 py-1.5 rounded-xl text-[11px] shadow-sm flex items-center gap-1.5 shrink-0 animate-pulse">
+                  ⚠️ Limit Exceeded (+{currentMembersCount - remainingSpots} over capacity)
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Step Progress Wizard Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-100 dark:bg-slate-900/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/80">
             {steps.map((step) => {
@@ -1001,7 +1045,20 @@ export default function MswdoEvacuees() {
                   </div>
                   <div>
                     <label className={labelClass}>Age</label>
-                    <input type="number" min="1" max="120" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={3}
+                      value={form.age}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val === '' || parseInt(val, 10) <= 120) {
+                          setForm(f => ({ ...f, age: val }));
+                        }
+                      }}
+                      placeholder="e.g. 35"
+                      className={inputClass}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Sex</label>
@@ -1040,15 +1097,47 @@ export default function MswdoEvacuees() {
                   </div>
                   <div>
                     <label className={labelClass}>Monthly Net Income</label>
-                    <input value={form.head_monthly_income} onChange={e => setForm(f => ({ ...f, head_monthly_income: e.target.value }))} placeholder="e.g. ₱5,000" className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.head_monthly_income}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^\d.,]/g, '');
+                        setForm(f => ({ ...f, head_monthly_income: val }));
+                      }}
+                      placeholder="e.g. 5000"
+                      className={inputClass}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Primary Contact <span className="text-red-500">*</span></label>
-                    <input value={form.contact} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} placeholder="0917XXXXXXX" className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={form.contact}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        setForm(f => ({ ...f, contact: val }));
+                      }}
+                      placeholder="0917XXXXXXX"
+                      className={inputClass}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Alternate Contact</label>
-                    <input value={form.contact_alternate} onChange={e => setForm(f => ({ ...f, contact_alternate: e.target.value }))} placeholder="0918XXXXXXX" className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={form.contact_alternate}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        setForm(f => ({ ...f, contact_alternate: val }));
+                      }}
+                      placeholder="0918XXXXXXX"
+                      className={inputClass}
+                    />
                   </div>
                 </div>
 
@@ -1101,7 +1190,18 @@ export default function MswdoEvacuees() {
                   </div>
                   <div>
                     <label className={labelClass}>Zip Code</label>
-                    <input value={form.zip_code} onChange={e => setForm(f => ({ ...f, zip_code: e.target.value }))} className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={form.zip_code}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setForm(f => ({ ...f, zip_code: val }));
+                      }}
+                      placeholder="4014"
+                      className={inputClass}
+                    />
                   </div>
                 </div>
               </div>
@@ -1197,7 +1297,20 @@ export default function MswdoEvacuees() {
                       </div>
                       <div>
                         <label className={labelClass}>Age</label>
-                        <input type="number" placeholder="Age" value={m.age} onChange={e => updateMember(i, 'age', e.target.value)} className={inputClass} />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={3}
+                          placeholder="Age"
+                          value={m.age}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (val === '' || parseInt(val, 10) <= 120) {
+                              updateMember(i, 'age', val);
+                            }
+                          }}
+                          className={inputClass}
+                        />
                       </div>
                       <div>
                         <label className={labelClass}>Educ Attainment</label>
@@ -1240,7 +1353,17 @@ export default function MswdoEvacuees() {
                   </div>
                   <div>
                     <label className={labelClass}>Account Number</label>
-                    <input value={form.account_number} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} placeholder="09XXXXXXXXX" className={inputClass} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.account_number}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^\d-]/g, '');
+                        setForm(f => ({ ...f, account_number: val }));
+                      }}
+                      placeholder="09XXXXXXXXX"
+                      className={inputClass}
+                    />
                   </div>
                 </div>
               </div>

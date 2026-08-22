@@ -45,7 +45,7 @@ io.use((socket, next) => {
 });
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 io.on('connection', (socket) => {
   // Admins join a room to receive location updates

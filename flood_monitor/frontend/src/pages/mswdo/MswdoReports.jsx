@@ -454,11 +454,25 @@ export default function MswdoReports() {
         <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Age Range:</span>
-            <input type="number" min="0" max="120" placeholder="Min" value={filterAgeMin} onChange={e => setFilterAgeMin(e.target.value)}
-              className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={3}
+              placeholder="Min"
+              value={filterAgeMin}
+              onChange={e => setFilterAgeMin(e.target.value.replace(/\D/g, ''))}
+              className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
             <span className="text-slate-400 text-xs font-bold">–</span>
-            <input type="number" min="0" max="120" placeholder="Max" value={filterAgeMax} onChange={e => setFilterAgeMax(e.target.value)}
-              className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={3}
+              placeholder="Max"
+              value={filterAgeMax}
+              onChange={e => setFilterAgeMax(e.target.value.replace(/\D/g, ''))}
+              className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
           </div>
 
           {(search || filterBrgy || filterGender || filterDamage || filterClassification || filterAgeMin || filterAgeMax) && (

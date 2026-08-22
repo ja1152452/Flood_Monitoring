@@ -1404,22 +1404,22 @@ function FormFields({ form, setForm }) {
         <div>
           <span className={labelCls}>Latitude *</span>
           <input
-            type="number"
-            step="any"
+            type="text"
+            inputMode="decimal"
             className={inputCls}
             value={form.lat}
-            onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
+            onChange={e => setForm(f => ({ ...f, lat: e.target.value.replace(/[^\d.-]/g, '') }))}
             placeholder="14.29xx"
           />
         </div>
         <div>
           <span className={labelCls}>Longitude *</span>
           <input
-            type="number"
-            step="any"
+            type="text"
+            inputMode="decimal"
             className={inputCls}
             value={form.lng}
-            onChange={e => setForm(f => ({ ...f, lng: e.target.value }))}
+            onChange={e => setForm(f => ({ ...f, lng: e.target.value.replace(/[^\d.-]/g, '') }))}
             placeholder="121.46xx"
           />
         </div>

@@ -33,18 +33,22 @@ export const createSOS = async (userId, dto) => {
   });
 
   // 1. Emergency Alert Notification (Awareness Only to ALL responders)
-  const { rows: responders } = await query(
-    `SELECT fcm_token FROM users
-     WHERE role = ANY($1::user_role[]) AND is_active = TRUE AND fcm_token IS NOT NULL`,
-    [RESPONDER_ROLES]
-  );
+  try {
+    const { rows: responders } = await query(
+      `SELECT fcm_token FROM users
+       WHERE role::text = ANY($1::text[]) AND is_active = TRUE AND fcm_token IS NOT NULL`,
+      [RESPONDER_ROLES]
+    );
 
-  const notificationTitle = '🚨 Emergency Alert';
-  const notificationBody  = 'New Rescue Request Received - Waiting for MDRRMO Dispatch.';
+    const notificationTitle = '🚨 Emergency Alert';
+    const notificationBody  = 'New Rescue Request Received - Waiting for MDRRMO Dispatch.';
 
-  Promise.allSettled(
-    responders.map(r => sendPushNotification(r.fcm_token, notificationTitle, notificationBody))
-  ).catch(() => {});
+    Promise.allSettled(
+      responders.map(r => sendPushNotification(r.fcm_token, notificationTitle, notificationBody))
+    ).catch(() => {});
+  } catch (notifErr) {
+    console.error('[createSOS] Notification dispatch error (non-fatal):', notifErr.message);
+  }
 
   const io = getIO();
   if (io) {
@@ -609,7 +613,7 @@ export const requestBackup = async (requesterId, dto) => {
 
   const { rows: responders } = await query(
     `SELECT fcm_token FROM users
-     WHERE (role = $1 OR role IN ('ADMIN','SUPER_ADMIN','MDRRMO'))
+     WHERE (role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR role::text IN ('ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER'))
        AND is_active = TRUE AND id != $2 AND fcm_token IS NOT NULL`,
     [target_role, requesterId]
   );
@@ -681,7 +685,15 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
     }
 
     if (backup.target_role && responder.role !== backup.target_role) {
-      throw ApiError.badRequest(`Responder ${responder.full_name} is ${responder.role}, but backup request specifically requires ${backup.target_role}.`);
+      const isMatch = responder.role === backup.target_role ||
+        (backup.target_role === 'COAST_GUARD' && (responder.role === 'COAST_GUARD' || responder.role === 'BFP')) ||
+        (backup.target_role === 'BFP' && (responder.role === 'BFP' || responder.role === 'COAST_GUARD')) ||
+        (backup.target_role === 'MDRRMO' && (responder.role === 'MDRRMO' || responder.role === 'MDRRMO_RESPONDER')) ||
+        (backup.target_role === 'MDRRMO_RESPONDER' && (responder.role === 'MDRRMO' || responder.role === 'MDRRMO_RESPONDER'));
+
+      if (!isMatch) {
+        throw ApiError.badRequest(`Responder ${responder.full_name} is ${responder.role}, but backup request specifically requires ${backup.target_role}.`);
+      }
     }
 
     const { rows: updatedBackup } = await client.query(

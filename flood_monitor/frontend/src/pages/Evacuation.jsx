@@ -812,8 +812,15 @@ export default function Evacuation() {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Total Capacity" required>
-              <Input type="number" value={form.capacity_total} placeholder="e.g. 200"
-                onChange={e => setForm(f => ({ ...f, capacity_total: e.target.value }))} />
+              <Input
+                type="text"
+                value={form.capacity_total}
+                placeholder="e.g. 200"
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setForm(f => ({ ...f, capacity_total: val }));
+                }}
+              />
             </Field>
             <Field label="Contact Person">
               <Input value={form.contact_person} placeholder="Brgy. Captain name"
@@ -822,8 +829,15 @@ export default function Evacuation() {
           </div>
 
           <Field label="Contact Number">
-            <Input value={form.contact_number} placeholder="+639XXXXXXXXX"
-              onChange={e => setForm(f => ({ ...f, contact_number: e.target.value }))} />
+            <Input
+              type="text"
+              value={form.contact_number}
+              placeholder="0917XXXXXXX"
+              onChange={e => {
+                const val = e.target.value.replace(/[^\d+]/g, '');
+                setForm(f => ({ ...f, contact_number: val }));
+              }}
+            />
           </Field>
 
           <div className="flex items-center gap-3">
@@ -856,10 +870,26 @@ export default function Evacuation() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Total Capacity">
-              <Input type="number" value={form.capacity_total} onChange={e => setForm(f => ({ ...f, capacity_total: e.target.value }))} />
+              <Input
+                type="text"
+                value={form.capacity_total}
+                placeholder="e.g. 200"
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setForm(f => ({ ...f, capacity_total: val }));
+                }}
+              />
             </Field>
             <Field label="Current Evacuees">
-              <Input type="number" value={form.capacity_current} onChange={e => setForm(f => ({ ...f, capacity_current: e.target.value }))} />
+              <Input
+                type="text"
+                value={form.capacity_current}
+                placeholder="0"
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setForm(f => ({ ...f, capacity_current: val }));
+                }}
+              />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -867,7 +897,15 @@ export default function Evacuation() {
               <Input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))} />
             </Field>
             <Field label="Contact Number">
-              <Input value={form.contact_number} onChange={e => setForm(f => ({ ...f, contact_number: e.target.value }))} />
+              <Input
+                type="text"
+                value={form.contact_number}
+                placeholder="0917XXXXXXX"
+                onChange={e => {
+                  const val = e.target.value.replace(/[^\d+]/g, '');
+                  setForm(f => ({ ...f, contact_number: val }));
+                }}
+              />
             </Field>
           </div>
           <div className="flex items-center gap-3">

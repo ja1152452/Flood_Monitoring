@@ -157,8 +157,36 @@ export const getFamilies = async (centerId) => {
 };
 
 export const addFamily = async (centerId, dto, actorId) => {
+  const { rows: centerCheck } = await query(
+    'SELECT name, capacity_total, capacity_current FROM evacuation_centers WHERE id = $1',
+    [centerId]
+  );
+  if (!centerCheck.length) throw ApiError.notFound('Evacuation center not found');
+
+  const centerName = centerCheck[0].name;
+  const capacityTotal = centerCheck[0].capacity_total || 0;
+  const capacityCurrent = centerCheck[0].capacity_current || 0;
+  const newMembers = parseInt(dto.members_list?.length ? dto.members_list.length + 1 : (dto.members || 1), 10);
+
+  if (capacityTotal > 0 && (capacityCurrent + newMembers > capacityTotal)) {
+    const available = Math.max(0, capacityTotal - capacityCurrent);
+    throw ApiError.badRequest(
+      `Capacity Exceeded! "${centerName}" has a maximum capacity of ${capacityTotal} evacuees (${available} spot(s) remaining). Cannot add ${newMembers} evacuee(s).`
+    );
+  }
+
   const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
   const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
+
+  const headDob = (dto.head_dob && String(dto.head_dob).trim() !== '' && !isNaN(new Date(dto.head_dob).getTime()))
+    ? dto.head_dob
+    : null;
+
+  const arrivalDate = (dto.arrival_date && String(dto.arrival_date).trim() !== '' && !isNaN(new Date(dto.arrival_date).getTime()))
+    ? new Date(dto.arrival_date)
+    : new Date();
+
+  const headAge = (dto.age && !isNaN(parseInt(dto.age, 10))) ? parseInt(dto.age, 10) : null;
 
   const { rows } = await query(
     `INSERT INTO evacuation_families (
@@ -180,13 +208,13 @@ export const addFamily = async (centerId, dto, actorId) => {
        $38,$39,$40,$41,$42,$43
      ) RETURNING *`,
     [
-      centerId, headName, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
-      dto.age || null, dto.gender || null, fullAddress || null, dto.arrival_date || new Date(), actorId,
+      centerId, headName, newMembers, dto.barangay || null, dto.contact || null, dto.notes || null,
+      headAge, dto.gender || null, fullAddress || null, arrivalDate, actorId || null,
       dto.serial_number || null, dto.region || 'Region IV-A', dto.province || 'Laguna', dto.city_municipality || 'Lumban', dto.district || null,
-      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, dto.head_dob || null, dto.head_place_of_birth || null,
+      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, headDob, dto.head_place_of_birth || null,
       dto.head_civil_status || null, dto.head_mothers_maiden_name || null, dto.head_religion || null, dto.head_occupation || null, dto.head_monthly_income || null,
       dto.head_id_card_presented || null, dto.head_id_card_number || null, dto.contact_alternate || null,
-      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, dto.is_4ps_beneficiary || false, dto.is_ip || false, dto.ethnicity || null,
+      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, Boolean(dto.is_4ps_beneficiary), Boolean(dto.is_ip), dto.ethnicity || null,
       dto.bank_ewallet || null, dto.account_name || null, dto.account_type || null, dto.account_number || null, dto.house_ownership || null, dto.shelter_damage || null
     ]
   );
@@ -195,13 +223,16 @@ export const addFamily = async (centerId, dto, actorId) => {
   if (dto.members_list?.length) {
     for (const m of dto.members_list) {
       if (m.name?.trim()) {
+        const mAge = (m.age && !isNaN(parseInt(m.age, 10))) ? parseInt(m.age, 10) : null;
+        const mBirthdate = (m.birthdate && String(m.birthdate).trim() !== '' && !isNaN(new Date(m.birthdate).getTime())) ? m.birthdate : null;
+
         await query(
           `INSERT INTO evacuation_family_members (
              family_id, name, age, gender, relation_to_head, birthdate, sex, educational_attainment, occupation, vulnerability_type
            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
-            family.id, m.name.trim(), m.age || null, m.gender || m.sex || null,
-            m.relation_to_head || null, m.birthdate || null, m.sex || m.gender || null,
+            family.id, m.name.trim(), mAge, m.gender || m.sex || null,
+            m.relation_to_head || null, mBirthdate, m.sex || m.gender || null,
             m.educational_attainment || null, m.occupation || null, m.vulnerability_type || null
           ]
         );
@@ -219,19 +250,53 @@ export const addFamily = async (centerId, dto, actorId) => {
   await writeAuditLog({
     userId: actorId, action: 'FAMILY_ADDED',
     entityType: 'evacuation_families', entityId: family.id,
-    after: { head_name: headName, members: dto.members, evacuation_center_id: centerId },
+    after: { head_name: headName, members: newMembers, evacuation_center_id: centerId },
   });
   
   return family;
 };
 
 export const updateFamily = async (centerId, familyId, dto, actorId) => {
+  const { rows: centerCheck } = await query(
+    'SELECT name, capacity_total, capacity_current FROM evacuation_centers WHERE id = $1',
+    [centerId]
+  );
+  if (!centerCheck.length) throw ApiError.notFound('Evacuation center not found');
+
+  const { rows: oldFamily } = await query(
+    'SELECT members FROM evacuation_families WHERE id = $1 AND evacuation_center_id = $2',
+    [familyId, centerId]
+  );
+  if (!oldFamily.length) throw ApiError.notFound('Family record not found');
+
+  const capacityTotal = centerCheck[0].capacity_total || 0;
+  const capacityCurrent = centerCheck[0].capacity_current || 0;
+  const oldMembers = oldFamily[0].members || 1;
+  const newMembers = parseInt(dto.members_list?.length ? dto.members_list.length + 1 : (dto.members || 1), 10);
+
+  if (capacityTotal > 0 && (capacityCurrent - oldMembers + newMembers > capacityTotal)) {
+    const available = Math.max(0, capacityTotal - (capacityCurrent - oldMembers));
+    throw ApiError.badRequest(
+      `Capacity Exceeded! "${centerCheck[0].name}" has a maximum capacity of ${capacityTotal} evacuees (${available} spot(s) remaining). Cannot accommodate ${newMembers} evacuee(s).`
+    );
+  }
+
   const headName = dto.head_name || [dto.head_first_name, dto.head_middle_name, dto.head_last_name, dto.head_name_ext].filter(Boolean).join(' ') || 'N/A';
   const fullAddress = dto.address || [dto.house_lot_no, dto.street, dto.subd_village, dto.barangay, dto.city_municipality, dto.province].filter(Boolean).join(', ');
 
+  const headDob = (dto.head_dob && String(dto.head_dob).trim() !== '' && !isNaN(new Date(dto.head_dob).getTime()))
+    ? dto.head_dob
+    : null;
+
+  const arrivalDate = (dto.arrival_date && String(dto.arrival_date).trim() !== '' && !isNaN(new Date(dto.arrival_date).getTime()))
+    ? new Date(dto.arrival_date)
+    : null;
+
+  const headAge = (dto.age && !isNaN(parseInt(dto.age, 10))) ? parseInt(dto.age, 10) : null;
+
   const { rows } = await query(
     `UPDATE evacuation_families SET
-       head_name=$1, members=$2, barangay=$3, contact=$4, notes=$5, age=$6, gender=$7, address=$8, arrival_date=$9,
+       head_name=$1, members=$2, barangay=$3, contact=$4, notes=$5, age=$6, gender=$7, address=$8, arrival_date=COALESCE($9, arrival_date),
        serial_number=$10, region=$11, province=$12, city_municipality=$13, district=$14,
        head_last_name=$15, head_first_name=$16, head_middle_name=$17, head_name_ext=$18, head_dob=$19, head_place_of_birth=$20,
        head_civil_status=$21, head_mothers_maiden_name=$22, head_religion=$23, head_occupation=$24, head_monthly_income=$25,
@@ -241,13 +306,13 @@ export const updateFamily = async (centerId, familyId, dto, actorId) => {
        updated_at=NOW()
      WHERE id=$42 AND evacuation_center_id=$43 RETURNING *`,
     [
-      headName, dto.members || 1, dto.barangay || null, dto.contact || null, dto.notes || null,
-      dto.age || null, dto.gender || null, fullAddress || null, dto.arrival_date || null,
+      headName, newMembers, dto.barangay || null, dto.contact || null, dto.notes || null,
+      headAge, dto.gender || null, fullAddress || null, arrivalDate,
       dto.serial_number || null, dto.region || 'Region IV-A', dto.province || 'Laguna', dto.city_municipality || 'Lumban', dto.district || null,
-      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, dto.head_dob || null, dto.head_place_of_birth || null,
+      dto.head_last_name || null, dto.head_first_name || null, dto.head_middle_name || null, dto.head_name_ext || null, headDob, dto.head_place_of_birth || null,
       dto.head_civil_status || null, dto.head_mothers_maiden_name || null, dto.head_religion || null, dto.head_occupation || null, dto.head_monthly_income || null,
       dto.head_id_card_presented || null, dto.head_id_card_number || null, dto.contact_alternate || null,
-      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, dto.is_4ps_beneficiary || false, dto.is_ip || false, dto.ethnicity || null,
+      dto.house_lot_no || null, dto.street || null, dto.subd_village || null, dto.zip_code || null, Boolean(dto.is_4ps_beneficiary), Boolean(dto.is_ip), dto.ethnicity || null,
       dto.bank_ewallet || null, dto.account_name || null, dto.account_type || null, dto.account_number || null, dto.house_ownership || null, dto.shelter_damage || null,
       familyId, centerId
     ]

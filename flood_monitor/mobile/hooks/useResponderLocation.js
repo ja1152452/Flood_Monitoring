@@ -23,24 +23,35 @@ export function useResponderLocation() {
         : (await Location.requestForegroundPermissionsAsync()).status === 'granted';
       if (!granted || !active) return;
 
-      // Send last known position immediately as first fix
+      // Acquire fresh, high-precision GPS position immediately as first fix
       try {
-        const loc = await Location.getLastKnownPositionAsync();
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         if (loc && active) {
-          api.post('/users/location', { lat: loc.coords.latitude, lng: loc.coords.longitude }).catch(() => {});
-          lastSentAt.current = Date.now();
+          // Reject inaccurate initial fixes (e.g. coarse cell tower > 50m error margin)
+          if (!loc.coords.accuracy || loc.coords.accuracy <= 50) {
+            api.post('/users/location', {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+            }).catch(() => {});
+            lastSentAt.current = Date.now();
+          }
         }
       } catch (_) {}
 
-      // Watch position — fires as soon as GPS updates, no polling delay
+      // Watch position with highest hardware GPS satellite precision
       const sub = await Location.watchPositionAsync(
         {
-          accuracy:            Location.Accuracy.Balanced,
-          timeInterval:        3000, // minimum ms between updates from OS
-          distanceInterval:    5,    // or if moved 5m, whichever comes first
+          accuracy:            Location.Accuracy.BestForNavigation,
+          timeInterval:        2000, // minimum ms between updates from OS
+          distanceInterval:    2,    // trigger update if moved 2 meters
         },
         (loc) => {
-          if (!active) return;
+          if (!active || !loc?.coords) return;
+          // Filter out low-quality/noisy fixes (error margin > 40m)
+          if (loc.coords.accuracy && loc.coords.accuracy > 40) return;
+
           const now = Date.now();
           if (now - lastSentAt.current < MIN_SEND_INTERVAL_MS) return; // throttle
           lastSentAt.current = now;

@@ -103,7 +103,7 @@ export const evaluateAndDispatch = async (reading, client) => {
   const { rows: recipients } = await db.query(
     `SELECT id, role, fcm_token, phone_number
      FROM users
-     WHERE role = ANY($1::user_role[]) AND is_active = TRUE`,
+     WHERE role::text = ANY($1::text[]) AND is_active = TRUE`,
     [roles]
   );
 
