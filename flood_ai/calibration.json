@@ -4,38 +4,38 @@
   "camera_code": "CAM-LUMBAN-01",
   "camera_api_key": "Admin@1234",
   "youtube_stream_key": "y6p8-k923-9s6z-5ub0-7sss",
-  "baseline_pixel_y": 170,
-  "baseline_meters": 4.1901,
-  "px_per_meter": 49.5419,
+  "baseline_pixel_y": 187,
+  "baseline_meters": 4.2003,
+  "px_per_meter": 49.0525,
   "roi": {
-    "left_pct": 35.63,
-    "right_pct": 46.41,
-    "top_pct": 2.78,
-    "bottom_pct": 89.72
+    "left_pct": 40.78,
+    "right_pct": 54.06,
+    "top_pct": 6.94,
+    "bottom_pct": 92.78
   },
   "points": [
     {
-      "px": 8,
+      "px": 25,
       "m": 7
     },
     {
-      "px": 77,
+      "px": 97,
       "m": 6
     },
     {
-      "px": 144,
+      "px": 164,
       "m": 5
     },
     {
-      "px": 206,
+      "px": 226,
       "m": 4
     },
     {
-      "px": 264,
+      "px": 281,
       "m": 3.1
     },
     {
-      "px": 323,
+      "px": 334,
       "m": 0
     }
   ],
