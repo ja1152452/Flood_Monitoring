@@ -6,7 +6,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 import numpy as np
 
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;3000000"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 
 try:
@@ -36,65 +36,74 @@ def save_cal(cal):
         json.dump(cal, f, indent=2)
     print(f"[SAVED] Updated {CAL_PATH}")
 
-def get_live_frame():
+def check_rtsp_reachable(rtsp_url, timeout=1.5):
+    try:
+        p = urlparse(rtsp_url)
+        host = p.hostname
+        port = p.port or 554
+        if not host:
+            return False
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        res = s.connect_ex((host, port))
+        s.close()
+        return res == 0
+    except Exception:
+        return False
+
+def get_frame_with_source(force_live=True):
     cal = load_cal()
-    
-    # 1. Check local uploaded/saved test_frame.jpg first
     test_path = os.path.join(_DIR, "test_frame.jpg")
+    
+    # 1. Try RTSP live stream from camera first
+    if force_live:
+        rtsp_url = cal.get("rtsp_url", "")
+        if rtsp_url and check_rtsp_reachable(rtsp_url, timeout=1.5):
+            try:
+                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                if cap.isOpened():
+                    # Clear internal OpenCV buffer frames to ensure we get the absolute latest live frame
+                    for _ in range(4):
+                        cap.grab()
+                    ret, frame = cap.retrieve()
+                    cap.release()
+                    if ret and frame is not None and frame.size > 0:
+                        cv2.imwrite(test_path, frame)
+                        print(f"[LIVE CCTV] Captured fresh frame ({frame.shape[1]}x{frame.shape[0]}) from {rtsp_url}")
+                        return frame, "LIVE_RTSP"
+            except Exception as e:
+                print(f"[RTSP ERROR] {e}")
+
+        # 2. Fallback to Railway backend snapshot
+        backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
+        try:
+            import requests
+            r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=4)
+            if r.status_code == 200 and len(r.content) > 1000:
+                arr = np.frombuffer(r.content, np.uint8)
+                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                if frame is not None and frame.size > 0:
+                    cv2.imwrite(test_path, frame)
+                    print(f"[BACKEND STREAM] Captured live snapshot from {backend_url}")
+                    return frame, "BACKEND_SNAPSHOT"
+        except Exception:
+            pass
+
+    # 3. Fallback to local uploaded/saved test_frame.jpg
     if os.path.exists(test_path):
         frame = cv2.imread(test_path)
         if frame is not None and frame.size > 0:
-            return frame
+            return frame, "SAVED_FRAME"
 
-    # 2. Try RTSP live stream if available
-    rtsp_url = cal.get("rtsp_url", "")
-    if rtsp_url:
-        try:
-            cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            if cap.isOpened():
-                for _ in range(3):
-                    cap.grab()
-                ret, frame = cap.retrieve()
-                cap.release()
-                if ret and frame is not None and frame.size > 0:
-                    cv2.imwrite(test_path, frame)
-                    return frame
-        except Exception:
-            pass
-
-    # 3. Fallback to Railway backend snapshot
-    backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
-    try:
-        import requests
-        r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=3)
-        if r.status_code == 200 and len(r.content) > 1000:
-            arr = np.frombuffer(r.content, np.uint8)
-            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-            if frame is not None and frame.size > 0:
-                cv2.imwrite(test_path, frame)
-                return frame
-    except Exception:
-        pass
-    if rtsp_url:
-        try:
-            cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            if cap.isOpened():
-                for _ in range(3):
-                    cap.grab()
-                ret, frame = cap.retrieve()
-                cap.release()
-                if ret and frame is not None and frame.size > 0:
-                    cv2.imwrite(os.path.join(_DIR, "test_frame.jpg"), frame)
-                    return frame
-        except Exception:
-            pass
-
-    # 4. Create dummy canvas if all else fails
+    # 4. Dummy canvas if everything is offline
     blank = np.zeros((720, 1280, 3), dtype=np.uint8)
-    cv2.putText(blank, "Camera Offline. Check RTSP URL.", (300, 360), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-    return blank
+    cv2.putText(blank, "Camera Offline. Check RTSP URL.", (300, 360), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    return blank, "OFFLINE"
+
+def get_live_frame(force_live=True):
+    frame, _ = get_frame_with_source(force_live=force_live)
+    return frame
 
 def get_local_ip():
     try:
@@ -174,7 +183,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <h1>🌊 Lumban Flood Monitoring — Web Calibration</h1>
         <p style="font-size: 13px; color: var(--text-muted);">Calibrate Water Staff Gauge & AI Detection Box Live in Browser</p>
       </div>
-      <div class="badge">Live Edge Mode</div>
+      <div id="sourceBadge" class="badge">🔍 Connecting to CCTV...</div>
     </header>
 
     <div class="layout">
@@ -188,7 +197,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Drag Calibration Lines</button>
           <button class="mode-btn" id="modeTrainBtn" onclick="setMode('train')" style="background:#8b5cf6; font-weight:bold;">🎯 Point & Train AI</button>
           <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📁 Upload Photo</button>
-          <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh</button>
+          <button class="btn btn-secondary" id="refreshBtn" onclick="refreshLiveFrame()" style="background:#2563eb; color:white; font-weight:600;">🔄 Capture Live CCTV</button>
           <input type="file" id="fileInput" accept="image/*" style="display:none;" onchange="uploadImage(this)">
         </div>
       </div>
@@ -252,6 +261,28 @@ HTML_PAGE = """<!DOCTYPE html>
       draw();
     }
 
+    function updateSourceBadge(src) {
+      const badge = document.getElementById('sourceBadge');
+      if (!badge) return;
+      if (src === 'LIVE_RTSP') {
+        badge.innerHTML = '🟢 Live CCTV Feed Active';
+        badge.style.background = '#065f46';
+        badge.style.color = '#6ee7b7';
+      } else if (src === 'BACKEND_SNAPSHOT') {
+        badge.innerHTML = '🌐 Cloud Stream Snapshot';
+        badge.style.background = '#1e3a8a';
+        badge.style.color = '#93c5fd';
+      } else if (src === 'SAVED_FRAME') {
+        badge.innerHTML = '⚠️ Using Saved Photo (CCTV Unreachable)';
+        badge.style.background = '#78350f';
+        badge.style.color = '#fde68a';
+      } else {
+        badge.innerHTML = '🔴 Camera Offline';
+        badge.style.background = '#7f1d1d';
+        badge.style.color = '#fca5a5';
+      }
+    }
+
     async function loadData() {
       try {
         let res = await fetch('/api/calibration');
@@ -261,7 +292,47 @@ HTML_PAGE = """<!DOCTYPE html>
         updateUiStats();
         updatePointsList();
       } catch(e) { console.error(e); }
-      refreshFrame();
+      refreshLiveFrame();
+    }
+
+    async function refreshLiveFrame() {
+      const btn = document.getElementById('refreshBtn');
+      const oldText = btn.innerHTML;
+      btn.innerHTML = '⏳ Capturing CCTV...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/capture_live');
+        const data = await res.json();
+        updateSourceBadge(data.source);
+        
+        img.src = '/frame.jpg?t=' + Date.now();
+        img.onload = () => {
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          draw();
+          btn.innerHTML = oldText;
+          btn.disabled = false;
+          
+          const toast = document.getElementById('toast');
+          if (data.source === 'LIVE_RTSP') {
+            toast.innerText = '🟢 Real-time CCTV snapshot captured!';
+            toast.style.background = '#10b981';
+          } else if (data.source === 'BACKEND_SNAPSHOT') {
+            toast.innerText = '🌐 Captured from Cloud Stream Snapshot!';
+            toast.style.background = '#3b82f6';
+          } else {
+            toast.innerText = '⚠️ Camera unreachable (192.168.1.149). Using saved photo.';
+            toast.style.background = '#f59e0b';
+          }
+          toast.style.display = 'block';
+          setTimeout(() => toast.style.display = 'none', 3500);
+        };
+      } catch(e) {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+        refreshFrame();
+      }
     }
 
     function refreshFrame() {
@@ -561,12 +632,20 @@ class CalibratorHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html")
             self.end_headers()
             self.wfile.write(HTML_PAGE.encode("utf-8"))
+        elif parsed.path == "/api/capture_live":
+            _, source = get_frame_with_source(force_live=True)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "source": source}).encode("utf-8"))
         elif parsed.path == "/frame.jpg":
-            frame = get_live_frame()
+            frame, source = get_frame_with_source(force_live=False)
             _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
-            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("X-Frame-Source", source)
             self.end_headers()
             self.wfile.write(buf.tobytes())
         elif parsed.path == "/api/calibration":

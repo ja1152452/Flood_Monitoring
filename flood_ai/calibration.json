@@ -4,9 +4,9 @@
   "camera_code": "CAM-LUMBAN-01",
   "camera_api_key": "Admin@1234",
   "youtube_stream_key": "y6p8-k923-9s6z-5ub0-7sss",
-  "baseline_pixel_y": 169,
-  "baseline_meters": 3.8006,
-  "px_per_meter": 42.2173,
+  "baseline_pixel_y": 170,
+  "baseline_meters": 4.1901,
+  "px_per_meter": 49.5419,
   "roi": {
     "left_pct": 35.63,
     "right_pct": 46.41,
@@ -28,15 +28,15 @@
     },
     {
       "px": 206,
-      "m": 4.0
+      "m": 4
     },
     {
-      "px": 265,
-      "m": 0.78
+      "px": 264,
+      "m": 3.1
     },
     {
-      "px": 315,
-      "m": 0.0
+      "px": 323,
+      "m": 0
     }
   ],
   "water_hsv_range": {
