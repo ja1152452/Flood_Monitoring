@@ -113,26 +113,33 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
+    # --- 0. TRAINED / LOCKED WATERLINE ---
+    manual_y = _cal.get("manual_waterline_y")
+    if manual_y is not None:
+        waterline_y = int(manual_y)
+        ai_confidence = 0.99
+
     # --- 1. AI ENGINE (YOLOv8) ---
-    ai_model = get_yolo_model()
-    if ai_model is not None:
-        try:
-            results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
-            if results and len(results[0].boxes) > 0:
-                boxes = results[0].boxes
-                for box in boxes:
-                    cls_id = int(box.cls[0])
-                    conf_val = float(box.conf[0])
-                    # Class 0: water_surface (Top edge of water box = actual waterline)
-                    if cls_id == 0 and conf_val >= 0.40:
-                        top_y = int(box.xyxy[0][1])
-                        pred_y = roi_top + top_y
-                        if pred_y < int(h * 0.92):  # Valid waterline above bottom floor
-                            waterline_y = pred_y
-                            ai_confidence = conf_val
-                            break
-        except Exception as err:
-            print(f"[AI Predict Warning] {err}")
+    if waterline_y is None:
+        ai_model = get_yolo_model()
+        if ai_model is not None:
+            try:
+                results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
+                if results and len(results[0].boxes) > 0:
+                    boxes = results[0].boxes
+                    for box in boxes:
+                        cls_id = int(box.cls[0])
+                        conf_val = float(box.conf[0])
+                        # Class 0: water_surface (Top edge of water box = actual waterline)
+                        if cls_id == 0 and conf_val >= 0.40:
+                            top_y = int(box.xyxy[0][1])
+                            pred_y = roi_top + top_y
+                            if pred_y < int(h * 0.92):  # Valid waterline above bottom floor
+                                waterline_y = pred_y
+                                ai_confidence = conf_val
+                                break
+            except Exception as err:
+                print(f"[AI Predict Warning] {err}")
 
     # --- 2. FALLBACK: SHADOW-PROOF BOTTOM-UP SATURATION & COLOR DETECTOR ---
     if waterline_y is None:
