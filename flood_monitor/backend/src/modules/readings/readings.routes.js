@@ -39,12 +39,15 @@ router.get('/trend',
     const last = rows[rows.length - 1];
     const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
     const delta = last.water_level_m - first.water_level_m;
-    const rate = hours > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
+    let rate = hours > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
+    if (parseFloat(last.water_level_m) < 3.10 || delta <= 0) {
+      rate = 0;
+    }
     res.json({
       success: true,
       data: {
         rate_per_hour: rate,
-        trend: rate > 0.05 ? 'RISING' : rate < -0.05 ? 'FALLING' : 'STABLE',
+        trend: rate > 0.05 ? 'RISING' : 'STABLE',
         latest_m: parseFloat(last.water_level_m),
       },
     });
@@ -170,13 +173,12 @@ router.get('/:cameraId/rate-of-rise',
     const delta = parseFloat(last.water_level_m) - parseFloat(first.water_level_m);
 
     let rate = 0;
-    if (hours > 0.001) {
+    if (hours > 0.001 && delta > 0.05 && parseFloat(last.water_level_m) >= 3.10) {
       rate = parseFloat((delta / hours).toFixed(2));
     }
 
     let trend = 'STABLE';
     if (rate > 0.05) trend = 'RISING';
-    else if (rate < -0.05) trend = 'FALLING';
 
     res.json({
       success: true,

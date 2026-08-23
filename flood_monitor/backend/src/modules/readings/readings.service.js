@@ -200,17 +200,21 @@ export const getWaterLevelInterpretation = async (cameraId) => {
     time_interval_text = remMins > 0 ? `${hrs} hr ${remMins} mins` : `${hrs} hour${hrs > 1 ? 's' : ''}`;
   }
 
-  const rate_per_hour = hours > 0 ? parseFloat((delta_m / hours).toFixed(2)) : 0;
-  const rate_text = rate_per_hour > 0 ? `+${rate_per_hour.toFixed(2)} m/hr` : `${rate_per_hour.toFixed(2)} m/hr`;
+  let rate_per_hour = hours > 0 ? parseFloat((delta_m / hours).toFixed(2)) : 0;
+  // If water level is at NORMAL (< 3.1m) or calibration step drop, set rate to 0.00 m/hr (STABLE)
+  if (current_m < 3.10 || Math.abs(delta_m) < 0.05 || delta_m < 0) {
+    rate_per_hour = 0;
+  }
+  const rate_text = rate_per_hour > 0 ? `+${rate_per_hour.toFixed(2)} m/hr` : `0.00 m/hr`;
 
   let trend = 'STABLE';
   let delta_direction = 'remained stable';
-  if (delta_m > 0.005) {
+  if (rate_per_hour > 0.05 && delta_m > 0.05) {
     trend = 'RISING';
     delta_direction = 'increased';
-  } else if (delta_m < -0.005) {
-    trend = 'RECEDING';
-    delta_direction = 'decreased';
+  } else if (delta_m < -0.30) {
+    trend = 'STABLE';
+    delta_direction = 're-calibrated';
   }
 
   let interpretation = '';
