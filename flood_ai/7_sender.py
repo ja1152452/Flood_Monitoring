@@ -410,7 +410,9 @@ def main():
 
             if result["success"]:
                 annotated = annotate_frame(frame, result)
-                send_snapshot(annotated, CAMERA_API_KEY)
+                # Send clean raw frame to snapshot endpoint so calibrator and web views stay clean
+                send_snapshot(frame, CAMERA_API_KEY)
+                cv2.imwrite(os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_debug_frame.jpg"), annotated)
                 try:
                     api_response = send_reading(result, CAMERA_API_KEY)
                     write_log(result, True)

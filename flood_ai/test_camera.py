@@ -20,6 +20,14 @@ except ImportError:
     print("[ERROR] OpenCV (cv2) is not installed. Run: pip3 install opencv-python")
     sys.exit(1)
 
+# Ensure console supports utf-8 safely on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 try:
     import requests
 except ImportError:

@@ -4,51 +4,54 @@
   "camera_code": "CAM-LUMBAN-01",
   "camera_api_key": "Admin@1234",
   "youtube_stream_key": "y6p8-k923-9s6z-5ub0-7sss",
-  "baseline_pixel_y": 279,
-  "baseline_meters": 3.7756,
-  "px_per_meter": 871.8168,
+  "baseline_pixel_y": 169,
+  "baseline_meters": 3.8006,
+  "px_per_meter": 42.2173,
   "roi": {
-    "left_pct": 43.55,
-    "right_pct": 53.16,
-    "top_pct": 8.87,
-    "bottom_pct": 85.55
+    "left_pct": 35.63,
+    "right_pct": 46.41,
+    "top_pct": 2.78,
+    "bottom_pct": 89.72
   },
   "points": [
     {
-      "px": 100,
-      "m": 6.0
+      "px": 8,
+      "m": 7
     },
     {
-      "px": 163,
-      "m": 5.0
+      "px": 77,
+      "m": 6
     },
     {
-      "px": 221,
+      "px": 144,
+      "m": 5
+    },
+    {
+      "px": 206,
       "m": 4.0
     },
     {
-      "px": 269,
-      "m": 3.1
+      "px": 265,
+      "m": 0.78
     },
     {
-      "px": 309,
-      "m": 2.029
+      "px": 315,
+      "m": 0.0
     }
   ],
   "water_hsv_range": {
     "lower": [
-      32,
-      27,
-      74
+      39,
+      24,
+      68
     ],
     "upper": [
-      72,
-      97,
-      164
+      79,
+      94,
+      158
     ]
   },
-  "manual_waterline_y": 279,
   "sunlight_filter_enabled": true,
-  "deadband_m": 0.1,
+  "deadband_m": 0.035,
   "model_trained_status": "TRAINED_OK"
 }

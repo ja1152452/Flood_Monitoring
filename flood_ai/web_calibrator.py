@@ -15,6 +15,13 @@ except ImportError:
     print("OpenCV is required. Run: pip3 install opencv-python")
     sys.exit(1)
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 CAL_PATH = os.path.join(_DIR, "calibration.json")
 
@@ -31,9 +38,33 @@ def save_cal(cal):
 
 def get_live_frame():
     cal = load_cal()
-    backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
+    
+    # 1. Check local uploaded/saved test_frame.jpg first
+    test_path = os.path.join(_DIR, "test_frame.jpg")
+    if os.path.exists(test_path):
+        frame = cv2.imread(test_path)
+        if frame is not None and frame.size > 0:
+            return frame
 
-    # 1. Try fetching live snapshot from Railway backend
+    # 2. Try RTSP live stream if available
+    rtsp_url = cal.get("rtsp_url", "")
+    if rtsp_url:
+        try:
+            cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            if cap.isOpened():
+                for _ in range(3):
+                    cap.grab()
+                ret, frame = cap.retrieve()
+                cap.release()
+                if ret and frame is not None and frame.size > 0:
+                    cv2.imwrite(test_path, frame)
+                    return frame
+        except Exception:
+            pass
+
+    # 3. Fallback to Railway backend snapshot
+    backend_url = cal.get("backend_url", "https://flood-monitoring.up.railway.app").rstrip('/')
     try:
         import requests
         r = requests.get(f"{backend_url}/api/v1/stream/snapshot", timeout=3)
@@ -41,31 +72,10 @@ def get_live_frame():
             arr = np.frombuffer(r.content, np.uint8)
             frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
             if frame is not None and frame.size > 0:
-                cv2.imwrite(os.path.join(_DIR, "test_frame.jpg"), frame)
+                cv2.imwrite(test_path, frame)
                 return frame
     except Exception:
         pass
-
-    # 2. Check local image candidates
-    candidate_images = [
-        os.path.join(_DIR, "..", "test_frame.jpg"),
-        os.path.join(_DIR, "test_frame.jpg"),
-        os.path.join(_DIR, "live_debug_frame.jpg"),
-        os.path.join(_DIR, "capture_20260812_211910.jpg"),
-    ]
-    for img_path in candidate_images:
-        if os.path.exists(img_path):
-            frame = cv2.imread(img_path)
-            if frame is not None and frame.size > 0:
-                # Auto-archive to dataset folder for AI training
-                dataset_dir = os.path.join(_DIR, "dataset", "raw_images")
-                os.makedirs(dataset_dir, exist_ok=True)
-                archive_name = f"cctv_frame_{int(time.time())}.jpg"
-                cv2.imwrite(os.path.join(dataset_dir, archive_name), frame)
-                return frame
-
-    # 3. Try RTSP
-    rtsp_url = cal.get("rtsp_url", "")
     if rtsp_url:
         try:
             cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
@@ -177,14 +187,19 @@ HTML_PAGE = """<!DOCTYPE html>
           <button class="mode-btn active" id="modeRoiBtn" onclick="setMode('roi')">1️⃣ Draw Box (ROI)</button>
           <button class="mode-btn" id="modePointsBtn" onclick="setMode('points')">2️⃣ Drag Calibration Lines</button>
           <button class="mode-btn" id="modeTrainBtn" onclick="setMode('train')" style="background:#8b5cf6; font-weight:bold;">🎯 Point & Train AI</button>
-          <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh Frame</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📁 Upload Photo</button>
+          <button class="btn btn-secondary" onclick="refreshFrame()">🔄 Refresh</button>
+          <input type="file" id="fileInput" accept="image/*" style="display:none;" onchange="uploadImage(this)">
         </div>
       </div>
 
       <!-- Control Sidebar -->
       <div class="sidebar">
         <div>
-          <div class="section-title">Step 1: Detection Box (ROI)</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div class="section-title" style="margin-bottom:0;">Step 1: Detection Box (ROI)</div>
+            <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px; background:#ef4444;" onclick="clearRoi()">🗑️ Reset Box</button>
+          </div>
           <p class="step-desc">Click and drag a box around the colored gauge pillar. This restricts AI detection to the gauge.</p>
           <div class="stats-box">
             <div class="stat-row"><span>Left:</span> <span class="stat-val" id="roiLeft">0%</span></div>
@@ -207,6 +222,7 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
 
         <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn btn-secondary" style="background:#475569;" onclick="clearTrainedWaterline()">🔓 Clear Locked / Trained Level</button>
           <button class="btn btn-success" onclick="saveCalibration()">💾 Save & Apply Calibration</button>
         </div>
       </div>
@@ -266,7 +282,7 @@ HTML_PAGE = """<!DOCTYPE html>
       const h = canvas.height;
 
       // Draw ROI Box
-      if (calData.roi) {
+      if (calData.roi && calData.roi.right_pct > calData.roi.left_pct && calData.roi.bottom_pct > calData.roi.top_pct) {
         const x = (calData.roi.left_pct / 100) * w;
         const y = (calData.roi.top_pct / 100) * h;
         const rw = ((calData.roi.right_pct - calData.roi.left_pct) / 100) * w;
@@ -429,8 +445,20 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     });
 
+    function clearRoi() {
+      calData.roi = { left_pct: 0, right_pct: 0, top_pct: 0, bottom_pct: 0 };
+      updateUiStats();
+      draw();
+    }
+
     function updateUiStats() {
-      if (!calData.roi) return;
+      if (!calData.roi) {
+        document.getElementById('roiLeft').innerText = '0%';
+        document.getElementById('roiRight').innerText = '0%';
+        document.getElementById('roiTop').innerText = '0%';
+        document.getElementById('roiBottom').innerText = '0%';
+        return;
+      }
       document.getElementById('roiLeft').innerText = calData.roi.left_pct + '%';
       document.getElementById('roiRight').innerText = calData.roi.right_pct + '%';
       document.getElementById('roiTop').innerText = calData.roi.top_pct + '%';
@@ -467,6 +495,41 @@ HTML_PAGE = """<!DOCTYPE html>
         updatePointsList();
         draw();
       }
+    }
+
+    async function uploadImage(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const res = await fetch('/api/upload_frame', {
+          method: 'POST',
+          body: formData
+        });
+        if (res.ok) {
+          refreshFrame();
+          const toast = document.getElementById('toast');
+          toast.innerText = '📁 Clean photo uploaded & loaded successfully!';
+          toast.style.display = 'block';
+          setTimeout(() => toast.style.display = 'none', 3000);
+        }
+      } catch(e) { alert('Upload failed: ' + e); }
+    }
+
+    async function clearTrainedWaterline() {
+      if (calData.manual_waterline_y !== undefined) {
+        delete calData.manual_waterline_y;
+      }
+      calData.manual_waterline_y = null;
+      draw();
+      try {
+        await fetch('/api/clear_train', { method: 'POST' });
+        const toast = document.getElementById('toast');
+        toast.innerText = '🔓 Trained flood level lock removed!';
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 3000);
+      } catch(e) { console.error(e); }
     }
 
     async function saveCalibration() {
@@ -615,6 +678,51 @@ class CalibratorHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"ok"}')
+        elif parsed.path == "/api/clear_train":
+            cal = load_cal()
+            if "manual_waterline_y" in cal:
+                del cal["manual_waterline_y"]
+            if "model_trained_status" in cal:
+                del cal["model_trained_status"]
+            save_cal(cal)
+            print("[CALIBRATION] Cleared manual_waterline_y and model_trained_status.")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+        elif parsed.path == "/api/upload_frame":
+            length = int(self.headers.get("Content-Length", 0))
+            raw_data = self.rfile.read(length)
+            content_type = self.headers.get("Content-Type", "")
+            img_bytes = None
+            if "multipart/form-data" in content_type:
+                boundary = content_type.split("boundary=")[-1].encode()
+                parts = raw_data.split(b"--" + boundary)
+                for part in parts:
+                    if b"\r\n\r\n" in part:
+                        headers_part, body_part = part.split(b"\r\n\r\n", 1)
+                        if b"image" in headers_part or b"filename=" in headers_part:
+                            img_bytes = body_part.rstrip(b"\r\n--").rstrip(b"--\r\n").rstrip(b"\r\n")
+                            break
+            else:
+                img_bytes = raw_data
+
+            if img_bytes:
+                arr = np.frombuffer(img_bytes, np.uint8)
+                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                if frame is not None and frame.size > 0:
+                    out_p = os.path.join(_DIR, "test_frame.jpg")
+                    cv2.imwrite(out_p, frame)
+                    print(f"[UPLOAD] Saved new test frame from user ({frame.shape[1]}x{frame.shape[0]}) to {out_p}")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"status":"ok"}')
+                    return
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"error","message":"Invalid image"}')
         else:
             self.send_response(404)
             self.end_headers()
