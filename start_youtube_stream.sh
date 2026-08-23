@@ -16,7 +16,7 @@ fi
 
 # Fallbacks if not configured in JSON or environment
 STREAM_KEY="${STREAM_KEY:-y6p8-k923-9s6z-5ub0-7sss}"
-RTSP_URL="${RTSP_URL:-rtsp://Flood_monitoring:FloodCam2026@192.168.1.149:554/stream1}"
+RTSP_URL="${RTSP_URL:-rtsp://Flood_monitoring:FloodCam2026@192.168.0.112:554/stream1}"
 
 echo "[Config] RTSP Source : $RTSP_URL"
 echo "[Config] Stream Key  : ${STREAM_KEY:0:4}****"

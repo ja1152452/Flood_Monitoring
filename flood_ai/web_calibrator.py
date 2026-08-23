@@ -322,7 +322,7 @@ HTML_PAGE = """<!DOCTYPE html>
             toast.innerText = '🌐 Captured from Cloud Stream Snapshot!';
             toast.style.background = '#3b82f6';
           } else {
-            toast.innerText = '⚠️ Camera unreachable (192.168.1.149). Using saved photo.';
+            toast.innerText = '⚠️ Camera unreachable (192.168.0.112). Using saved photo.';
             toast.style.background = '#f59e0b';
           }
           toast.style.display = 'block';

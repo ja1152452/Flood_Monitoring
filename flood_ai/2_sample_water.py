@@ -45,7 +45,7 @@ def mouse_callback(event, x, y, flags, param):
 def main():
     global display_frame, hsv_frame
     cal = load_calibration()
-    rtsp_url = cal.get("rtsp_url", "rtsp://FloodMonitoring:FloodCam2026@192.168.1.149:554/stream1")
+    rtsp_url = cal.get("rtsp_url", "rtsp://Flood_monitoring:FloodCam2026@192.168.0.112:554/stream1")
 
     print("=== Lumban Flood Monitor — Interactive Water Color Sampler ===")
     print("Connecting to camera stream...")

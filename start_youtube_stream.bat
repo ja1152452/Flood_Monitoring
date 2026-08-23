@@ -6,7 +6,7 @@ echo Starting Live Tapo C310 Stream to YouTube (Pixel-Perfect HD)
 echo ===================================================
 
 set "STREAM_KEY=y6p8-k923-9s6z-5ub0-7sss"
-set "RTSP_URL=rtsp://Flood_monitoring:FloodCam2026@192.168.1.149:554/stream1"
+set "RTSP_URL=rtsp://Flood_monitoring:FloodCam2026@192.168.0.112:554/stream1"
 
 REM 1. Load latest settings from flood_ai/calibration.json if available
 if exist "flood_ai\calibration.json" (
