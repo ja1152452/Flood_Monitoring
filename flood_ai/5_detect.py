@@ -113,7 +113,6 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
-    # --- 0. TRAINED / LOCKED WATERLINE ---
     manual_y = _cal.get("manual_waterline_y")
     if manual_y is not None:
         waterline_y = int(manual_y)
