@@ -129,39 +129,37 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
-    # --- 0. TRAINED / LOCKED WATERLINE ---
     manual_y = _cal.get("manual_waterline_y")
-    if manual_y is not None:
-        waterline_y = int(manual_y)
-        ai_confidence = 0.99
+    baseline_y = int(manual_y) if manual_y is not None else None
 
     # --- 1. AI ENGINE (YOLOv8) ---
-    if waterline_y is None:
-        ai_model = get_yolo_model()
-        if ai_model is not None:
-            try:
-                results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
-                if results and len(results[0].boxes) > 0:
-                    boxes = results[0].boxes
-                    for box in boxes:
-                        cls_id = int(box.cls[0])
-                        conf_val = float(box.conf[0])
-                        # Class 0: water_surface (Top edge of water box = actual waterline)
-                        if cls_id == 0 and conf_val >= 0.40:
-                            top_y = int(box.xyxy[0][1])
-                            pred_y = roi_top + top_y
-                            if pred_y < int(h * 0.92):  # Valid waterline above bottom floor
+    ai_model = get_yolo_model()
+    if ai_model is not None:
+        try:
+            results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
+            if results and len(results[0].boxes) > 0:
+                boxes = results[0].boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    conf_val = float(box.conf[0])
+                    # Class 0: water_surface (Top edge of water box = actual waterline)
+                    if cls_id == 0 and conf_val >= 0.40:
+                        top_y = int(box.xyxy[0][1])
+                        pred_y = roi_top + top_y
+                        if pred_y < int(h * 0.92):
+                            # If water rose higher than baseline or no baseline set, track rising water
+                            if baseline_y is None or pred_y <= (baseline_y - 8):
                                 waterline_y = pred_y
                                 ai_confidence = conf_val
                                 break
-            except Exception as err:
-                print(f"[AI Predict Warning] {err}")
+        except Exception as err:
+            print(f"[AI Predict Warning] {err}")
 
-    # --- 2. FALLBACK: SUNLIGHT-PROOF SATURATION BOUNDARY DETECTOR ---
+    # --- 2. GAUGE COLOR OCCLUSION DETECTOR (RISING FLOOD) ---
     if waterline_y is None:
         hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
 
-        # 1. Mask for vivid staff gauge painted colors (Yellow, Orange, Red, Purple)
+        # Mask for vivid staff gauge painted colors (Yellow, Orange, Red, Purple)
         gauge_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
         for name, (lower, upper) in MARKER_RANGES.items():
             gauge_mask = cv2.bitwise_or(gauge_mask,
@@ -180,19 +178,17 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
         if len(valid_gauge_rows) > 0:
-            # Bottom-Up Scanning: The lowest row where painted gauge is visible IS the waterline!
             lowest_dry_row = valid_gauge_rows[-1]
-            waterline_y = roi_top + int(lowest_dry_row)
-        else:
-            # Saturation transition: find where painted board (S > 35) transitions to water
-            sat = hsv_roi[:, :, 1]
-            row_sat = np.mean(sat, axis=1)
-            sat_y = roi_h - 1
-            for y in range(len(row_sat) - 1, -1, -1):
-                if row_sat[y] > 35:
-                    sat_y = y
-                    break
-            waterline_y = roi_top + sat_y
+            detected_y = roi_top + int(lowest_dry_row)
+            # If rising flood submerges lower gauge bands, update waterline to follow rising water
+            if baseline_y is None or detected_y <= (baseline_y - 8):
+                waterline_y = detected_y
+
+    # --- 3. ANCHOR TO CALM BASELINE IF NO RISING FLOOD ---
+    if waterline_y is None:
+        if baseline_y is not None:
+            waterline_y = baseline_y
+            ai_confidence = 0.95
 
     if waterline_y is None:
         return {"success": False, "reason": "No staff gauge or water surface detected"}
