@@ -113,32 +113,71 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
-    manual_y = _cal.get("manual_waterline_y")
-    if manual_y is not None:
-        waterline_y = int(manual_y)
-        ai_confidence = 0.99
+    # --- 1. PRIMARY AI ENGINE (YOLOv8) ---
+    ai_model = get_yolo_model()
+    if ai_model is not None:
+        try:
+            results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.35)
+            if results and len(results[0].boxes) > 0:
+                boxes = results[0].boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0])
+                    conf_val = float(box.conf[0])
+                    # Class 0: water_surface (Top edge of water box = actual waterline)
+                    if cls_id == 0 and conf_val >= 0.35:
+                        top_y = int(box.xyxy[0][1])
+                        pred_y = roi_top + top_y
+                        if pred_y < int(h * 0.95):  # Valid waterline inside ROI
+                            waterline_y = pred_y
+                            ai_confidence = conf_val
+                            break
+        except Exception as err:
+            print(f"[AI Predict Warning] {err}")
 
-    # --- 1. AI ENGINE (YOLOv8) ---
+    # --- 2. SECONDARY REAL-TIME SATURATION & COLOR DETECTOR ---
     if waterline_y is None:
-        ai_model = get_yolo_model()
-        if ai_model is not None:
-            try:
-                results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.40)
-                if results and len(results[0].boxes) > 0:
-                    boxes = results[0].boxes
-                    for box in boxes:
-                        cls_id = int(box.cls[0])
-                        conf_val = float(box.conf[0])
-                        # Class 0: water_surface (Top edge of water box = actual waterline)
-                        if cls_id == 0 and conf_val >= 0.40:
-                            top_y = int(box.xyxy[0][1])
-                            pred_y = roi_top + top_y
-                            if pred_y < int(h * 0.92):  # Valid waterline above bottom floor
-                                waterline_y = pred_y
-                                ai_confidence = conf_val
-                                break
-            except Exception as err:
-                print(f"[AI Predict Warning] {err}")
+        hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
+
+        # Mask for vivid staff gauge painted colors (Yellow, Orange, Red, Purple)
+        gauge_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
+        for name, (lower, upper) in MARKER_RANGES.items():
+            gauge_mask = cv2.bitwise_or(gauge_mask,
+                cv2.inRange(hsv_roi, np.array(lower), np.array(upper)))
+
+        # Remove extreme sunlight white glare (V > 240, S < 30)
+        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 235]), np.array([180, 45, 255]))
+        gauge_mask = cv2.bitwise_and(gauge_mask, cv2.bitwise_not(glare_mask))
+
+        kernel = np.ones((5, 5), np.uint8)
+        gauge_mask = cv2.morphologyEx(gauge_mask, cv2.MORPH_OPEN,  kernel)
+        gauge_mask = cv2.morphologyEx(gauge_mask, cv2.MORPH_CLOSE, kernel)
+
+        row_counts = np.sum(gauge_mask > 0, axis=1)
+        min_band_px = max(4, int(roi_w * 0.15))
+        valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
+
+        if len(valid_gauge_rows) > 0:
+            lowest_dry_row = valid_gauge_rows[-1]
+            waterline_y = roi_top + int(lowest_dry_row)
+            ai_confidence = 0.90
+        else:
+            # Saturation transition: find where painted board (S > 35) transitions to water
+            sat = hsv_roi[:, :, 1]
+            row_sat = np.mean(sat, axis=1)
+            sat_y = roi_h - 1
+            for y in range(len(row_sat) - 1, -1, -1):
+                if row_sat[y] > 35:
+                    sat_y = y
+                    break
+            waterline_y = roi_top + sat_y
+            ai_confidence = 0.85
+
+    # --- 3. FALLBACK ANCHOR IF CAMERA IS BLOCKED OR SMUDGED ---
+    if waterline_y is None:
+        manual_y = _cal.get("manual_waterline_y")
+        if manual_y is not None:
+            waterline_y = int(manual_y)
+            ai_confidence = 0.95
 
     # --- 2. FALLBACK: SHADOW-PROOF BOTTOM-UP SATURATION & COLOR DETECTOR ---
     if waterline_y is None:
