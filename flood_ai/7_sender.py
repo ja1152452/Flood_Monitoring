@@ -57,34 +57,43 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=11, deadband_m=0.1, max_jump_px=120):
+    def __init__(self, window_size=5, deadband_m=0.035, max_jump_px=120):
         self.window_size = window_size
-        self.deadband_m = deadband_m  # Ignore jitter < 0.1m (10cm) unless sustained
+        self.deadband_m = deadband_m  # Ignore jitter < 0.035m (3.5cm) unless sustained
         self.max_jump_px = max_jump_px
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
         self.last_stable_m = None
         self.last_stable_y = None
 
-    def process(self, raw_y, raw_m):
+    def reset(self, raw_y=None, raw_m=None):
+        self.history_y.clear()
+        self.history_m.clear()
+        if raw_y is not None and raw_m is not None:
+            self.history_y.append(raw_y)
+            self.history_m.append(raw_m)
+        self.last_stable_m = raw_m
+        self.last_stable_y = raw_y
+
+    def process(self, raw_y, raw_m, is_manual=False):
+        # Immediate snap for manual trained levels or large calibration shifts (> 0.4m)
+        if is_manual or self.last_stable_m is None or abs(raw_m - self.last_stable_m) > 0.4:
+            self.reset(raw_y, raw_m)
+            return raw_y, raw_m, 0.99
+
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
-        # Median filter removes sunlight glare spikes
+        # Median filter removes noise spikes
         median_y = int(np.median(self.history_y))
         median_m = round(float(np.median(self.history_m)), 3)
 
-        if self.last_stable_m is None:
-            self.last_stable_m = median_m
-            self.last_stable_y = median_y
-
-        # Deadband / Hysteresis Filter: If change < 0.1m (10cm), hold previous stable reading
+        # Deadband Filter: If change < 0.035m (3.5cm), hold previous stable reading
         if abs(median_m - self.last_stable_m) < self.deadband_m:
             smooth_m = self.last_stable_m
             smooth_y = self.last_stable_y
         else:
-            # Sustained movement above 0.1m -> update smoothly
-            alpha = 0.35  # Exponential moving average factor
+            alpha = 0.50  # Fast response factor
             smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
             smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
             self.last_stable_m = smooth_m
@@ -94,7 +103,7 @@ class WaterlineSmoother:
         stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=11, deadband_m=0.1)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5, deadband_m=0.035)
 
 YOLO_MODEL = None
 
@@ -215,7 +224,8 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
 
     if smoother is not None:
         smoother.deadband_m = float(_cal.get("deadband_m", 0.035))
-        smooth_y, smooth_m, confidence = smoother.process(waterline_y, raw_water_level_m)
+        is_manual_lock = (_cal.get("manual_waterline_y") is not None)
+        smooth_y, smooth_m, confidence = smoother.process(waterline_y, raw_water_level_m, is_manual=is_manual_lock)
         waterline_y = smooth_y
         water_level_m = max(0.0, smooth_m)
     else:
