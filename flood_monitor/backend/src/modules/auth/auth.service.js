@@ -309,7 +309,19 @@ export const login = async (dto) => {
     [emailKey]
   );
   const user = rows[0];
-  if (!user) throw ApiError.unauthorized('Invalid email or password');
+  if (!user) {
+    const currentCount = (attemptData.lockedUntil && Date.now() >= attemptData.lockedUntil) ? 0 : attemptData.count;
+    const newCount = currentCount + 1;
+    if (newCount >= 5) {
+      const lockTime = Date.now() + 2 * 60 * 1000; // 2 minutes break
+      loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: lockTime });
+      throw ApiError.tooManyRequests('Maximum login attempts exceeded (5/5). Your account is temporarily locked for 120 seconds. Please try again later.');
+    } else {
+      loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: 0 });
+      const remaining = 5 - newCount;
+      throw ApiError.unauthorized(`Invalid email or password. ${remaining} attempt(s) remaining before a 2-minute lockout.`);
+    }
+  }
   if (!user.is_active && !user.email_verified) throw ApiError.forbidden('Please verify your email before logging in');
   if (!user.is_active) throw ApiError.forbidden('Your account has been deactivated. Contact the administrator.');
 
@@ -320,7 +332,7 @@ export const login = async (dto) => {
     if (newCount >= 5) {
       const lockTime = Date.now() + 2 * 60 * 1000; // 2 minutes break
       loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: lockTime });
-      throw ApiError.tooManyRequests('Maximum login attempts exceeded (5/5). Your account is temporarily locked for 2 minutes. Please try again later.');
+      throw ApiError.tooManyRequests('Maximum login attempts exceeded (5/5). Your account is temporarily locked for 120 seconds. Please try again later.');
     } else {
       loginAttemptsMap.set(emailKey, { count: newCount, lockedUntil: 0 });
       const remaining = 5 - newCount;

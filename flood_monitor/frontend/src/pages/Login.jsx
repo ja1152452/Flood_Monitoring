@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { forgotPassword, resetPassword } from '../api/auth';
@@ -27,6 +27,8 @@ export default function Login() {
   const [form, setForm]             = useState({ email: '', password: '' });
   const [loading, setLoading]       = useState(false);
   const [showPwd, setShowPwd]       = useState(false);
+  const [errorMsg, setErrorMsg]     = useState('');
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const { setAuth }                 = useAuthStore();
   const navigate                    = useNavigate();
 
@@ -40,20 +42,57 @@ export default function Login() {
   const [fpShowCfm, setFpShowCfm] = useState(false);
   const [fpLoading, setFpLoading] = useState(false);
 
+  // Active countdown timer when locked out
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          setErrorMsg('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
+
+  const formatTime = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (lockoutSeconds > 0) return;
     setLoading(true);
+    setErrorMsg('');
     try {
       const data = await login(form);
       const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'MSWDO'];
       if (!allowedRoles.includes(data.user?.role)) {
-        toast.error('Access Restricted: Responders and citizens must use the ResQConnect mobile app.');
+        const roleMsg = 'Access Restricted: Responders and citizens must use the ResQConnect mobile app.';
+        setErrorMsg(roleMsg);
+        toast.error(roleMsg);
         return;
       }
       setAuth(data.user, data.accessToken, data.refreshToken);
       navigate(data.user?.role === 'MSWDO' ? '/mswdo' : '/');
-    } catch {
-      toast.error('Invalid email or password');
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Invalid email or password';
+      setErrorMsg(msg);
+      toast.error(msg, { duration: 5000 });
+
+      if (
+        err.response?.status === 429 ||
+        msg.toLowerCase().includes('locked') ||
+        msg.toLowerCase().includes('maximum login attempts')
+      ) {
+        const match = msg.match(/(\d+)\s*seconds?/i);
+        const secs = match ? parseInt(match[1], 10) : 120;
+        setLockoutSeconds(secs > 0 ? secs : 120);
+      }
     } finally {
       setLoading(false);
     }
@@ -191,15 +230,54 @@ export default function Login() {
                 <p className="text-slate-500 text-xs mt-1">Sign in to your MDRRMO account</p>
               </div>
 
+              {/* Inline Error / Lockout Alert Box */}
+              {errorMsg && (
+                <div
+                  className="rounded-xl p-3.5 flex items-start gap-3 text-xs leading-relaxed border animate-in fade-in duration-200"
+                  style={{
+                    background: lockoutSeconds > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.12)',
+                    borderColor: lockoutSeconds > 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.35)',
+                    color: lockoutSeconds > 0 ? '#fca5a5' : '#fcd34d',
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="flex-1">
+                    {lockoutSeconds > 0 ? (
+                      <div>
+                        <p className="font-bold text-red-200 uppercase tracking-wide text-[11px] mb-1">
+                          Account Temporarily Locked
+                        </p>
+                        <p className="text-red-300">
+                          Too many failed login attempts (5/5). Please wait{' '}
+                          <span className="font-bold text-white bg-red-950/80 px-2 py-0.5 rounded border border-red-500/40">
+                            {formatTime(lockoutSeconds)}
+                          </span>{' '}
+                          before trying again.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="font-medium">{errorMsg}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="email" className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                   Email Address
                 </label>
                 <input
                   type="email" id="email" name="email" autoComplete="email" required
+                  disabled={loading || lockoutSeconds > 0}
                   value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className={inputCls} style={inputStyle}
+                  onChange={e => {
+                    if (lockoutSeconds <= 0) setErrorMsg('');
+                    setForm(f => ({ ...f, email: e.target.value }));
+                  }}
+                  className={`${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  style={inputStyle}
                   placeholder="mdrrmo@lumban.gov.ph"
                 />
               </div>
@@ -211,13 +289,19 @@ export default function Login() {
                 <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'} id="password" name="password" autoComplete="current-password" required
+                    disabled={loading || lockoutSeconds > 0}
                     value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    className={`${inputCls} pr-11`} style={inputStyle}
+                    onChange={e => {
+                      if (lockoutSeconds <= 0) setErrorMsg('');
+                      setForm(f => ({ ...f, password: e.target.value }));
+                    }}
+                    className={`${inputCls} pr-11 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    style={inputStyle}
                     placeholder="Enter your password"
                   />
                   <button type="button" onClick={() => setShowPwd(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    disabled={lockoutSeconds > 0}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50">
                     {showPwd ? <EyeOff /> : <EyeOn />}
                   </button>
                 </div>
@@ -229,13 +313,19 @@ export default function Login() {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading}
-                className="w-full text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 mt-1"
+              <button
+                type="submit"
+                disabled={loading || lockoutSeconds > 0}
+                className="w-full text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                 style={{
-                  background: 'linear-gradient(90deg, #991b1b, #dc2626)',
-                  boxShadow: '0 4px 24px rgba(185,28,28,0.55)',
+                  background: lockoutSeconds > 0
+                    ? 'linear-gradient(90deg, #475569, #334155)'
+                    : 'linear-gradient(90deg, #991b1b, #dc2626)',
+                  boxShadow: lockoutSeconds > 0
+                    ? 'none'
+                    : '0 4px 24px rgba(185,28,28,0.55)',
                 }}>
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? 'Signing in...' : lockoutSeconds > 0 ? `Locked (${formatTime(lockoutSeconds)})` : 'Sign In'}
               </button>
             </form>
 
