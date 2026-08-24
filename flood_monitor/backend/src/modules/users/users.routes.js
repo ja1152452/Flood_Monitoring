@@ -246,6 +246,11 @@ router.get('/stats', asyncHandler(async (_req, res) => {
 router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
   const { email, password, full_name, role, barangay, phone_number, evacuation_center_id } = req.body;
 
+  // Only Super Admins can create Administrator accounts
+  if ((role === 'ADMIN' || role === 'SUPER_ADMIN') && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can create Administrator accounts');
+  }
+
   console.log('[POST /users] Creating user with role:', role);
 
   const { rows: existing } = await query(
@@ -302,6 +307,9 @@ router.delete('/:id/permanent', asyncHandler(async (req, res) => {
   const { rows } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
   if (!rows.length) throw ApiError.notFound('User not found');
   if (rows[0].role === 'SUPER_ADMIN') throw ApiError.forbidden('Cannot delete a Super Admin');
+  if (rows[0].role === 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can delete Administrator accounts');
+  }
 
   const targetId = req.params.id;
 
@@ -339,6 +347,20 @@ router.patch('/:id', validate(updateSchema), asyncHandler(async (req, res) => {
 
   if (req.params.id === req.user.id && rest.role) {
     throw ApiError.forbidden('Cannot change your own role');
+  }
+
+  const { rows: targetUser } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+  if (!targetUser.length) throw ApiError.notFound('User not found');
+
+  // Guard Administrator accounts: Only Super Admins can modify Admins or promote to Admin
+  if (targetUser[0].role === 'SUPER_ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can modify Super Admin accounts');
+  }
+  if (targetUser[0].role === 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can modify Administrator accounts');
+  }
+  if ((rest.role === 'ADMIN' || rest.role === 'SUPER_ADMIN') && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can promote users to Administrator roles');
   }
 
   const updates = { ...rest };
@@ -384,12 +406,21 @@ router.patch('/:id', validate(updateSchema), asyncHandler(async (req, res) => {
   res.json({ success: true, data: rows[0] });
 }));
 
-
-
 router.delete('/:id', asyncHandler(async (req, res) => {
   if (req.params.id === req.user.id) {
     throw ApiError.forbidden('Cannot deactivate your own account');
   }
+
+  const { rows: targetUser } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+  if (!targetUser.length) throw ApiError.notFound('User not found');
+
+  if (targetUser[0].role === 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Cannot deactivate a Super Admin');
+  }
+  if (targetUser[0].role === 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    throw ApiError.forbidden('Only Super Admins can deactivate Administrator accounts');
+  }
+
   await query(
     'UPDATE users SET is_active = FALSE WHERE id = $1', [req.params.id]
   );

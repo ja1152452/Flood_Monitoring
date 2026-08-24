@@ -81,7 +81,7 @@ function Field({ label, required, children }) {
   );
 }
 
-function Input({ value, onChange, placeholder, type = 'text' }) {
+function Input({ value, onChange, placeholder, type = 'text', ...props }) {
   return (
     <input
       type={type}
@@ -90,6 +90,7 @@ function Input({ value, onChange, placeholder, type = 'text' }) {
       placeholder={placeholder}
       autoComplete="off"
       className={inputClass}
+      {...props}
     />
   );
 }
@@ -801,12 +802,22 @@ export default function Evacuation() {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Latitude" required>
-              <Input value={form.lat} placeholder="Click map to set"
-                onChange={e => setForm(f => ({ ...f, lat: e.target.value }))} />
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.lat}
+                placeholder="Click map to set (e.g. 14.300)"
+                onChange={e => setForm(f => ({ ...f, lat: e.target.value.replace(/[^0-9.-]/g, '') }))}
+              />
             </Field>
             <Field label="Longitude" required>
-              <Input value={form.lng} placeholder="Click map to set"
-                onChange={e => setForm(f => ({ ...f, lng: e.target.value }))} />
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={form.lng}
+                placeholder="Click map to set (e.g. 121.460)"
+                onChange={e => setForm(f => ({ ...f, lng: e.target.value.replace(/[^0-9.-]/g, '') }))}
+              />
             </Field>
           </div>
 
@@ -814,6 +825,7 @@ export default function Evacuation() {
             <Field label="Total Capacity" required>
               <Input
                 type="text"
+                inputMode="numeric"
                 value={form.capacity_total}
                 placeholder="e.g. 200"
                 onChange={e => {
@@ -830,11 +842,13 @@ export default function Evacuation() {
 
           <Field label="Contact Number">
             <Input
-              type="text"
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
               value={form.contact_number}
-              placeholder="0917XXXXXXX"
+              placeholder="09171234567"
               onChange={e => {
-                const val = e.target.value.replace(/[^\d+]/g, '');
+                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
                 setForm(f => ({ ...f, contact_number: val }));
               }}
             />
@@ -872,6 +886,7 @@ export default function Evacuation() {
             <Field label="Total Capacity">
               <Input
                 type="text"
+                inputMode="numeric"
                 value={form.capacity_total}
                 placeholder="e.g. 200"
                 onChange={e => {
@@ -883,6 +898,7 @@ export default function Evacuation() {
             <Field label="Current Evacuees">
               <Input
                 type="text"
+                inputMode="numeric"
                 value={form.capacity_current}
                 placeholder="0"
                 onChange={e => {
@@ -898,11 +914,13 @@ export default function Evacuation() {
             </Field>
             <Field label="Contact Number">
               <Input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
                 value={form.contact_number}
-                placeholder="0917XXXXXXX"
+                placeholder="09171234567"
                 onChange={e => {
-                  const val = e.target.value.replace(/[^\d+]/g, '');
+                  const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
                   setForm(f => ({ ...f, contact_number: val }));
                 }}
               />

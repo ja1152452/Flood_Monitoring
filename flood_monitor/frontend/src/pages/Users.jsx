@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUsers, createUser, updateUser, deactivateUser, deleteUser } from '../api/users';
 import { getEvacuationCenters } from '../api/evacuation';
+import { useAuthStore } from '../store/authStore';
 import { Modal } from '../components/ui/Modal';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, UserX, UserCheck, Search, Trash2, FileDown, X } from 'lucide-react';
+import { Plus, Edit2, UserX, UserCheck, Search, Trash2, FileDown, X, ShieldAlert } from 'lucide-react';
 import { formatDateTime } from '../utils/floodUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,7 +17,6 @@ const BARANGAYS = [
   'Segunda Pulo','Santo Niño','Wawa',
 ];
 
-// Maps the dropdown role value directly to DB role
 const ROLE_OPTIONS = [
   { value: 'PNP',               label: 'PNP (Police)',                 needsBarangay: false },
   { value: 'BFP',               label: 'BFP (Fire)',                   needsBarangay: false },
@@ -29,22 +29,21 @@ const ROLE_OPTIONS = [
   { value: 'SUPER_ADMIN',       label: 'Super Admin',                  needsBarangay: false },
 ];
 
-const getRoleOption = (value) => ROLE_OPTIONS.find(r => r.value === value) || ROLE_OPTIONS[2];
-
-const ROLE_CONFIG = {
+const ROLE_BADGE = {
   SUPER_ADMIN:       { label: 'Super Admin',            bg: 'bg-purple-100 dark:bg-purple-950/70', text: 'text-purple-800 dark:text-purple-300' },
-  ADMIN:             { label: 'MDRRMO Admin',            bg: 'bg-red-100 dark:bg-red-950/70',   text: 'text-red-800 dark:text-red-300'    },
-  MSWDO:             { label: 'MSWDO Admin',             bg: 'bg-blue-100 dark:bg-blue-950/70',  text: 'text-blue-800 dark:text-blue-300'   },
-  PNP:               { label: 'PNP (Police)',            bg: 'bg-blue-800 dark:bg-blue-900',       text: 'text-white' },
-  BFP:               { label: 'BFP (Fire)',              bg: 'bg-orange-500 dark:bg-orange-600',   text: 'text-white' },
-  COAST_GUARD:       { label: 'Coast Guard (PCG)',       bg: 'bg-sky-600 dark:bg-sky-700',         text: 'text-white' },
-  RHU:               { label: 'RHU (Health)',            bg: 'bg-green-600 dark:bg-green-700',     text: 'text-white' },
-  MDRRMO:            { label: 'MDRRMO Official',         bg: 'bg-red-600 dark:bg-red-700',         text: 'text-white' },
-  MDRRMO_RESPONDER:  { label: 'MDRRMO Official',         bg: 'bg-red-600 dark:bg-red-700',         text: 'text-white' },
-  BARANGAY_OFFICIAL: { label: 'Barangay Official',       bg: 'bg-purple-800 dark:bg-purple-900',   text: 'text-white' },
-  RESCUE:            { label: 'Responder',               bg: 'bg-sky-500 dark:bg-sky-600',         text: 'text-white' },
-  CITIZEN:           { label: 'Resident',                bg: 'bg-slate-200 dark:bg-slate-700',     text: 'text-slate-800 dark:text-slate-300' },
+  ADMIN:             { label: 'MDRRMO Admin',           bg: 'bg-red-100 dark:bg-red-950/70',       text: 'text-red-800 dark:text-red-300' },
+  MSWDO:             { label: 'MSWDO Admin',            bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
+  PNP:               { label: 'PNP (Police)',           bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
+  BFP:               { label: 'BFP (Fire)',             bg: 'bg-orange-100 dark:bg-orange-950/70', text: 'text-orange-800 dark:text-orange-300' },
+  COAST_GUARD:       { label: 'Coast Guard (PCG)',      bg: 'bg-cyan-100 dark:bg-cyan-950/70',     text: 'text-cyan-800 dark:text-cyan-300' },
+  RHU:               { label: 'RHU (Health)',           bg: 'bg-teal-100 dark:bg-teal-950/70',     text: 'text-teal-800 dark:text-teal-300' },
+  MDRRMO_RESPONDER:  { label: 'MDRRMO Responder',       bg: 'bg-amber-100 dark:bg-amber-950/70',   text: 'text-amber-800 dark:text-amber-300' },
+  BARANGAY_OFFICIAL: { label: 'Barangay Official',      bg: 'bg-emerald-100 dark:bg-emerald-950/70', text: 'text-emerald-800 dark:text-emerald-300' },
+  RESCUE:            { label: 'Responder',              bg: 'bg-indigo-100 dark:bg-indigo-950/70', text: 'text-indigo-800 dark:text-indigo-300' },
+  CITIZEN:           { label: 'Resident',               bg: 'bg-slate-100 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300' },
 };
+
+const getRoleOption = (val) => ROLE_OPTIONS.find(r => r.value === val) || ROLE_OPTIONS[0];
 
 const EMPTY = {
   full_name: '', email: '', password: '',
@@ -54,7 +53,7 @@ const EMPTY = {
 
 const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
 
-function FormFields({ form, setForm, isEdit, centers = [] }) {
+function FormFields({ form, setForm, isEdit, centers = [], isSuperAdmin = false }) {
   const opt = getRoleOption(form.roleOption);
   return (
     <div className="space-y-3">
@@ -69,20 +68,24 @@ function FormFields({ form, setForm, isEdit, centers = [] }) {
           <label className="text-xs text-slate-400 block mb-1">Role *</label>
           <select className={inputCls} value={form.roleOption}
             onChange={e => setForm(f => ({ ...f, roleOption: e.target.value, barangay: '', evacuation_center_id: '' }))}>
-            <optgroup label="Responders">
+            <optgroup label="Responders & Officials">
+              <option value="BARANGAY_OFFICIAL">Barangay Official</option>
               <option value="PNP">PNP (Police)</option>
               <option value="BFP">BFP (Fire)</option>
               <option value="COAST_GUARD">Coast Guard (PCG - Under BFP)</option>
               <option value="RHU">RHU (Health)</option>
               <option value="MDRRMO_RESPONDER">MDRRMO Official (Responder)</option>
-              <option value="BARANGAY_OFFICIAL">Barangay Official</option>
               <option value="RESCUE">Responder</option>
               <option value="CITIZEN">Resident</option>
             </optgroup>
-            <optgroup label="Admin">
+            <optgroup label="Administration">
               <option value="MSWDO">MSWDO Admin</option>
-              <option value="ADMIN">MDRRMO Admin / Official</option>
-              <option value="SUPER_ADMIN">Super Admin</option>
+              {isSuperAdmin && (
+                <>
+                  <option value="ADMIN">MDRRMO Admin / Official</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
+                </>
+              )}
             </optgroup>
           </select>
         </div>
@@ -149,19 +152,29 @@ function FormFields({ form, setForm, isEdit, centers = [] }) {
           </div>
           <div>
             <label className="text-xs text-slate-400 block mb-1">Phone Number (09XXXXXXXXX)</label>
-            <input className={inputCls} value={form.phone_number}
+            <input
+              type="tel"
+              inputMode="numeric"
+              className={inputCls}
+              value={form.phone_number}
               maxLength={11}
               onChange={e => setForm(f => ({ ...f, phone_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 11) }))}
-              placeholder="09171234567" />
+              placeholder="09171234567"
+            />
           </div>
         </div>
       ) : (
         <div>
           <label className="text-xs text-slate-400 block mb-1">Phone Number (09XXXXXXXXX)</label>
-          <input className={inputCls} value={form.phone_number}
+          <input
+            type="tel"
+            inputMode="numeric"
+            className={inputCls}
+            value={form.phone_number}
             maxLength={11}
             onChange={e => setForm(f => ({ ...f, phone_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 11) }))}
-            placeholder="09171234567" />
+            placeholder="09171234567"
+          />
         </div>
       )}
 
@@ -176,6 +189,8 @@ function FormFields({ form, setForm, isEdit, centers = [] }) {
 
 export default function Users() {
   const qc = useQueryClient();
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
   const [search,   setSearch]   = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -470,32 +485,41 @@ export default function Users() {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEdit(user)}
-                          className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                          <Edit2 size={14} />
-                        </button>
-                        {user.is_active ? (
-                          <button
-                            onClick={() => confirmDeactivate(user)}
-                            title="Deactivate account"
-                            className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <UserX size={14} />
-                          </button>
+                        {(!['ADMIN', 'SUPER_ADMIN'].includes(user.role) || isSuperAdmin) ? (
+                          <>
+                            <button
+                              onClick={() => openEdit(user)}
+                              title="Edit user"
+                              className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                              <Edit2 size={14} />
+                            </button>
+                            {user.is_active ? (
+                              <button
+                                onClick={() => confirmDeactivate(user)}
+                                title="Deactivate account"
+                                className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                                <UserX size={14} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => activate.mutate(user.id)}
+                                title="Activate account"
+                                className="text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                                <UserCheck size={14} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setDeleteTarget(user)}
+                              title="Delete permanently"
+                              className="text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                              <Trash2 size={14} />
+                            </button>
+                          </>
                         ) : (
-                          <button
-                            onClick={() => activate.mutate(user.id)}
-                            title="Activate account"
-                            className="text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <UserCheck size={14} />
-                          </button>
+                          <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 italic px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md">
+                            Super Admin Only
+                          </span>
                         )}
-                        <button
-                          onClick={() => setDeleteTarget(user)}
-                          title="Delete permanently"
-                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -529,7 +553,7 @@ export default function Users() {
       </div>
 
       <Modal isOpen={showEdit} onClose={() => setShowEdit(false)} title="Edit User">
-        <FormFields form={form} setForm={setForm} isEdit={true} centers={centers} />
+        <FormFields form={form} setForm={setForm} isEdit={true} centers={centers} isSuperAdmin={isSuperAdmin} />
         <div className="flex gap-3 pt-4">
           <button onClick={() => setShowEdit(false)}
             className="flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm py-2.5 rounded-xl transition-colors">
@@ -543,7 +567,7 @@ export default function Users() {
       </Modal>
 
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add New User">
-        <FormFields form={form} setForm={setForm} isEdit={false} centers={centers} />
+        <FormFields form={form} setForm={setForm} isEdit={false} centers={centers} isSuperAdmin={isSuperAdmin} />
         <div className="flex gap-3 pt-4">
           <button onClick={() => setShowAdd(false)}
             className="flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm py-2.5 rounded-xl transition-colors">
