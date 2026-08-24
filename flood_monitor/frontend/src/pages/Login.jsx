@@ -80,7 +80,11 @@ export default function Login() {
       setAuth(data.user, data.accessToken, data.refreshToken);
       navigate(data.user?.role === 'MSWDO' ? '/mswdo' : '/');
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Invalid email or password';
+      const msg =
+        err.response?.data?.errors?.[0]?.message?.replace(/"/g, '') ||
+        err.response?.data?.message ||
+        err.message ||
+        'Invalid email or password';
       setErrorMsg(msg);
       toast.error(msg, { duration: 5000 });
 
