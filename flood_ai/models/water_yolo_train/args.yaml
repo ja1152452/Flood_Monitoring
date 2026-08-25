@@ -1,7 +1,7 @@
 task: detect
 mode: train
-model: yolov8n.pt
-data: C:\Users\jayze\Documents\GitHub\Flood_Monitoring\flood_ai\dataset\data.yaml
+model: yolo12n.pt
+data: c:\Users\jayze\Documents\GitHub\Flood_Monitoring\flood_ai\dataset\data.yaml
 epochs: 50
 time: null
 patience: 100
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: ''
 workers: 8
-project: C:\Users\jayze\Documents\GitHub\Flood_Monitoring\flood_ai\models
+project: c:\Users\jayze\Documents\GitHub\Flood_Monitoring\flood_ai\models
 name: water_yolo_train
 exist_ok: true
 pretrained: true

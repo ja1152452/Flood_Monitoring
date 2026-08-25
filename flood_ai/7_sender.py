@@ -138,7 +138,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
-    # --- 1. PRIMARY AI ENGINE (YOLOv8) ---
+    # --- 1. PRIMARY AI ENGINE (YOLOv12) ---
     ai_model = get_yolo_model()
     if ai_model is not None:
         try:

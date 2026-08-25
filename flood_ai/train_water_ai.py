@@ -8,12 +8,12 @@ MODEL_SAVE_DIR = os.path.join(_DIR, "models")
 os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 
 def train_model():
-    print("=== Training YOLOv8 Flood AI Model ===")
+    print("=== Training YOLOv12 Flood AI Model ===")
     print(f"Dataset config: {DATA_YAML}")
     print(f"Output directory: {MODEL_SAVE_DIR}\n")
 
-    # Load pretrained YOLOv8 nano model
-    model = YOLO("yolov8n.pt")
+    # Load pretrained YOLOv12 nano model
+    model = YOLO("yolo12n.pt")
 
     # Train model with data augmentations for shadow & lighting invariance
     results = model.train(
