@@ -45,7 +45,8 @@ export const ingestReading = async (cameraId, dto) => {
 };
 
 export const getLatest = async (cameraId) => {
-  if (cameraId && cameraId !== 'default' && cameraId !== 'null') {
+  const isUuid = typeof cameraId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cameraId);
+  if (isUuid) {
     const { rows } = await query(
       `SELECT r.*,
               c.location_name,
