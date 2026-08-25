@@ -41,11 +41,10 @@
     },
     "extra": {
       "router": {},
+      "apiUrl": "https://flood-monitoring.up.railway.app",
       "eas": {
         "projectId": "6c905b88-3b68-40b9-9859-2114fc1340af"
-      },
-      "apiUrl": "https://flood-monitoring.up.railway.app"
-    },
-    "owner": "jayzelyasona11"
+      }
+    }
   }
 }

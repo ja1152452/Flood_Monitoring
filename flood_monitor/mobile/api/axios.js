@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { useAuthStore } from '../store/authStore';
 
 export const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'https://flood-monitoring.up.railway.app';
-export const LOCAL_FALLBACK_URL = 'http://192.168.1.27:5001';
+export const LOCAL_FALLBACK_URL = 'http://192.168.1.15:5001';
 
 const request = async (method, path, data, params, extraHeaders) => {
   const token = await AsyncStorage.getItem('accessToken');

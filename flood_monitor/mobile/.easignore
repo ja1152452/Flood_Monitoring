@@ -12,6 +12,14 @@ android
 android/**
 ios
 ios/**
+build
+build/**
+**/build
+**/build/**
+.cxx
+.cxx/**
+**/.cxx
+**/.cxx/**
 *.apk
 *.aab
 *.tar.gz
