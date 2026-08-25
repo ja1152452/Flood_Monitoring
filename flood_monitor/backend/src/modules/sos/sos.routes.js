@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { query } from '../../config/db.js';
 import { authenticate } from '../../middleware/auth.js';
 import { authorize } from '../../middleware/authorize.js';
 import { validate } from '../../middleware/validate.js';
@@ -126,11 +127,19 @@ router.post('/backup/:id/dispatch',
   })
 );
 
-router.patch('/backup/:id/resolve',
+router.get('/duty-status',
   authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
-    const data = await service.resolveBackup(req.params.id, req.user.id);
-    res.json({ success: true, data });
+    res.json({ success: true, data: { status: req.user.responder_status || 'AVAILABLE' } });
+  })
+);
+
+router.all(['/duty-status'],
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  asyncHandler(async (req, res) => {
+    const status = req.body.status || 'AVAILABLE';
+    await query(`UPDATE users SET responder_status = $2 WHERE id = $1`, [req.user.id, status]);
+    res.json({ success: true, data: { status } });
   })
 );
 
