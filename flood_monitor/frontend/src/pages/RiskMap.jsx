@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getRiskAreas, createRiskArea, updateRiskArea, deleteRiskArea } from '../api/risk';
+import { useRainRadar } from '../hooks/useRainRadar';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
 import toast from 'react-hot-toast';
@@ -11,7 +12,8 @@ import {
   Plus, Edit2, Trash2, Layers, Search, Compass,
   Maximize2, Minimize2, RotateCcw, ShieldAlert,
   Waves, Route, Sliders, ChevronDown,
-  ChevronUp, X, Filter, Info, Navigation, Shield
+  ChevronUp, X, Filter, Info, Navigation, Shield,
+  CloudRain
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -23,6 +25,38 @@ import lumbanRoads from '../data/Road/Lumban Roads.geojson';
 
 const LUMBAN_CENTER = [14.291969, 121.460112];
 const DEFAULT_ZOOM = 13;
+
+const createBarangayBeaconIcon = (area) => {
+  const cfg = area ? (RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE) : RISK_CONFIG.MODERATE;
+  const isHigh = area?.risk_level === 'VERY_HIGH' || area?.risk_level === 'HIGH';
+
+  return L.divIcon({
+    className: 'custom-brgy-beacon',
+    html: `
+      <div style="position:relative; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+        ${isHigh ? `
+          <div style="
+            position:absolute; inset:-4px; border-radius:50%;
+            background:${cfg.fill}; opacity:0.4;
+            animation:ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          "></div>
+        ` : ''}
+        <div style="
+          width:20px; height:20px; border-radius:50%;
+          background:${cfg.fill};
+          border:2px solid #ffffff;
+          box-shadow:0 0 0 2px ${cfg.color}88, 0 3px 8px rgba(0,0,0,0.5);
+          display:flex; align-items:center; justify-content:center;
+          color:#ffffff; font-size:10px; font-weight:900;
+        ">
+          ${cfg.icon}
+        </div>
+      </div>
+    `,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+};
 
 // -------------------------------------------------------------
 // CONFIGURATIONS
@@ -96,75 +130,65 @@ export const FLOOD_HAZARD_CONFIG = {
 
 export const ROAD_CLASS_CONFIG = {
   'National Road': {
-    color: '#2563eb',
-    weight: 4.5,
-    label: 'National Highway',
-    icon: '🛣️',
-    badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300',
-    desc: 'Primary arterial route & national transit corridor',
+    color: '#dc2626',
+    weight: 3.5,
+    tagalog: 'Pambansang Daanan',
+    desc: 'Pangunahing ruta para sa relief at emergency vehicles.',
   },
   'Provincial Road': {
-    color: '#9333ea',
-    weight: 4,
-    label: 'Provincial Road',
-    icon: '🛤️',
-    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300',
-    desc: 'Main arterial connector linking municipalities',
+    color: '#f59e0b',
+    weight: 2.5,
+    tagalog: 'Panlalawigang Daanan',
+    desc: 'Pangunahing koneksyon sa pagitan ng mga bayan.',
   },
   'Municipal Road': {
-    color: '#0d9488',
-    weight: 3.5,
-    label: 'Municipal Road',
-    icon: '🚗',
-    badge: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-300',
-    desc: 'Town center collector & access routes',
+    color: '#3b82f6',
+    weight: 2.0,
+    tagalog: 'Munisipal na Daanan',
+    desc: 'Lokal na daanan sa loob ng kabayanan ng Lumban.',
   },
   'Barangay Road': {
-    color: '#475569',
-    weight: 2.2,
-    label: 'Barangay & Residential',
-    icon: '🏘️',
-    badge: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-300',
-    desc: 'Local community roads & residential access streets',
+    color: '#10b981',
+    weight: 1.5,
+    tagalog: 'Barangay Road',
+    desc: 'Panloob na kalsada sa bawat barangay.',
   },
   'Other': {
     color: '#94a3b8',
-    weight: 1.8,
-    label: 'Local Access & Trails',
-    icon: '🚶',
-    badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-300',
-    desc: 'Pedestrian paths, service ways, & tracks',
+    weight: 1.2,
+    tagalog: 'Iba pang Daanan',
+    desc: 'Alley, pathway, o unclassified street.',
   },
 };
 
 export const BASEMAPS = {
+  dark: {
+    id: 'dark',
+    name: 'Dark Tactical',
+    icon: '🌙',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    labelsUrl: null,
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+  },
   streets: {
     id: 'streets',
-    name: 'Carto Light',
+    name: 'Voyager Light',
     icon: '🗺️',
-    url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
-    labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    labelsUrl: null,
     attribution: '&copy; OpenStreetMap &copy; CARTO',
   },
   satellite: {
     id: 'satellite',
-    name: 'Satellite',
+    name: 'Satellite HD',
     icon: '🛰️',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
     attribution: '&copy; Esri &copy; OpenStreetMap',
   },
-  dark: {
-    id: 'dark',
-    name: 'Dark Mode',
-    icon: '🌙',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
-    labelsUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-  },
   topo: {
     id: 'topo',
-    name: 'Terrain Topo',
+    name: 'Terrain Elevation',
     icon: '⛰️',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     labelsUrl: null,
@@ -198,15 +222,34 @@ function cleanName(n) {
 }
 
 // -------------------------------------------------------------
-// MAP CONTROLLER (Fly-To & Bounds Helper)
+// MAP CONTROLLER (Fly-To & Bounds & Fullscreen Resize Helper)
 // -------------------------------------------------------------
-function MapController({ targetCenter, targetZoom }) {
+function MapController({ targetCenter, targetZoom, isFullScreen }) {
   const map = useMap();
+
   useEffect(() => {
     if (targetCenter) {
       map.flyTo(targetCenter, targetZoom || 15, { duration: 1.2 });
     }
   }, [targetCenter, targetZoom, map]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+
+    handleResize();
+    const t1 = setTimeout(handleResize, 100);
+    const t2 = setTimeout(handleResize, 350);
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isFullScreen, map]);
+
   return null;
 }
 
@@ -227,13 +270,14 @@ export default function RiskMapPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [targetView, setTargetView] = useState(null);
 
-  // Layer Visibility Toggles (Cleaned - Risk Map focused)
+  // Layer Visibility Toggles (Risk & Hazard Map Layers)
   const [layerVisibility, setLayerVisibility] = useState({
     municipalBorder: true,
     riskMap: true,
     riskLabels: true,
     floodMap: true,
     roads: true,
+    rainRadar: false,
   });
 
   // Layer Sub-Filters
@@ -261,7 +305,19 @@ export default function RiskMapPage() {
   // Layer Opacities
   const [riskOpacity, setRiskOpacity] = useState(0.5);
   const [floodOpacity, setFloodOpacity] = useState(0.65);
-  const [basemap, setBasemap] = useState('streets');
+  const [radarOpacity, setRadarOpacity] = useState(0.7);
+  const [basemap, setBasemap] = useState('dark');
+
+  // Escape key handler to exit Fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
 
   // Modal / Form States
   const [showAdd, setShowAdd] = useState(false);
@@ -271,6 +327,7 @@ export default function RiskMapPage() {
 
   // Data Queries
   const { data: areas = [] } = useQuery({ queryKey: ['risk-areas'], queryFn: getRiskAreas });
+  const { tileUrl: radarTileUrl, radarTimestamp, lastUpdated: radarUpdated, loading: radarLoading } = useRainRadar(layerVisibility.rainRadar);
 
   // Mutations
   const create = useMutation({
@@ -438,10 +495,10 @@ export default function RiskMapPage() {
     return acc;
   }, {});
 
-  const activeRoadCount = filteredRoadsGeoJSON?.features?.length || 0;
+  const activeRoadCount = lumbanRoads.features.length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* ------------------------------------------------------------- */}
       {/* TOP HEADER & CONTROLS */}
       {/* ------------------------------------------------------------- */}
@@ -541,6 +598,58 @@ export default function RiskMapPage() {
       </div>
 
       {/* ------------------------------------------------------------- */}
+      {/* TELEMETRY KPI STATUS STRIP */}
+      {/* ------------------------------------------------------------- */}
+      {viewTab === 'map' && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
+              <Shield size={18} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monitored Zones</div>
+              <div className="text-base font-black text-slate-900 dark:text-white">16 Barangays</div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center font-black">
+              <ShieldAlert size={18} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priority Risk Zones</div>
+              <div className="text-base font-black text-red-600 dark:text-red-400">
+                {areas.filter(a => ['VERY_HIGH', 'HIGH'].includes(a.risk_level)).length || 5} High / Critical
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black">
+              <Route size={18} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Road Arteries</div>
+              <div className="text-base font-black text-slate-900 dark:text-white">{activeRoadCount} Segments</div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-black">
+              <CloudRain size={18} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Weather Radar</div>
+              <div className="text-xs font-black text-sky-600 dark:text-sky-400 flex items-center gap-1.5 mt-0.5">
+                <span className={`w-2 h-2 rounded-full ${layerVisibility.rainRadar ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                {layerVisibility.rainRadar ? 'Radar Stream Online' : 'Standby Mode'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
       {/* QUICK LAYER FILTER PILL BAR */}
       {/* ------------------------------------------------------------- */}
       {viewTab === 'map' && (
@@ -578,7 +687,23 @@ export default function RiskMapPage() {
             )}
           </button>
 
-          {/* 3. Road Network Layer Pill */}
+          {/* 3. Live Doppler Rain Radar Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, rainRadar: !v.rainRadar }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.rainRadar
+                ? 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <CloudRain size={13} className={layerVisibility.rainRadar ? 'text-sky-600' : 'text-slate-400'} />
+            Rain Radar (Live)
+            {layerVisibility.rainRadar && (
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+            )}
+          </button>
+
+          {/* 4. Road Network Layer Pill */}
           <button
             onClick={() => setLayerVisibility(v => ({ ...v, roads: !v.roads }))}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -588,10 +713,10 @@ export default function RiskMapPage() {
             }`}
           >
             <Route size={13} className={layerVisibility.roads ? 'text-purple-600' : 'text-slate-400'} />
-            Road Network ({activeRoadCount})
+            Roads ({activeRoadCount})
           </button>
 
-          {/* 4. Barangay Risk Zones Layer Pill */}
+          {/* 5. Barangay Risk Zones Layer Pill */}
           <button
             onClick={() => setLayerVisibility(v => ({ ...v, riskMap: !v.riskMap }))}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -793,8 +918,8 @@ export default function RiskMapPage() {
       {/* MAP VIEW TAB */}
       {/* ------------------------------------------------------------- */}
       {viewTab === 'map' && (
-        <div className={`relative bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-3xl overflow-hidden shadow-xl transition-all ${
-          isFullScreen ? 'fixed inset-0 z-[5000] rounded-none' : 'h-[620px]'
+        <div className={`relative bg-slate-950 border border-slate-300 dark:border-slate-700 overflow-hidden shadow-xl transition-all ${
+          isFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none' : 'h-[620px] rounded-3xl'
         }`}>
           {/* Map Viewport */}
           <MapContainer
@@ -802,8 +927,8 @@ export default function RiskMapPage() {
             zoom={DEFAULT_ZOOM}
             style={{ height: '100%', width: '100%', background: '#09101d' }}
           >
-            {/* Map Controller for programmatic movement */}
-            {targetView && <MapController targetCenter={targetView.center} targetZoom={targetView.zoom} />}
+            {/* Map Controller for programmatic movement & Fullscreen auto-resize */}
+            <MapController targetCenter={targetView?.center} targetZoom={targetView?.zoom} isFullScreen={isFullScreen} />
 
             {/* Active Base Tile Layer */}
             <TileLayer
@@ -978,50 +1103,27 @@ export default function RiskMapPage() {
               <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
             )}
 
-            {/* Centroid Barangay Label Pins */}
+            {/* 5. LIVE METEOROLOGICAL RAIN RADAR (RainViewer API) */}
+            {layerVisibility.rainRadar && radarTileUrl && (
+              <TileLayer
+                key={`radar-${radarTimestamp}-${radarOpacity}`}
+                url={radarTileUrl}
+                opacity={radarOpacity}
+                zIndex={450}
+              />
+            )}
+
+            {/* Centroid Barangay Label Pins (Sleek non-overlapping glowing beacons with hover tooltips) */}
             {layerVisibility.riskLabels && Object.entries(BRGY_CENTERS).map(([name, pos]) => {
               const area = riskMapByName[cleanName(name)] || riskMapByName[name];
-              const cfg = area ? RISK_CONFIG[area.risk_level] : null;
-              if (cfg && !riskFilters[area.risk_level]) return null;
+              const cfg = area ? RISK_CONFIG[area.risk_level] : RISK_CONFIG.MODERATE;
+              if (cfg && !riskFilters[area?.risk_level || 'MODERATE']) return null;
 
               return (
                 <Marker
                   key={name}
                   position={pos}
-                  icon={L.divIcon({
-                    className: '',
-                    iconAnchor: [0, 0],
-                    html: `
-                      <div style="
-                        font-family:sans-serif;
-                        pointer-events:none;
-                        text-align:center;
-                        transform:translate(-50%,-50%);
-                        white-space:nowrap;
-                      ">
-                        <div style="
-                          font-size:10px;
-                          font-weight:800;
-                          color:#ffffff;
-                          background:rgba(15,23,42,0.85);
-                          padding:2px 6px;
-                          border-radius:6px;
-                          border:1px solid rgba(255,255,255,0.25);
-                          box-shadow:0 2px 6px rgba(0,0,0,0.5);
-                          line-height:1.2;
-                        ">${name.replace(/\s*\(.*?\)/g, '')}</div>
-                        ${cfg ? `
-                          <div style="
-                            font-size:9px;
-                            font-weight:800;
-                            color:${cfg.fill};
-                            text-shadow:0 0 4px #000;
-                            margin-top:1px;
-                          ">${cfg.icon} ${cfg.label}</div>
-                        ` : ''}
-                      </div>
-                    `,
-                  })}
+                  icon={createBarangayBeaconIcon(area)}
                   eventHandlers={{
                     click: () => {
                       setSelectedFeature({
@@ -1031,7 +1133,23 @@ export default function RiskMapPage() {
                       });
                     },
                   }}
-                />
+                >
+                  <Tooltip
+                    direction="top"
+                    offset={[0, -12]}
+                    opacity={0.98}
+                    sticky
+                  >
+                    <div style={{ fontFamily: 'sans-serif', padding: '2px 4px', textAlign: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: 11, color: '#0f172a' }}>
+                        {name.replace(/\s*\(.*?\)/g, '')}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: cfg.fill, marginTop: 1 }}>
+                        {cfg.icon} {cfg.label}
+                      </div>
+                    </div>
+                  </Tooltip>
+                </Marker>
               );
             })}
           </MapContainer>
@@ -1039,32 +1157,54 @@ export default function RiskMapPage() {
           {/* ------------------------------------------------------------- */}
           {/* FLOATING MAP CONTROLS OVERLAY */}
           {/* ------------------------------------------------------------- */}
-          <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-            <button
-              onClick={handleResetView}
-              title="Reset View to Lumban Center"
-              className="p-2.5 bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-            >
-              <RotateCcw size={16} />
-            </button>
-            <button
-              onClick={() => setIsFullScreen(f => !f)}
-              title={isFullScreen ? 'Exit Full Screen' : 'Full Screen Map'}
-              className="p-2.5 bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-            >
-              {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-            <button
-              onClick={() => setShowLegend(l => !l)}
-              title="Toggle Legend"
-              className={`p-2.5 rounded-xl shadow-lg border transition-all ${
-                showLegend
-                  ? 'bg-red-600 text-white border-red-600'
-                  : 'bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-white border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              <Info size={16} />
-            </button>
+          <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2 flex-wrap justify-end">
+            {/* Basemap Switcher */}
+            <div className="flex bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+              {Object.values(BASEMAPS).map(bm => (
+                <button
+                  key={bm.id}
+                  onClick={() => setBasemap(bm.id)}
+                  title={bm.name}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    basemap === bm.id
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{bm.icon}</span>
+                  <span className="hidden sm:inline">{bm.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Action Tools */}
+            <div className="flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+              <button
+                onClick={handleResetView}
+                title="Reset View to Lumban Center"
+                className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+              >
+                <RotateCcw size={15} />
+              </button>
+              <button
+                onClick={() => setIsFullScreen(f => !f)}
+                title={isFullScreen ? 'Exit Full Screen' : 'Full Screen Map'}
+                className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+              >
+                {isFullScreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              </button>
+              <button
+                onClick={() => setShowLegend(l => !l)}
+                title="Toggle Legend"
+                className={`p-1.5 rounded-lg transition-all ${
+                  showLegend
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Info size={15} />
+              </button>
+            </div>
           </div>
 
           {/* ------------------------------------------------------------- */}
@@ -1159,6 +1299,64 @@ export default function RiskMapPage() {
                         </button>
                       </div>
                     )}
+                  </div>
+                )}
+                {selectedFeature.type === 'evacuation' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        {selectedFeature.data.barangay || 'Lumban Central'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                        Capacity: {selectedFeature.data.current_evacuees || 0} / {selectedFeature.data.capacity || 100}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 space-y-1">
+                      {selectedFeature.data.contact_person && (
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Users size={12} className="text-blue-500 shrink-0" />
+                          <span>Manager: {selectedFeature.data.contact_person}</span>
+                        </div>
+                      )}
+                      {selectedFeature.data.contact_number && (
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Phone size={12} className="text-emerald-500 shrink-0" />
+                          <span>Hotline: {selectedFeature.data.contact_number}</span>
+                        </div>
+                      )}
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${selectedFeature.data.latitude || selectedFeature.data.lat},${selectedFeature.data.longitude || selectedFeature.data.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-sm"
+                    >
+                      <Navigation size={12} /> Get Directions
+                    </a>
+                  </div>
+                )}
+
+                {selectedFeature.type === 'responder' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                        {selectedFeature.data.role?.replace('_', ' ') || 'RESCUE'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        {selectedFeature.data.status || 'AVAILABLE'}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 space-y-1">
+                      {selectedFeature.data.phone && (
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Phone size={12} className="text-emerald-500 shrink-0" />
+                          <span>Radio/Phone: {selectedFeature.data.phone}</span>
+                        </div>
+                      )}
+                      {selectedFeature.data.unit_type && (
+                        <div><b>Assigned Vehicle:</b> {selectedFeature.data.unit_type}</div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

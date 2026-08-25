@@ -29,7 +29,7 @@ const ROLE_OPTIONS = [
   { value: 'SUPER_ADMIN',       label: 'Super Admin',                  needsBarangay: false },
 ];
 
-const ROLE_BADGE = {
+const ROLE_CONFIG = {
   SUPER_ADMIN:       { label: 'Super Admin',            bg: 'bg-purple-100 dark:bg-purple-950/70', text: 'text-purple-800 dark:text-purple-300' },
   ADMIN:             { label: 'MDRRMO Admin',           bg: 'bg-red-100 dark:bg-red-950/70',       text: 'text-red-800 dark:text-red-300' },
   MSWDO:             { label: 'MSWDO Admin',            bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
@@ -42,6 +42,7 @@ const ROLE_BADGE = {
   RESCUE:            { label: 'Responder',              bg: 'bg-indigo-100 dark:bg-indigo-950/70', text: 'text-indigo-800 dark:text-indigo-300' },
   CITIZEN:           { label: 'Resident',               bg: 'bg-slate-100 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300' },
 };
+const ROLE_BADGE = ROLE_CONFIG;
 
 const getRoleOption = (val) => ROLE_OPTIONS.find(r => r.value === val) || ROLE_OPTIONS[0];
 

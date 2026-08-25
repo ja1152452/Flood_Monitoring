@@ -10,16 +10,16 @@ import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 
 const NAV = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard'      },
-  { to: '/alerts',        icon: AlertTriangle,   label: 'Alerts'         },
-  { to: '/rescue',        icon: Users,            label: 'Rescue Map'    },
-  { to: '/evacuation',    icon: MapPin,           label: 'Evacuation'    },
-  { to: '/risk-map',      icon: ShieldAlert,      label: 'Risk Map'      },
-  { to: '/announcements', icon: Megaphone,        label: 'Announcements' },
-  { to: '/analytics',     icon: BarChart3,        label: 'Analytics'     },
-  { to: '/audit',         icon: ClipboardList,    label: 'Audit Logs'    },
-  { to: '/users',         icon: Users,            label: 'Users'         },
-  { to: '/reports',       icon: FileText,         label: 'MSWDO Reports'  },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/alerts', icon: AlertTriangle, label: 'Alerts' },
+  { to: '/rescue', icon: Users, label: 'Rescue Map' },
+  { to: '/evacuation', icon: MapPin, label: 'Evacuation' },
+  { to: '/risk-map', icon: ShieldAlert, label: 'Risk Map' },
+  { to: '/announcements', icon: Megaphone, label: 'Announcements' },
+  { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/audit', icon: ClipboardList, label: 'Audit Logs' },
+  { to: '/users', icon: Users, label: 'Users' },
+  { to: '/reports', icon: FileText, label: 'MSWDO Reports' },
 ];
 
 export function Sidebar({ isOpen = false, onClose }) {
@@ -91,19 +91,18 @@ export function Sidebar({ isOpen = false, onClose }) {
             end={to === '/'}
             onClick={handleNavClick}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                isActive
-                  ? 'text-white shadow-sm'
-                  : 'hover:bg-slate-100 dark:hover:bg-white/5'
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${isActive
+                ? 'text-white shadow-sm'
+                : 'hover:bg-slate-100 dark:hover:bg-white/5'
               }`
             }
             style={({ isActive }) =>
               isActive
                 ? {
-                    background: 'linear-gradient(90deg, #991b1b, #dc2626)',
-                    boxShadow: '0 2px 12px rgba(185,28,28,0.4)',
-                    color: '#ffffff',
-                  }
+                  background: 'linear-gradient(90deg, #991b1b, #dc2626)',
+                  boxShadow: '0 2px 12px rgba(185,28,28,0.4)',
+                  color: '#ffffff',
+                }
                 : { color: isDark ? 'rgba(148,163,184,0.9)' : '#334155' }
             }
           >
@@ -119,17 +118,15 @@ export function Sidebar({ isOpen = false, onClose }) {
 
       {/* Footer / Profile Controls */}
       <div
-        className={`p-3.5 border-t ${
-          isDark ? 'border-red-900/20 bg-slate-900/60' : 'border-slate-200 bg-slate-50/50'
-        }`}
+        className={`p-3.5 border-t ${isDark ? 'border-red-900/20 bg-slate-900/60' : 'border-slate-200 bg-slate-50/50'
+          }`}
       >
         {/* Theme Toggle */}
         <button
           type="button"
           onClick={toggle}
-          className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-xs font-bold transition-all mb-2 hover:bg-slate-100 dark:hover:bg-white/5 ${
-            isDark ? 'text-slate-300' : 'text-slate-700'
-          }`}
+          className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-xs font-bold transition-all mb-2 hover:bg-slate-100 dark:hover:bg-white/5 ${isDark ? 'text-slate-300' : 'text-slate-700'
+            }`}
         >
           {isDark ? <Sun size={15} className="text-amber-400 shrink-0" /> : <Moon size={15} className="shrink-0" />}
           <span>{isDark ? 'Light Theme' : 'Dark Theme'}</span>
@@ -137,9 +134,8 @@ export function Sidebar({ isOpen = false, onClose }) {
 
         {/* User Card */}
         <div
-          className={`px-3 py-2.5 mb-2 rounded-xl border ${
-            isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-white border-slate-200 shadow-2xs'
-          }`}
+          className={`px-3 py-2.5 mb-2 rounded-xl border ${isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-white border-slate-200 shadow-2xs'
+            }`}
         >
           <div className="text-xs font-bold truncate text-slate-900 dark:text-white">
             {user?.full_name || 'Admin User'}

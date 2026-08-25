@@ -5,21 +5,21 @@ import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
 import { Layout } from './components/layout/Layout';
 import { MswdoLayout } from './components/layout/MswdoLayout';
-import Login             from './pages/Login';
-import Dashboard        from './pages/Dashboard';
-import Alerts           from './pages/Alerts';
-import Rescue           from './pages/Rescue';
-import Evacuation       from './pages/Evacuation';
-import Announcements    from './pages/Announcements';
-import Analytics        from './pages/Analytics';
-import AuditLogs        from './pages/AuditLogs';
-import RiskMapPage      from './pages/RiskMap';
-import Users            from './pages/Users';
-import MswdoDashboard   from './pages/mswdo/MswdoDashboard';
-import MswdoEvacuees    from './pages/mswdo/MswdoEvacuees';
-import MswdoReports     from './pages/mswdo/MswdoReports';
-import MswdoNotifications      from './pages/mswdo/MswdoNotifications';
-import MswdoProfile            from './pages/mswdo/MswdoProfile';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Alerts from './pages/Alerts';
+import Rescue from './pages/Rescue';
+import Evacuation from './pages/Evacuation';
+import Announcements from './pages/Announcements';
+import Analytics from './pages/Analytics';
+import AuditLogs from './pages/AuditLogs';
+import RiskMapPage from './pages/RiskMap';
+import Users from './pages/Users';
+import MswdoDashboard from './pages/mswdo/MswdoDashboard';
+import MswdoEvacuees from './pages/mswdo/MswdoEvacuees';
+import MswdoReports from './pages/mswdo/MswdoReports';
+import MswdoNotifications from './pages/mswdo/MswdoNotifications';
+import MswdoProfile from './pages/mswdo/MswdoProfile';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,11 +68,11 @@ export default function App() {
             <MswdoProtected>
               <MswdoLayout>
                 <Routes>
-                  <Route path="/"              element={<MswdoDashboard />} />
-                  <Route path="/evacuees"      element={<MswdoEvacuees />} />
-                  <Route path="/reports"       element={<MswdoReports />} />
+                  <Route path="/" element={<MswdoDashboard />} />
+                  <Route path="/evacuees" element={<MswdoEvacuees />} />
+                  <Route path="/reports" element={<MswdoReports />} />
                   <Route path="/notifications" element={<MswdoNotifications />} />
-                  <Route path="/profile"       element={<MswdoProfile />} />
+                  <Route path="/profile" element={<MswdoProfile />} />
                 </Routes>
               </MswdoLayout>
             </MswdoProtected>
@@ -83,16 +83,16 @@ export default function App() {
             <AdminProtected>
               <Layout>
                 <Routes>
-                  <Route path="/"              element={<Dashboard />} />
-                  <Route path="/alerts"        element={<Alerts />} />
-                  <Route path="/rescue"        element={<Rescue />} />
-                  <Route path="/evacuation"    element={<Evacuation />} />
-                  <Route path="/risk-map"      element={<RiskMapPage />} />
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/alerts" element={<Alerts />} />
+                  <Route path="/rescue" element={<Rescue />} />
+                  <Route path="/evacuation" element={<Evacuation />} />
+                  <Route path="/risk-map" element={<RiskMapPage />} />
                   <Route path="/announcements" element={<Announcements />} />
-                  <Route path="/analytics"     element={<Analytics />} />
-                  <Route path="/audit"         element={<AuditLogs />} />
-                  <Route path="/users"         element={<Users />} />
-                  <Route path="/reports"       element={<MswdoReports />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/audit" element={<AuditLogs />} />
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/reports" element={<MswdoReports />} />
                   <Route path="/flood-reports" element={<Navigate to="/analytics" replace />} />
                 </Routes>
               </Layout>

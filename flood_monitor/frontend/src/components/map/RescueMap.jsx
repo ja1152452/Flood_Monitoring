@@ -114,7 +114,7 @@ const CAMERA_ICON = L.divIcon({
   className: '',
   iconSize: [22, 22],
   iconAnchor: [11, 11],
-});
+  });
 
 const LUMBAN_CENTER = [14.291969, 121.460112];
 
@@ -147,7 +147,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
   return (
     <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
       {/* Floating Basemap Switcher */}
-      <div className="absolute top-3 right-3 z-[1000] flex bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
         {Object.values(BASEMAPS).map(bm => (
           <button
             key={bm.id}

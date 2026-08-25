@@ -366,9 +366,19 @@ export default function Evacuation() {
   };
 
   const exportAllPDF = () => {
-    const familiesToExport = selectedCenter
-      ? allFamilies.filter(f => f.evacuation_center_id === selectedCenter.id)
-      : allFamilies;
+    const familiesToExport = allFamilies.filter(f => {
+      if (selectedCenter && f.evacuation_center_id !== selectedCenter.id) return false;
+      if (filterGender && f.gender !== filterGender) return false;
+      const age = f.age ? parseInt(f.age) : null;
+      if (filterAgeMin && (age === null || age < parseInt(filterAgeMin))) return false;
+      if (filterAgeMax && (age === null || age > parseInt(filterAgeMax))) return false;
+      return true;
+    });
+
+    if (familiesToExport.length === 0) {
+      toast.error('No families match the active filters to export');
+      return;
+    }
 
     const centerName = selectedCenter ? selectedCenter.name : 'All Centers';
 
@@ -378,7 +388,13 @@ export default function Evacuation() {
     doc.text(`MDRRMO — Evacuee Records (FACED Registry)${selectedCenter ? ` — ${centerName}` : ''}`, 14, 16);
     doc.setFontSize(10); doc.setFont('helvetica', 'normal');
     doc.text(`Generated: ${now}`, 14, 23);
-    doc.text(`Total Families: ${familiesToExport.length}   Total Members: ${familiesToExport.reduce((s, f) => s + (f.members || 0), 0)}`, 14, 29);
+
+    const filterNotes = [];
+    if (filterGender) filterNotes.push(`Gender: ${filterGender}`);
+    if (filterAgeMin || filterAgeMax) filterNotes.push(`Age: ${filterAgeMin || '0'} - ${filterAgeMax || '120+'}`);
+    const filterSub = filterNotes.length > 0 ? `   [Filters Applied: ${filterNotes.join(', ')}]` : '';
+
+    doc.text(`Total Families: ${familiesToExport.length}   Total Members: ${familiesToExport.reduce((s, f) => s + (f.members || 0), 0)}${filterSub}`, 14, 29);
     autoTable(doc, {
       startY: 34,
       head: [['#', 'Serial No.', 'Head of Family', 'Age/Sex', 'Address', 'Barangay', 'Members', '4Ps/IP', 'Damage Status', 'Bank / E-Wallet', 'Contact', 'Arrival Date', selectedCenter ? '' : 'Center']].map(row => row.filter(h => h !== '')),
@@ -646,35 +662,109 @@ export default function Evacuation() {
               <TileLayer url={BASEMAPS[mapBasemap].labelsUrl} maxZoom={19} />
             )}
             <GeoJSON key="lumban-border" data={lumbanBoundary} style={{ color: '#ef4444', weight: 2, fillOpacity: 0, dashArray: '6 3' }} interactive={false} />
-            {centers.map(center => (
-              <Marker
-                key={center.id}
-                position={[center.lat, center.lng]}
-                icon={L.divIcon({
-                  html: `<div style="width:32px;height:32px;border-radius:8px;background:${center.is_open ? '#16a34a' : '#6b7280'};border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:15px;">🏠</div>`,
-                  className: '', iconSize: [32, 32], iconAnchor: [16, 32],
-                })}
-              >
-                <Popup>
-                  <div style={{ minWidth: '200px', fontSize: '13px', lineHeight: '1.6' }}>
-                    <strong style={{ fontSize: '14px' }}>{center.name}</strong><br />
-                    📍 {center.barangay_name}<br />
-                    {center.address && <>{center.address}<br /></>}
-                    👥 {center.capacity_current} / {center.capacity_total}<br />
-                    {center.contact_person && <>👤 {center.contact_person}<br /></>}
-                    {center.contact_number && <>📞 {center.contact_number}<br /></>}
-                    <span style={{
-                      background: center.is_open ? '#dcfce7' : '#f3f4f6',
-                      color: center.is_open ? '#16a34a' : '#6b7280',
-                      padding: '2px 10px', borderRadius: '999px',
-                      fontSize: '11px', fontWeight: 'bold',
-                    }}>
-                      {center.is_open ? '✓ OPEN' : '✗ CLOSED'}
-                    </span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+            {centers.map(center => {
+              const cap = Number(center.capacity_total) || 100;
+              const curr = Number(center.capacity_current) || 0;
+              const pct = Math.min(100, Math.round((curr / cap) * 100));
+              const statusColor = pct >= 90 ? '#dc2626' : pct >= 70 ? '#d97706' : '#16a34a';
+              const statusBorder = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
+
+              return (
+                <Marker
+                  key={center.id}
+                  position={[center.lat, center.lng]}
+                  icon={L.divIcon({
+                    html: `
+                      <div style="
+                        background:${center.is_open ? statusColor : '#64748b'};
+                        color:white;
+                        border:2px solid white;
+                        box-shadow:0 0 0 2px ${center.is_open ? statusBorder : '#94a3b8'}, 0 4px 10px rgba(0,0,0,0.35);
+                        border-radius:9999px;
+                        padding:3px 8px;
+                        display:flex;
+                        align-items:center;
+                        gap:4px;
+                        font-family:sans-serif;
+                        white-space:nowrap;
+                        font-weight:800;
+                        font-size:11px;
+                      ">
+                        <span>🏠</span>
+                        <span>${pct}%</span>
+                      </div>`,
+                    className: '',
+                    iconSize: [54, 24],
+                    iconAnchor: [27, 12],
+                  })}
+                >
+                  <Popup>
+                    <div style={{ minWidth: 230, fontFamily: 'sans-serif', padding: '6px 2px', lineHeight: 1.5 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <strong style={{ fontSize: 13, color: '#0f172a' }}>{center.name}</strong>
+                        <span style={{
+                          background: center.is_open ? (pct >= 90 ? '#fee2e2' : '#dcfce7') : '#f1f5f9',
+                          color: center.is_open ? (pct >= 90 ? '#dc2626' : '#16a34a') : '#64748b',
+                          padding: '2px 8px', borderRadius: 999,
+                          fontSize: 10, fontWeight: 800,
+                        }}>
+                          {center.is_open ? (pct >= 100 ? 'FULL' : `${pct}% FULL`) : 'CLOSED'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>📍 {center.barangay_name}</div>
+                      {center.address && <div style={{ fontSize: 11, color: '#475569', marginBottom: 6 }}>{center.address}</div>}
+                      
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 11, marginBottom: 8 }}>
+                        <div><b>Occupancy:</b> {curr} / {cap} Individuals</div>
+                        <div><b>Available Slots:</b> {Math.max(0, cap - curr)}</div>
+                        {center.contact_person && <div><b>Manager:</b> {center.contact_person} ({center.contact_number || 'N/A'})</div>}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${center.lat},${center.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: '#2563eb',
+                            color: 'white',
+                            padding: '5px 10px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textDecoration: 'none'
+                          }}
+                        >
+                          🗺️ Get Directions
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCenter(center);
+                            setActiveTab('evacuees');
+                          }}
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#334155',
+                            border: '1px solid #cbd5e1',
+                            padding: '5px 10px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          View Families →
+                        </button>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
           </MapContainer>
         </div>
 
@@ -720,6 +810,15 @@ export default function Evacuation() {
                     onClick={() => updateCenter.mutate({ id: center.id, data: { is_open: !center.is_open } })}
                     className={`flex-1 text-xs py-2 rounded-lg font-medium transition-colors ${center.is_open ? 'bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-200' : 'bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-900 dark:hover:bg-green-800 dark:text-green-200'}`}>
                     {center.is_open ? 'Close Center' : 'Open Center'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCenter(center);
+                      setActiveTab('evacuees');
+                    }}
+                    className="text-xs py-2 px-3 rounded-lg font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white transition-colors"
+                  >
+                    View Families →
                   </button>
                   <div className="flex items-center gap-1">
                     <input
