@@ -18,21 +18,15 @@ build
 build/**
 
 # Inside mobile, ignore node_modules and native build cache
-node_modules
-node_modules/**
+**/node_modules
 **/node_modules/**
-android
-android/**
+**/android
 **/android/**
-ios
-ios/**
+**/ios
 **/ios/**
-.expo
-.expo/**
+**/.expo
 **/.expo/**
-.cxx
-.cxx/**
+**/.cxx
 **/.cxx/**
-.gradle
-.gradle/**
+**/.gradle
 **/.gradle/**
