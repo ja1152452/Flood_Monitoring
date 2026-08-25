@@ -430,50 +430,50 @@ function BackupView({ user }) {
                   </View>
                   {b.message && <Text style={s.incomingMsg}>{b.message}</Text>}
                   <Text style={s.activeCardTime}>{formatDateTime(b.created_at)}</Text>
-                    <View style={{ gap: 6, marginTop: 8 }}>
-                      {b.sos_lat && b.sos_lng && (
-                        <TouchableOpacity
-                          style={[s.mapsBtn, { backgroundColor: '#dc2626' }]}
-                          onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.sos_lat},${b.sos_lng}`)}>
-                          <Ionicons name="location" size={14} color="#fff" />
-                          <Text style={s.mapsBtnText}>📍 Open SOS Incident Location ({b.victim_name || 'Resident'})</Text>
-                        </TouchableOpacity>
-                      )}
-
+                  <View style={{ gap: 6, marginTop: 8 }}>
+                    {b.sos_lat && b.sos_lng && (
                       <TouchableOpacity
-                        style={[s.mapsBtn, { backgroundColor: '#0284c7' }]}
-                        onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.lat},${b.lng}`)}>
-                        <Ionicons name="navigate" size={14} color="#fff" />
-                        <Text style={s.mapsBtnText}>🚨 Open Requesting Responder ({b.requester_name})</Text>
+                        style={[s.mapsBtn, { backgroundColor: '#dc2626' }]}
+                        onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.sos_lat},${b.sos_lng}`)}>
+                        <Ionicons name="location" size={14} color="#fff" />
+                        <Text style={s.mapsBtnText}>📍 Open SOS Incident Location ({b.victim_name || 'Resident'})</Text>
                       </TouchableOpacity>
+                    )}
 
-                      {b.status === 'DISPATCHED' && String(b.assigned_responder_id || '') === String(user?.id || '') ? (
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                          <TouchableOpacity
-                            style={[s.mapsBtn, { flex: 1, backgroundColor: '#d97706', justifyContent: 'center' }]}
-                            onPress={() => respondMutation.mutate({ sosId: b.sos_id, statusType: 'EN_ROUTE' })}>
-                            <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                            <Text style={s.mapsBtnText}>✔ Accept Backup Dispatch</Text>
-                          </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.mapsBtn, { backgroundColor: '#0284c7' }]}
+                      onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.lat},${b.lng}`)}>
+                      <Ionicons name="navigate" size={14} color="#fff" />
+                      <Text style={s.mapsBtnText}>🚨 Open Requesting Responder ({b.requester_name})</Text>
+                    </TouchableOpacity>
 
-                          <TouchableOpacity
-                            style={[s.mapsBtn, { backgroundColor: '#dc2626', paddingHorizontal: 16, justifyContent: 'center' }]}
-                            onPress={() => declineMutation.mutate({ sosId: b.sos_id, reason: 'Unable to respond to backup request' })}>
-                            <Ionicons name="close-circle" size={16} color="#fff" />
-                            <Text style={s.mapsBtnText}>✖ Decline</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <View style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="time-outline" size={16} color="#d97706" />
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400e', flex: 1 }}>
-                            {b.status === 'ACTIVE'
-                              ? '⏳ Awaiting MDRRMO Dispatch Order. MDRRMO will assign backup units.'
-                              : `Assigned to ${b.assigned_responder_name || 'another responder unit'}.`}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                    {b.status === 'DISPATCHED' && String(b.assigned_responder_id || '') === String(user?.id || '') ? (
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                        <TouchableOpacity
+                          style={[s.mapsBtn, { flex: 1, backgroundColor: '#d97706', justifyContent: 'center' }]}
+                          onPress={() => respondMutation.mutate({ sosId: b.sos_id, statusType: 'EN_ROUTE' })}>
+                          <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                          <Text style={s.mapsBtnText}>✔ Accept Backup Dispatch</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[s.mapsBtn, { backgroundColor: '#dc2626', paddingHorizontal: 16, justifyContent: 'center' }]}
+                          onPress={() => declineMutation.mutate({ sosId: b.sos_id, reason: 'Unable to respond to backup request' })}>
+                          <Ionicons name="close-circle" size={16} color="#fff" />
+                          <Text style={s.mapsBtnText}>✖ Decline</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="time-outline" size={16} color="#d97706" />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400e', flex: 1 }}>
+                          {b.status === 'ACTIVE'
+                            ? '⏳ Awaiting MDRRMO Dispatch Order. MDRRMO will assign backup units.'
+                            : `Assigned to ${b.assigned_responder_name || 'another responder unit'}.`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>

@@ -21,15 +21,6 @@ const ingestSchema = Joi.object({
 
 const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
 
-router.get('/latest',
-  authenticate,
-  authorize(...ALL_ROLES),
-  asyncHandler(async (_req, res) => {
-    const data = await service.getLatest(null);
-    res.json({ success: true, data });
-  })
-);
-
 router.get('/trend',
   authenticate,
   authorize(...ALL_ROLES),
@@ -45,7 +36,6 @@ router.get('/trend',
       return res.json({ success: true, data: { rate_per_hour: 0, trend: 'STABLE' } });
     }
     const first = rows[0];
-    const last = rows[rows.length - 1];
     const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
     const delta = last.water_level_m - first.water_level_m;
     let rate = hours > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
@@ -56,49 +46,6 @@ router.get('/trend',
         rate_per_hour: rate,
         trend: rate > 0.02 ? 'RISING' : rate < -0.02 ? 'RECEDING' : 'STABLE',
         latest_m: parseFloat(last.water_level_m),
-      },
-    });
-  })
-);
-
-router.get('/rate-of-rise',
-  authenticate,
-  authorize(...ALL_ROLES),
-  asyncHandler(async (_req, res) => {
-    const { rows } = await query(
-      `SELECT water_level_m, captured_at
-       FROM water_level_readings
-       WHERE captured_at >= NOW() - INTERVAL '1 hour'
-       ORDER BY captured_at ASC`
-    );
-
-    if (rows.length < 2) {
-      return res.json({ success: true, data: { rate_per_hour: 0, trend: 'STABLE' } });
-    }
-
-    const first = rows[0];
-    const last = rows[rows.length - 1];
-    const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
-    const delta = parseFloat(last.water_level_m) - parseFloat(first.water_level_m);
-
-    let rate = 0;
-    if (hours > 0.001) {
-      rate = parseFloat((delta / hours).toFixed(2));
-      if (Math.abs(delta) < 0.01) rate = 0;
-    }
-
-    let trend = 'STABLE';
-    if (rate > 0.02) trend = 'RISING';
-    else if (rate < -0.02) trend = 'RECEDING';
-
-    res.json({
-      success: true,
-      data: {
-        rate_per_hour: rate,
-        trend: trend,
-        from_level: parseFloat(first.water_level_m),
-        to_level: parseFloat(last.water_level_m),
-        period_hours: parseFloat(hours.toFixed(2)),
       },
     });
   })
