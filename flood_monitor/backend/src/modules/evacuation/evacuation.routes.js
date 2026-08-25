@@ -12,8 +12,10 @@ import Joi from 'joi';
 const router = Router();
 router.use(authenticate);
 
+const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
+
 router.get('/recommend',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const { lat, lng } = req.query;
     if (!lat || !lng) {
@@ -43,7 +45,7 @@ router.get('/recommend',
 );
 
 router.get('/mine',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const barangay = req.user.barangay_name;
     if (!barangay) return res.json({ success: true, data: [] });
@@ -64,12 +66,12 @@ router.get('/mine',
 );
 
 router.get('/',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   controller.getAll
 );
 
 router.get('/by-barangay',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const { barangay } = req.query;
     if (!barangay) return res.json({ success: true, data: [] });
@@ -90,7 +92,7 @@ router.get('/by-barangay',
 );
 
 router.get('/nearest',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   validate(Joi.object({
     lat:   Joi.number().min(-90).max(90).required(),
     lng:   Joi.number().min(-180).max(180).required(),

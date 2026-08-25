@@ -18,8 +18,10 @@ const createSchema = Joi.object({
   expires_at:        Joi.string().isoDate().optional(),
 });
 
+const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
+
 router.get('/',
-  authorize('CITIZEN','RESCUE','ADMIN','SUPER_ADMIN','MSWDO'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const data = await service.getActive();
     res.json({ success: true, data });

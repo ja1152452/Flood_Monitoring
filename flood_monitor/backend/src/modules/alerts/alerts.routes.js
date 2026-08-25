@@ -7,7 +7,7 @@ import * as service from './alerts.service.js';
 const router = Router();
 router.use(authenticate);
 
-const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
+const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
 
 router.get('/active',
   authorize(...ALL_ROLES),
@@ -26,7 +26,7 @@ router.post('/manual',
 );
 
 router.get('/history',
-  authorize('RESCUE', 'ADMIN', 'SUPER_ADMIN'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const data = await service.getHistory(req.query);
     res.json({ success: true, data });

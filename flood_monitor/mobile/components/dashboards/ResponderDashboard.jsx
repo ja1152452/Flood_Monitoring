@@ -433,7 +433,7 @@ export function ResponderDashboard({ user, onLogout }) {
 
   const handleToggleDuty = (val) => {
     setIsOnDuty(val);
-    statusMutation.mutate(val ? 'AVAILABLE' : 'UNAVAILABLE');
+    statusMutation.mutate(val ? 'AVAILABLE' : 'OFF_DUTY');
   };
 
   const respond = useMutation({

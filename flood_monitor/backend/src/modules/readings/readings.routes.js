@@ -19,7 +19,7 @@ const ingestSchema = Joi.object({
   captured_at: Joi.string().isoDate().optional(),
 });
 
-const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
+const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
 
 router.get('/trend',
   authenticate,
@@ -87,7 +87,7 @@ router.get('/:cameraId/latest',
 
 router.get('/:cameraId/history',
   authenticate,
-  authorize('RESCUE', 'ADMIN', 'SUPER_ADMIN', 'MDRRMO', 'MDRRMO_RESPONDER', 'MSWDO'),
+  authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const limit = Math.min(50000, parseInt(req.query.limit || '48', 10));
     const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
