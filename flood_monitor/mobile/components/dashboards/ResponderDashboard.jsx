@@ -58,7 +58,7 @@ const ROLE_CONFIG = {
     ],
   },
   COAST_GUARD: {
-    label: 'Philippine Coast Guard',
+    label: 'Philippine Coast Guard (Under BFP)',
     short: 'Coast Guard',
     color: '#0284c7',
     bg: '#f0f9ff',

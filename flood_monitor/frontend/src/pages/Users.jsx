@@ -18,29 +18,31 @@ const BARANGAYS = [
 ];
 
 const ROLE_OPTIONS = [
-  { value: 'PNP',               label: 'PNP (Police)',                 needsBarangay: false },
-  { value: 'BFP',               label: 'BFP (Fire)',                   needsBarangay: false },
-  { value: 'COAST_GUARD',       label: 'Coast Guard (PCG / BFP)',      needsBarangay: false },
-  { value: 'RHU',               label: 'RHU (Health)',                 needsBarangay: false },
-  { value: 'MDRRMO_RESPONDER',  label: 'MDRRMO Official (Responder)',  needsBarangay: false },
-  { value: 'BARANGAY_OFFICIAL', label: 'Barangay Official',            needsBarangay: true  },
-  { value: 'MSWDO',             label: 'MSWDO Admin',                  needsBarangay: false },
-  { value: 'ADMIN',             label: 'MDRRMO Admin / Official',      needsBarangay: false },
-  { value: 'SUPER_ADMIN',       label: 'Super Admin',                  needsBarangay: false },
+  { value: 'PNP',               label: 'PNP (Police)',                      needsBarangay: false },
+  { value: 'BFP',               label: 'BFP (Fire & Coast Guard)',          needsBarangay: false },
+  { value: 'COAST_GUARD',       label: 'Coast Guard (PCG - Under BFP)',     needsBarangay: false },
+  { value: 'RHU',               label: 'RHU (Health)',                      needsBarangay: false },
+  { value: 'MDRRMO_RESPONDER',  label: 'MDRRMO Official',                   needsBarangay: false },
+  { value: 'BARANGAY_OFFICIAL', label: 'Brgy. Official',                    needsBarangay: true  },
+  { value: 'RESCUE',            label: 'Rescue Team',                       needsBarangay: false },
+  { value: 'MSWDO',             label: 'MSWDO Admin',                       needsBarangay: false },
+  { value: 'ADMIN',             label: 'MDRRMO Admin / Official',           needsBarangay: false },
+  { value: 'SUPER_ADMIN',       label: 'Super Admin',                       needsBarangay: false },
+  { value: 'CITIZEN',           label: 'Resident',                          needsBarangay: false },
 ];
 
 const ROLE_CONFIG = {
-  SUPER_ADMIN:       { label: 'Super Admin',            bg: 'bg-purple-100 dark:bg-purple-950/70', text: 'text-purple-800 dark:text-purple-300' },
-  ADMIN:             { label: 'MDRRMO Admin',           bg: 'bg-red-100 dark:bg-red-950/70',       text: 'text-red-800 dark:text-red-300' },
-  MSWDO:             { label: 'MSWDO Admin',            bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
-  PNP:               { label: 'PNP (Police)',           bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
-  BFP:               { label: 'BFP (Fire)',             bg: 'bg-orange-100 dark:bg-orange-950/70', text: 'text-orange-800 dark:text-orange-300' },
-  COAST_GUARD:       { label: 'Coast Guard (PCG)',      bg: 'bg-cyan-100 dark:bg-cyan-950/70',     text: 'text-cyan-800 dark:text-cyan-300' },
-  RHU:               { label: 'RHU (Health)',           bg: 'bg-teal-100 dark:bg-teal-950/70',     text: 'text-teal-800 dark:text-teal-300' },
-  MDRRMO_RESPONDER:  { label: 'MDRRMO Responder',       bg: 'bg-amber-100 dark:bg-amber-950/70',   text: 'text-amber-800 dark:text-amber-300' },
-  BARANGAY_OFFICIAL: { label: 'Barangay Official',      bg: 'bg-emerald-100 dark:bg-emerald-950/70', text: 'text-emerald-800 dark:text-emerald-300' },
-  RESCUE:            { label: 'Responder',              bg: 'bg-indigo-100 dark:bg-indigo-950/70', text: 'text-indigo-800 dark:text-indigo-300' },
-  CITIZEN:           { label: 'Resident',               bg: 'bg-slate-100 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300' },
+  SUPER_ADMIN:       { label: 'Super Admin',                 bg: 'bg-purple-100 dark:bg-purple-950/70', text: 'text-purple-800 dark:text-purple-300' },
+  ADMIN:             { label: 'MDRRMO Admin',                bg: 'bg-red-100 dark:bg-red-950/70',       text: 'text-red-800 dark:text-red-300' },
+  MSWDO:             { label: 'MSWDO Admin',                 bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
+  PNP:               { label: 'PNP (Police)',                bg: 'bg-blue-100 dark:bg-blue-950/70',     text: 'text-blue-800 dark:text-blue-300' },
+  BFP:               { label: 'BFP (Fire & Coast Guard)',    bg: 'bg-orange-100 dark:bg-orange-950/70', text: 'text-orange-800 dark:text-orange-300' },
+  COAST_GUARD:       { label: 'Coast Guard (PCG - Under BFP)', bg: 'bg-cyan-100 dark:bg-cyan-950/70',  text: 'text-cyan-800 dark:text-cyan-300' },
+  RHU:               { label: 'RHU (Health)',                bg: 'bg-teal-100 dark:bg-teal-950/70',     text: 'text-teal-800 dark:text-teal-300' },
+  MDRRMO_RESPONDER:  { label: 'MDRRMO Official',             bg: 'bg-amber-100 dark:bg-amber-950/70',   text: 'text-amber-800 dark:text-amber-300' },
+  BARANGAY_OFFICIAL: { label: 'Brgy. Official',              bg: 'bg-emerald-100 dark:bg-emerald-950/70', text: 'text-emerald-800 dark:text-emerald-300' },
+  RESCUE:            { label: 'Rescue Team',                 bg: 'bg-indigo-100 dark:bg-indigo-950/70', text: 'text-indigo-800 dark:text-indigo-300' },
+  CITIZEN:           { label: 'Resident',                    bg: 'bg-slate-100 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300' },
 };
 const ROLE_BADGE = ROLE_CONFIG;
 
@@ -70,13 +72,13 @@ function FormFields({ form, setForm, isEdit, centers = [], isSuperAdmin = false 
           <select className={inputCls} value={form.roleOption}
             onChange={e => setForm(f => ({ ...f, roleOption: e.target.value, barangay: '', evacuation_center_id: '' }))}>
             <optgroup label="Responders & Officials">
-              <option value="BARANGAY_OFFICIAL">Barangay Official</option>
               <option value="PNP">PNP (Police)</option>
-              <option value="BFP">BFP (Fire)</option>
+              <option value="BFP">BFP (Fire & Coast Guard)</option>
               <option value="COAST_GUARD">Coast Guard (PCG - Under BFP)</option>
               <option value="RHU">RHU (Health)</option>
-              <option value="MDRRMO_RESPONDER">MDRRMO Official (Responder)</option>
-              <option value="RESCUE">Responder</option>
+              <option value="MDRRMO_RESPONDER">MDRRMO Official</option>
+              <option value="BARANGAY_OFFICIAL">Brgy. Official</option>
+              <option value="RESCUE">Rescue Team</option>
               <option value="CITIZEN">Resident</option>
             </optgroup>
             <optgroup label="Administration">
@@ -419,12 +421,13 @@ export default function Users() {
           <option value="ADMIN">MDRRMO Admin</option>
           <option value="MSWDO">MSWDO Admin</option>
           <option value="PNP">PNP (Police)</option>
-          <option value="BFP">BFP (Fire)</option>
+          <option value="BFP">BFP (Fire & Coast Guard)</option>
+          <option value="COAST_GUARD">Coast Guard (PCG - Under BFP)</option>
           <option value="RHU">RHU (Health)</option>
           <option value="MDRRMO">MDRRMO</option>
-          <option value="MDRRMO_RESPONDER">MDRRMO Responder</option>
-          <option value="BARANGAY_OFFICIAL">Barangay Official</option>
-          <option value="RESCUE">Responder</option>
+          <option value="MDRRMO_RESPONDER">MDRRMO Official</option>
+          <option value="BARANGAY_OFFICIAL">Brgy. Official</option>
+          <option value="RESCUE">Rescue Team</option>
           <option value="CITIZEN">Resident</option>
         </select>
       </div>

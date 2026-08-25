@@ -613,7 +613,7 @@ export const requestBackup = async (requesterId, dto) => {
 
   const { rows: responders } = await query(
     `SELECT fcm_token FROM users
-     WHERE (role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR role::text IN ('ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER'))
+     WHERE (role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR (role::text IN ('MDRRMO','MDRRMO_RESPONDER') AND $1 IN ('MDRRMO','MDRRMO_RESPONDER')) OR role::text IN ('ADMIN','SUPER_ADMIN'))
        AND is_active = TRUE AND id != $2 AND fcm_token IS NOT NULL`,
     [target_role, requesterId]
   );

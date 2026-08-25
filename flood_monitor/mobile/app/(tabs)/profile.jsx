@@ -150,6 +150,7 @@ export default function ProfileScreen() {
     CITIZEN: 'Resident',
     PNP: 'Philippine National Police',
     BFP: 'Bureau of Fire Protection',
+    COAST_GUARD: 'Coast Guard (PCG - Under BFP)',
     RHU: 'Rural Health Unit',
     MDRRMO: 'MDRRMO',
     MDRRMO_RESPONDER: 'MDRRMO Responder',

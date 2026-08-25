@@ -627,7 +627,7 @@ export default function Rescue() {
                         : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
                     }`}>
                     <span>{roleCfg.icon}</span>
-                    <span>{roleKey === 'BFP' ? 'BFP (Fire & Coast Guard)' : roleCfg.label}</span>
+                    <span>{roleKey === 'BFP' ? 'BFP (Fire & Coast Guard)' : (roleKey === 'COAST_GUARD' ? 'Coast Guard (PCG - Under BFP)' : roleCfg.label)}</span>
                   </button>
                 );
               })}

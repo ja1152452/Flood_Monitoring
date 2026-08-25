@@ -293,7 +293,7 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
       role: role,
     });
     if (err.code === '22P02') {
-      throw ApiError.badRequest(`Invalid role: ${role}. Must be one of: ADMIN, PNP, BFP, RHU, MDRRMO, BARANGAY_OFFICIAL, SUPER_ADMIN, MSWDO, CITIZEN, RESCUE`);
+      throw ApiError.badRequest(`Invalid role: ${role}. Must be one of: ADMIN, PNP, BFP, COAST_GUARD, RHU, MDRRMO, MDRRMO_RESPONDER, BARANGAY_OFFICIAL, SUPER_ADMIN, MSWDO, CITIZEN, RESCUE`);
     }
     throw err;
   }
