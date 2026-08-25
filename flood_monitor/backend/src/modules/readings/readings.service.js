@@ -45,20 +45,35 @@ export const ingestReading = async (cameraId, dto) => {
 };
 
 export const getLatest = async (cameraId) => {
-  const { rows } = await query(
+  if (cameraId && cameraId !== 'default' && cameraId !== 'null') {
+    const { rows } = await query(
+      `SELECT r.*,
+              c.location_name,
+              b.name AS barangay
+       FROM water_level_readings r
+       JOIN cameras c ON c.id = r.camera_id
+       LEFT JOIN barangays b ON b.id = c.barangay_id
+       WHERE r.camera_id = $1
+       ORDER BY r.captured_at DESC
+       LIMIT 1`,
+      [cameraId]
+    );
+    if (rows.length) return rows[0];
+  }
+
+  // Fallback to absolute latest reading from any active camera
+  const { rows: fallbackRows } = await query(
     `SELECT r.*,
             c.location_name,
             b.name AS barangay
      FROM water_level_readings r
      JOIN cameras c ON c.id = r.camera_id
      LEFT JOIN barangays b ON b.id = c.barangay_id
-     WHERE r.camera_id = $1
      ORDER BY r.captured_at DESC
-     LIMIT 1`,
-    [cameraId]
+     LIMIT 1`
   );
-  if (!rows.length) return null;
-  return rows[0];
+  if (!fallbackRows.length) return null;
+  return fallbackRows[0];
 };
 
 export const getHistory = async (cameraId, queryParams) => {
