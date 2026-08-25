@@ -1241,7 +1241,7 @@ export default function Rescue() {
                   (!dispatchBackupModalRequest.target_role || 
                    r.role === dispatchBackupModalRequest.target_role || 
                    (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
-                   (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && r.role === 'COAST_GUARD') ||
+                   (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
                    (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
                   ) &&
                   !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)
@@ -1255,7 +1255,7 @@ export default function Rescue() {
                       (!dispatchBackupModalRequest.target_role || 
                        r.role === dispatchBackupModalRequest.target_role || 
                        (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
-                       (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && r.role === 'COAST_GUARD') ||
+                       (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
                        (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
                       ) &&
                       !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)

@@ -494,7 +494,7 @@ function BackupView({ user }) {
 
 // ─── Root export ──────────────────────────────────────────────────────────────
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 export default function ContactsOrBackupScreen() {
   const { user } = useAuthStore();
