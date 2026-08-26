@@ -176,7 +176,12 @@ export default function Analytics() {
       };
     }
     if (wlFilter.type === 'date') {
-      return { date: wlFilter.date, limit: 5000, flood_level: wlFilter.flood_level || undefined };
+      return {
+        from:  `${wlFilter.date}T00:00:00+08:00`,
+        to:    `${wlFilter.date}T23:59:59+08:00`,
+        limit: 5000,
+        flood_level: wlFilter.flood_level || undefined,
+      };
     }
     if (wlFilter.type === 'week') {
       const { start, end } = getWeekRange(wlFilter.week);

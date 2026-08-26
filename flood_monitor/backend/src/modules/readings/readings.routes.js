@@ -181,8 +181,10 @@ router.get('/:cameraId/history',
     }
 
     if (req.query.date) {
-      conditions.push(`captured_at::date = $${i++}`);
-      params.push(req.query.date);
+      conditions.push(`captured_at >= $${i++}`);
+      params.push(`${req.query.date}T00:00:00+08:00`);
+      conditions.push(`captured_at <= $${i++}`);
+      params.push(`${req.query.date}T23:59:59.999+08:00`);
     } else {
       if (req.query.from) { conditions.push(`captured_at >= $${i++}`); params.push(req.query.from); }
       if (req.query.to) { conditions.push(`captured_at <= $${i++}`); params.push(req.query.to); }
