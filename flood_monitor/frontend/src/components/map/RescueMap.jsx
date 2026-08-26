@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -16,12 +16,17 @@ L.Icon.Default.mergeOptions({
 function MapResizeController({ isFullScreen }) {
   const map = useMap();
   useEffect(() => {
-    map.invalidateSize();
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 300);
+    const handleResize = () => map.invalidateSize();
+    handleResize();
+    const t1 = setTimeout(handleResize, 60);
+    const t2 = setTimeout(handleResize, 200);
+    const t3 = setTimeout(handleResize, 500);
+    window.addEventListener('resize', handleResize);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isFullScreen, map]);
   return null;
@@ -56,7 +61,7 @@ const BASEMAPS = {
     id: 'dark',
     name: 'Dark',
     icon: '🌙',
-    url: 'https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     labelsUrl: 'https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap',
   },
@@ -73,18 +78,38 @@ const ROLE_CFG = {
   RESCUE: { color: '#38bdf8', emoji: '⛑', label: 'Rescue' },
 };
 
-function responderIcon(role, status) {
+function createResponderIcon(role, name, isOnline) {
   const cfg = ROLE_CFG[role] || { color: '#64748b', emoji: '👤', label: role };
-  const borderColor = status === 'DISPATCHED' ? '#f59e0b' : '#ffffff';
+  const initials = (name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
   return L.divIcon({
-    html: `<div style="width:36px;height:36px;border-radius:50%;background:${cfg.color};border:3px solid ${borderColor};box-shadow:0 0 0 3px ${cfg.color}55,0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;">${cfg.emoji}</div>`,
+    html: `
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+        <div style="
+          width:36px;height:36px;border-radius:50%;
+          background:${cfg.color};border:3px solid white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.35);
+          display:flex;align-items:center;justify-content:center;
+          font-size:16px;
+        ">${cfg.emoji}</div>
+        <div style="
+          position:absolute;top:-2px;right:-2px;
+          width:10px;height:10px;border-radius:50%;
+          background:${isOnline ? '#22c55e' : '#94a3b8'};
+          border:2px solid white;
+        "></div>
+        <div style="
+          background:rgba(15,23,42,0.85);color:white;
+          font-size:9px;font-weight:700;padding:1px 4px;
+          border-radius:4px;white-space:nowrap;margin-top:2px;
+        ">${initials}</div>
+      </div>`,
     className: '',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [36, 50],
+    iconAnchor: [18, 25],
   });
 }
 
-function getSosIcon(status) {
+function createSOSIcon(status) {
   let color = '#ef4444'; // default red
   if (status === 'DISPATCHED') color = '#f59e0b'; // amber
   if (status === 'RESPONDING') color = '#3b82f6'; // blue
@@ -136,11 +161,50 @@ const LUMBAN_CENTER = [14.291969, 121.460112];
 export function RescueMap({ sosList = [], evacuationCenters = [], responders = [], onRespond, onComplete }) {
   const [basemap, setBasemap] = useState('streets');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const mapContainerRef = useRef(null);
+
+  const toggleFullScreen = () => {
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = document.fullscreenElement === mapContainerRef.current;
+      setIsFullScreen(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          setIsFullScreen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -171,19 +235,20 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
   });
 
   return (
-    <div className={`relative w-full overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700 transition-all ${
-      isFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none bg-slate-950' : 'rounded-2xl'
-    }`}>
+    <div
+      ref={mapContainerRef}
+      style={{ height: isFullScreen ? '100vh' : '490px', width: '100%' }}
+      className={`relative w-full overflow-hidden shadow-lg transition-all ${
+        isFullScreen ? 'w-screen h-screen rounded-none border-none fixed inset-0 z-[5000] bg-slate-950' : 'rounded-2xl border border-slate-200 dark:border-slate-700'
+      }`}
+    >
       {/* Fullscreen Mode Top Status Indicator */}
       {isFullScreen && (
         <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Rescue Map</span>
           <button
-            onClick={() => {
-              setIsFullScreen(false);
-              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-            }}
+            onClick={toggleFullScreen}
             className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
             <Minimize2 size={12} /> Exit (Esc)
           </button>
@@ -193,17 +258,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
       {/* Floating Basemap Switcher & Fullscreen Button */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
         <button
-          onClick={() => {
-            const next = !isFullScreen;
-            setIsFullScreen(next);
-            try {
-              if (next && document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(() => {});
-              } else if (!next && document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
-              }
-            } catch {}
-          }}
+          onClick={toggleFullScreen}
           className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
             isFullScreen
               ? 'bg-red-600 text-white shadow-sm'
@@ -236,7 +291,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
       <MapContainer
         center={LUMBAN_CENTER}
         zoom={14}
-        style={{ height: isFullScreen ? '100%' : '490px', width: '100%', background: '#09101d' }}
+        style={{ height: '100%', width: '100%', background: '#09101d' }}
       >
         <MapResizeController isFullScreen={isFullScreen} />
         <TileLayer

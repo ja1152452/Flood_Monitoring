@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -243,13 +243,15 @@ function MapController({ targetCenter, targetZoom, isFullScreen }) {
     };
 
     handleResize();
-    const t1 = setTimeout(handleResize, 100);
-    const t2 = setTimeout(handleResize, 350);
+    const t1 = setTimeout(handleResize, 60);
+    const t2 = setTimeout(handleResize, 200);
+    const t3 = setTimeout(handleResize, 500);
 
     window.addEventListener('resize', handleResize);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
       window.removeEventListener('resize', handleResize);
     };
   }, [isFullScreen, map]);
@@ -324,11 +326,52 @@ export default function RiskMapPage() {
   const [radarOpacity, setRadarOpacity] = useState(0.7);
   const [basemap, setBasemap] = useState('dark');
 
+  // DOM Ref for Map Container (Only the map element enters fullscreen)
+  const mapContainerRef = useRef(null);
+
+  const toggleFullScreen = () => {
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = document.fullscreenElement === mapContainerRef.current;
+      setIsFullScreen(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
   // Escape key handler to exit Fullscreen
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          setIsFullScreen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -962,9 +1005,13 @@ export default function RiskMapPage() {
       {/* MAP VIEW TAB */}
       {/* ------------------------------------------------------------- */}
       {viewTab === 'map' && (
-        <div className={`relative bg-slate-950 border border-slate-300 dark:border-slate-700 overflow-hidden shadow-xl transition-all ${
-          isFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none' : 'h-[620px] rounded-3xl'
-        }`}>
+        <div
+          ref={mapContainerRef}
+          style={{ height: isFullScreen ? '100vh' : '620px', width: '100%' }}
+          className={`relative bg-slate-950 overflow-hidden shadow-xl transition-all ${
+            isFullScreen ? 'w-screen h-screen rounded-none border-none' : 'rounded-3xl border border-slate-300 dark:border-slate-700'
+          }`}
+        >
           {/* Map Viewport */}
           <MapContainer
             center={LUMBAN_CENTER}
@@ -1211,10 +1258,7 @@ export default function RiskMapPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Map Mode</span>
               <button
-                onClick={() => {
-                  setIsFullScreen(false);
-                  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-                }}
+                onClick={toggleFullScreen}
                 className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
                 <Minimize2 size={12} /> Exit (Esc)
               </button>
@@ -1254,17 +1298,7 @@ export default function RiskMapPage() {
                 <RotateCcw size={15} />
               </button>
               <button
-                onClick={() => {
-                  const next = !isFullScreen;
-                  setIsFullScreen(next);
-                  try {
-                    if (next && document.documentElement.requestFullscreen) {
-                      document.documentElement.requestFullscreen().catch(() => {});
-                    } else if (!next && document.fullscreenElement) {
-                      document.exitFullscreen().catch(() => {});
-                    }
-                  } catch {}
-                }}
+                onClick={toggleFullScreen}
                 title={isFullScreen ? 'Exit Full Screen (Esc)' : 'Full Screen Map (Whole Monitor)'}
                 className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold ${
                   isFullScreen

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -105,12 +105,17 @@ function LocationPicker({ onPick }) {
 function MapResizeController({ isFullScreen }) {
   const map = useMap();
   useEffect(() => {
-    map.invalidateSize();
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 300);
+    const handleResize = () => map.invalidateSize();
+    handleResize();
+    const t1 = setTimeout(handleResize, 60);
+    const t2 = setTimeout(handleResize, 200);
+    const t3 = setTimeout(handleResize, 500);
+    window.addEventListener('resize', handleResize);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isFullScreen, map]);
   return null;
@@ -133,10 +138,50 @@ export default function Evacuation() {
   const [mapBasemap, setMapBasemap] = useState('streets');
   const [isMapFullScreen, setIsMapFullScreen] = useState(false);
 
+  const mapContainerRef = useRef(null);
+
+  const toggleFullScreen = () => {
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = document.fullscreenElement === mapContainerRef.current;
+      setIsMapFullScreen(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isMapFullScreen) {
-        setIsMapFullScreen(false);
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          setIsMapFullScreen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -652,25 +697,26 @@ export default function Evacuation() {
 
       {activeTab === 'centers' && (<>
 
-        <div className={`relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm dark:shadow-none transition-all ${
-          isMapFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none' : 'rounded-2xl'
-        }`}>
+        <div
+          ref={mapContainerRef}
+          style={{ height: isMapFullScreen ? '100vh' : 'auto', width: '100%' }}
+          className={`relative bg-white dark:bg-slate-800 overflow-hidden flex flex-col shadow-sm dark:shadow-none transition-all ${
+            isMapFullScreen ? 'w-screen h-screen rounded-none border-none' : 'rounded-2xl border border-slate-200 dark:border-slate-700'
+          }`}
+        >
           {isMapFullScreen && (
             <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Map Mode</span>
               <button
-                onClick={() => {
-                  setIsMapFullScreen(false);
-                  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-                }}
+                onClick={toggleFullScreen}
                 className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
                 <Minimize2 size={12} /> Exit (Esc)
               </button>
             </div>
           )}
 
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+          <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2 shrink-0">
             <div>
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">Evacuation Centers Map — Lumban, Laguna</h3>
               <p className="text-xs text-slate-500 mt-0.5">Click a marker to see capacity and contact details</p>
@@ -679,17 +725,7 @@ export default function Evacuation() {
             <div className="flex items-center gap-2">
               {/* Fullscreen Button */}
               <button
-                onClick={() => {
-                  const next = !isMapFullScreen;
-                  setIsMapFullScreen(next);
-                  try {
-                    if (next && document.documentElement.requestFullscreen) {
-                      document.documentElement.requestFullscreen().catch(() => {});
-                    } else if (!next && document.fullscreenElement) {
-                      document.exitFullscreen().catch(() => {});
-                    }
-                  } catch {}
-                }}
+                onClick={toggleFullScreen}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
                   isMapFullScreen
                     ? 'bg-red-600 text-white border-red-500 shadow-md'
@@ -720,7 +756,7 @@ export default function Evacuation() {
               </div>
             </div>
           </div>
-          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ height: isMapFullScreen ? '100%' : '460px', width: '100%', background: '#09101d' }}>
+          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ flex: 1, minHeight: isMapFullScreen ? 'calc(100vh - 58px)' : '460px', width: '100%', background: '#09101d' }}>
             <MapResizeController isFullScreen={isMapFullScreen} />
             <TileLayer
               key={mapBasemap}
