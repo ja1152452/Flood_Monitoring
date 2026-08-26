@@ -4,7 +4,7 @@
   "camera_code": "CAM-LUMBAN-01",
   "camera_api_key": "Admin@1234",
   "youtube_stream_key": "y6p8-k923-9s6z-5ub0-7sss",
-  "baseline_pixel_y": 338,
+  "baseline_pixel_y": 230,
   "baseline_meters": 3.869,
   "px_per_meter": 48.0838,
   "roi": {
@@ -45,14 +45,14 @@
   ],
   "water_hsv_range": {
     "lower": [
-      87,
-      22,
-      45
+      86,
+      25,
+      42
     ],
     "upper": [
-      123,
-      102,
-      145
+      122,
+      105,
+      142
     ]
   },
   "sunlight_filter_enabled": true,
