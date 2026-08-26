@@ -1120,7 +1120,7 @@ export default function RiskMapPage() {
                 opacity={radarOpacity}
                 zIndex={450}
                 maxZoom={19}
-                maxNativeZoom={18}
+                maxNativeZoom={12}
               />
             )}
 
