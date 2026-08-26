@@ -53,9 +53,9 @@ export function useRainRadar(enabled = true) {
   }, [enabled]);
 
   const tileUrl = radarPath
-    ? `${host}${radarPath}`
+    ? `${host}${radarPath}/256/{z}/{x}/{y}/2/1_1.png`
     : radarTimestamp
-    ? `${host}/v2/radar/${radarTimestamp}/256/{z}/{x}/{y}/4/1_1.png`
+    ? `${host}/v2/radar/${radarTimestamp}/256/{z}/{x}/{y}/2/1_1.png`
     : null;
 
   return {
