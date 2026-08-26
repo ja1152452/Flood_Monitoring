@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../../middleware/auth.js';
 import { authorize } from '../../middleware/authorize.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/ApiError.js';
 import * as service from './alerts.service.js';
 
 const router = Router();
@@ -37,7 +38,7 @@ router.patch('/:id/resolve',
   authorize('ADMIN', 'SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.resolveAlert(req.params.id, req.user.id, req.body.notes);
-    if (!data) throw { statusCode: 404, message: 'Active alert not found' };
+    if (!data) throw ApiError.notFound('Active alert not found');
     res.json({ success: true, data });
   })
 );
@@ -46,7 +47,7 @@ router.patch('/:id/siren',
   authorize('ADMIN', 'SUPER_ADMIN'),
   asyncHandler(async (req, res) => {
     const data = await service.toggleSiren(req.params.id, req.body.siren_active);
-    if (!data) throw { statusCode: 404, message: 'Active alert not found' };
+    if (!data) throw ApiError.notFound('Active alert not found');
     res.json({ success: true, data });
   })
 );

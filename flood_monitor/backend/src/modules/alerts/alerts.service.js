@@ -31,7 +31,7 @@ export const evaluateAndDispatch = async (reading, client) => {
     const { rows: resolved } = await db.query(
       `UPDATE flood_alerts
        SET is_active = FALSE, resolved_at = NOW(), siren_active = FALSE
-       WHERE camera_id = $1 AND is_active = TRUE
+       WHERE camera_id = $1 AND is_active = TRUE AND trigger_type != 'MANUAL'
        RETURNING *`,
       [reading.camera_id]
     );
@@ -46,7 +46,7 @@ export const evaluateAndDispatch = async (reading, client) => {
 
   const { rows: existing } = await db.query(
     `SELECT id, flood_level FROM flood_alerts
-     WHERE camera_id = $1 AND is_active = TRUE LIMIT 1`,
+     WHERE camera_id = $1 AND is_active = TRUE AND trigger_type != 'MANUAL' LIMIT 1`,
     [reading.camera_id]
   );
 
@@ -332,7 +332,7 @@ export const toggleSiren = async (alertId, sirenActive) => {
   const { rows } = await query(
     `UPDATE flood_alerts
      SET siren_active = $2
-     WHERE id = $1 AND is_active = TRUE
+     WHERE id = $1
      RETURNING *`,
     [alertId, sirenActive]
   );
@@ -395,7 +395,7 @@ export const triggerManualSiren = async (userId) => {
     action: 'MANUAL_SIREN_TRIGGERED',
     entityType: 'flood_alerts',
     entityId: alert.id,
-    user_id: userId,
+    userId: userId,
     after: {
       level: alert.flood_level,
       siren_active: alert.siren_active,
