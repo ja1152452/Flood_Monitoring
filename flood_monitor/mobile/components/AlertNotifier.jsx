@@ -21,7 +21,7 @@ export function AlertNotifier() {
   const { data: alerts = [] } = useQuery({
     queryKey:        ['active-alerts'],
     queryFn:         getActiveAlerts,
-    refetchInterval: 2500,
+    refetchInterval: 1000,
   });
 
   useEffect(() => {

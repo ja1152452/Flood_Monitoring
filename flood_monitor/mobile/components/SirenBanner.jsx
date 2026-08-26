@@ -19,7 +19,7 @@ export function SirenBanner() {
   const { data: alerts = [] } = useQuery({
     queryKey:       ['active-alerts'],
     queryFn:        getActiveAlerts,
-    refetchInterval: 15000,
+    refetchInterval: 1000,
   });
 
   const activeLevel = alerts[0]?.flood_level;

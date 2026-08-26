@@ -17,7 +17,7 @@ export function SirenManager() {
   const { data: alerts = [] } = useQuery({
     queryKey:        ['active-alerts'],
     queryFn:         getActiveAlerts,
-    refetchInterval: 3000,
+    refetchInterval: 1000,
   });
 
   const activeLevel = alerts[0]?.flood_level;

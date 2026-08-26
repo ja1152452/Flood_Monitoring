@@ -95,28 +95,28 @@ export default function Dashboard() {
   const { data: reading } = useQuery({
     queryKey: ['latest-reading'],
     queryFn: () => getLatestReading(CAMERA_ID),
-    refetchInterval: 5000,
+    refetchInterval: 1000,
     retry: 1,
   });
 
   const { data: trend } = useQuery({
     queryKey: ['trend'],
     queryFn: () => getTrend(CAMERA_ID),
-    refetchInterval: 10000,
+    refetchInterval: 2000,
     retry: 1,
   });
 
   const { data: rate } = useQuery({
     queryKey: ['rate-of-rise'],
     queryFn: () => getRateOfRise(CAMERA_ID),
-    refetchInterval: 10000,
+    refetchInterval: 2000,
     retry: 1,
   });
 
   const { data: alerts = [] } = useQuery({
     queryKey: ['active-alerts'],
     queryFn: getActiveAlerts,
-    refetchInterval: 5000,
+    refetchInterval: 1000,
   });
 
   const { data: summary } = useQuery({

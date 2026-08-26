@@ -125,13 +125,13 @@ const AVAILABILITY_LABELS = {
 
 function FloodInfoSection({ themeColor }) {
   const { data: reading } = useQuery({
-    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 10000,
+    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 1000,
   });
   const { data: alerts = [] } = useQuery({
-    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 10000,
+    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 1000,
   });
   const { data: rate } = useQuery({
-    queryKey: ['rate-of-rise'], queryFn: getRateOfRise, refetchInterval: 15000,
+    queryKey: ['rate-of-rise'], queryFn: getRateOfRise, refetchInterval: 2000,
   });
   const { data: weather } = useQuery({
     queryKey: ['weather'], queryFn: getWeather, refetchInterval: 60000, retry: 1,

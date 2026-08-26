@@ -24,15 +24,15 @@ export default function HomeScreen() {
   const isResponder = RESPONDER_ROLES.includes(user?.role);
 
   const { data: reading, refetch: r1 } = useQuery({
-    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 2000,
+    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 1000,
     enabled: !isResponder,
   });
   const { data: alerts = [], refetch: r2 } = useQuery({
-    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 2000,
+    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 1000,
     enabled: !isResponder,
   });
   const { data: rate } = useQuery({
-    queryKey: ['rate-of-rise'], queryFn: getRateOfRise, refetchInterval: 10000,
+    queryKey: ['rate-of-rise'], queryFn: getRateOfRise, refetchInterval: 2000,
     enabled: !isResponder,
   });
   const { data: weather } = useQuery({

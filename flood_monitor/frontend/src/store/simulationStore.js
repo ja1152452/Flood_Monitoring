@@ -29,7 +29,7 @@ const syncToBackend = (state, force = false) => {
     }
   };
 
-  if (force || now - lastSyncTime >= 400) {
+  if (force || now - lastSyncTime >= 150) {
     if (pendingSyncTimeout) {
       clearTimeout(pendingSyncTimeout);
       pendingSyncTimeout = null;
@@ -39,7 +39,7 @@ const syncToBackend = (state, force = false) => {
     pendingSyncTimeout = setTimeout(() => {
       pendingSyncTimeout = null;
       send();
-    }, 400);
+    }, 150);
   }
 };
 
