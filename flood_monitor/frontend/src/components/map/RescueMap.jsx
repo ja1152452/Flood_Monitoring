@@ -223,7 +223,8 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
   sosList.forEach(sos => {
     if (['DISPATCHED', 'RESPONDING'].includes(sos.status) && sos.dispatched_responders) {
       sos.dispatched_responders.forEach(dr => {
-        const responder = responders.find(r => r.id === dr.responder_id);
+        const responderId = dr.responder_id || dr.id;
+        const responder = responders.find(r => r.id === responderId) || (dr.last_lat && dr.last_lng ? dr : null);
         if (responder && responder.last_lat && responder.last_lng) {
           const isBackup = dr.dispatch_type === 'BACKUP';
           vectorLines.push({

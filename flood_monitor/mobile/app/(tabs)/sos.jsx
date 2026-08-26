@@ -230,10 +230,8 @@ function CitizenSOSView({ qc, user }) {
   );
 
   const { data: responders = [] } = useQuery({
-    queryKey: ['responder-locations', activeRequest?.assigned_rescue_id],
-    queryFn: () => activeRequest?.assigned_rescue_id
-      ? getResponderLocation(activeRequest.assigned_rescue_id).then(r => r ? [r] : [])
-      : getResponderLocations(),
+    queryKey: ['responder-locations'],
+    queryFn: getResponderLocations,
     refetchInterval: 5000,
     enabled: !!activeRequest,
   });

@@ -568,11 +568,20 @@ export const getMine = async (userId) => {
 
   for (let sos of rows) {
     const { rows: dispatches } = await query(
-      `SELECT d.id AS dispatch_id, d.dispatch_type, d.status AS dispatch_status, d.dispatched_at,
+      `SELECT d.id AS dispatch_id, d.responder_id, d.dispatch_type, d.status AS dispatch_status, d.dispatched_at,
               u.id, u.full_name, u.role, u.phone_number, u.last_lat, u.last_lng, u.last_location_at, u.responder_status
-       FROM sos_dispatches d
+       FROM (
+         SELECT id, responder_id, dispatch_type, status, dispatched_at, sos_id
+         FROM sos_dispatches
+         WHERE sos_id = $1 AND status != 'DECLINED'
+
+         UNION
+
+         SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at, br.sos_id
+         FROM backup_requests br
+         WHERE br.sos_id = $1 AND br.assigned_responder_id IS NOT NULL AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+       ) d
        JOIN users u ON u.id = d.responder_id
-       WHERE d.sos_id = $1 AND d.status != 'DECLINED'
        ORDER BY d.dispatched_at ASC`,
       [sos.id]
     );

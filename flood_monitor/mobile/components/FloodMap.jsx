@@ -286,22 +286,46 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
 
   const assignedIds = new Set();
   if (Array.isArray(assignedResponders)) {
-    assignedResponders.forEach(dr => { if (dr.responder_id) assignedIds.add(String(dr.responder_id)); });
+    assignedResponders.forEach(dr => {
+      const rid = dr.responder_id || dr.id;
+      if (rid) assignedIds.add(String(rid));
+    });
   }
   if (assignedRescueId) assignedIds.add(String(assignedRescueId));
 
+  // Merge any assigned responders that already have coordinates into the candidate pool
+  const allResponders = [...(responders || [])];
+  if (Array.isArray(assignedResponders)) {
+    assignedResponders.forEach(ar => {
+      const arId = ar.responder_id || ar.id;
+      if (arId && !allResponders.some(r => String(r.id) === String(arId))) {
+        allResponders.push({
+          id: arId,
+          full_name: ar.full_name,
+          role: ar.role,
+          phone_number: ar.phone_number,
+          last_lat: ar.last_lat,
+          last_lng: ar.last_lng,
+          last_location_at: ar.last_location_at,
+          responder_status: ar.responder_status || ar.responder_duty_status || 'AVAILABLE',
+          dispatch_type: ar.dispatch_type
+        });
+      }
+    });
+  }
+
   // Filter responders to only active, valid, non-stale locations:
-  const validResponders = (responders || []).filter(r => {
+  const validResponders = allResponders.filter(r => {
     if (!r.last_lat || !r.last_lng) return false;
     if (r.responder_status === 'OFF_DUTY' || r.responder_status === 'UNAVAILABLE') return false;
     // If specific units have been assigned to this rescue, ONLY display assigned units
     if (assignedIds.size > 0) {
       return assignedIds.has(String(r.id));
     }
-    // If no units assigned yet, only show online/active units that updated within the last 3 hours
+    // If no units assigned yet, only show online/active units that updated recently
     if (r.last_location_at) {
       const ageMs = Date.now() - new Date(r.last_location_at).getTime();
-      if (ageMs > 3 * 60 * 60 * 1000) return false;
+      if (ageMs > 12 * 60 * 60 * 1000) return false;
     }
     return true;
   });
@@ -310,7 +334,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
   if (sosLocation && sosLocation.lat && sosLocation.lng && assignedIds.size > 0) {
     validResponders.forEach(r => {
       if (assignedIds.has(String(r.id))) {
-        const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id) === String(r.id)) : null;
+        const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id || dr.id) === String(r.id)) : null;
         const isBackup = matchDr?.dispatch_type === 'BACKUP';
         const lineCol = isBackup ? '#f59e0b' : '#dc2626';
         const dashArr = isBackup ? '8, 8' : '10, 10';
@@ -331,8 +355,8 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
     const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
     const time = r.last_location_at ? new Date(r.last_location_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Live';
     const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
-    const isAssigned = (Array.isArray(assignedResponders) && assignedResponders.some(dr => dr.responder_id === r.id)) || r.id === assignedRescueId;
-    const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => dr.responder_id === r.id) : null;
+    const isAssigned = (Array.isArray(assignedResponders) && assignedResponders.some(dr => String(dr.responder_id || dr.id) === String(r.id))) || String(r.id) === String(assignedRescueId);
+    const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id || dr.id) === String(r.id)) : null;
     const isBackup = matchDr?.dispatch_type === 'BACKUP';
     const assignedBadge = isAssigned ? `<span style="background:${isBackup ? '#fef3c7' : '#fee2e2'};color:${isBackup ? '#b45309' : '#dc2626'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#fca5a5'}">🚨 ${isBackup ? 'BACKUP RESCUE' : 'PRIMARY RESCUE'}</span><br/>` : '';
 
@@ -440,7 +464,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
 
   const activeAssignedSOS = sosList.find(s => {
     if (!currentUser?.id) return false;
-    const isAssigned = s.assigned_rescue_id === currentUser.id || (s.dispatched_responders && s.dispatched_responders.some(dr => dr.responder_id === currentUser.id));
+    const isAssigned = s.assigned_rescue_id === currentUser.id || (s.dispatched_responders && s.dispatched_responders.some(dr => (dr.responder_id || dr.id) === currentUser.id));
     return isAssigned && ['DISPATCHED', 'RESPONDING'].includes(s.status);
   });
 
@@ -467,10 +491,12 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
       if (s.dispatched_responders && s.dispatched_responders.length > 0) {
         s.dispatched_responders.forEach(dr => {
           let resLat = null, resLng = null, isMe = false;
-          if (currentUser && dr.responder_id === currentUser.id && myLoc) { resLat = myLoc.lat; resLng = myLoc.lng; isMe = true; }
+          const drId = dr.responder_id || dr.id;
+          if (currentUser && drId === currentUser.id && myLoc) { resLat = myLoc.lat; resLng = myLoc.lng; isMe = true; }
           else {
-            const rObj = responders.find(r => r.id === dr.responder_id);
+            const rObj = responders.find(r => r.id === drId);
             if (rObj && rObj.last_lat && rObj.last_lng) { resLat = rObj.last_lat; resLng = rObj.last_lng; }
+            else if (dr.last_lat && dr.last_lng) { resLat = dr.last_lat; resLng = dr.last_lng; }
           }
           if (resLat && resLng) {
             const isBackup = dr.dispatch_type === 'BACKUP';
@@ -512,7 +538,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
     let dispatchBadge = '';
     for (const sosItem of sosList) {
       if (sosItem.dispatched_responders) {
-        const matchDr = sosItem.dispatched_responders.find(dr => dr.responder_id === r.id);
+        const matchDr = sosItem.dispatched_responders.find(dr => (dr.responder_id || dr.id) === r.id);
         if (matchDr) {
           const isBackup = matchDr.dispatch_type === 'BACKUP';
           dispatchBadge = `<span style="background:${isBackup ? '#fef3c7' : '#dbeafe'};color:${isBackup ? '#b45309' : '#1d4ed8'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#93c5fd'}">🚨 ${matchDr.dispatch_type}</span><br/>`;
