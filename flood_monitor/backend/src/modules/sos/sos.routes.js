@@ -127,6 +127,14 @@ router.post('/backup/:id/dispatch',
   })
 );
 
+router.patch('/backup/:id/resolve',
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  asyncHandler(async (req, res) => {
+    const data = await service.resolveBackup(req.params.id, req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
 router.get('/duty-status',
   authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {

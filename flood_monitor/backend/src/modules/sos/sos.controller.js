@@ -34,6 +34,11 @@ export const resolve = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const resolveBackup = asyncHandler(async (req, res) => {
+  const data = await service.resolveBackup(req.params.id, req.user.id);
+  res.json({ success: true, data });
+});
+
 export const getMine = asyncHandler(async (req, res) => {
   const { rows } = await import('../../config/db.js').then(m =>
     m.query(
