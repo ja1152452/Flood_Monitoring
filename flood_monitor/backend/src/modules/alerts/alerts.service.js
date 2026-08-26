@@ -207,6 +207,58 @@ export const evaluateAndDispatch = async (reading, client) => {
 };
 
 export const getActive = async () => {
+  // 1. Fetch real active database alerts (Manual alarms or live sensor alerts)
+  const { rows } = await query(
+    `SELECT a.*, c.location_name, c.lat, c.lng,
+            b.name AS barangay_name, b.risk_level,
+            COALESCE(r.water_level_m, (SELECT water_level_m FROM water_level_readings WHERE camera_id = a.camera_id ORDER BY captured_at DESC LIMIT 1), 2.00) AS current_water_level_m
+     FROM flood_alerts a
+     JOIN cameras c ON c.id = a.camera_id
+     LEFT JOIN barangays b ON b.id = c.barangay_id
+     LEFT JOIN water_level_readings r ON r.id = a.reading_id
+     WHERE a.is_active = TRUE
+     ORDER BY a.triggered_at DESC`
+  );
+
+  if (rows.length > 0) {
+    // attach real rate_per_hour and predictive forecast to each alert
+    try {
+      const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
+      for (const alert of rows) {
+        const { rows: trend } = await query(
+          `SELECT water_level_m, captured_at
+           FROM water_level_readings
+           WHERE camera_id = $1 AND captured_at >= NOW() - INTERVAL '1 hour'
+           ORDER BY captured_at ASC LIMIT 20`,
+          [alert.camera_id]
+        );
+        if (trend.length >= 2) {
+          let minIdx = 0;
+          for (let i = 1; i < trend.length; i++) {
+            if (parseFloat(trend[i].water_level_m) < parseFloat(trend[minIdx].water_level_m)) minIdx = i;
+          }
+          const from = trend[minIdx];
+          const last = trend[trend.length - 1];
+          const hours = (new Date(last.captured_at) - new Date(from.captured_at)) / 3600000;
+          const delta = parseFloat(last.water_level_m) - parseFloat(from.water_level_m);
+          alert.rate_per_hour = hours > 0 && delta > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
+          alert.rise_start_at = from.captured_at;
+        } else {
+          alert.rate_per_hour = 0;
+          alert.rise_start_at = null;
+        }
+
+        const current_m = parseFloat(alert.current_water_level_m || 0);
+        try {
+          const predictive = await calculatePredictiveForecast(alert.camera_id, current_m, alert.rate_per_hour, alert.flood_level);
+          Object.assign(alert, predictive);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return rows;
+  }
+
+  // 2. If no database alerts are active, check if Simulation mode has an active alert
   if (isSimulationActive()) {
     const sim = getSimulationState();
     const level = sim.flood_level || 'NORMAL';
@@ -215,8 +267,11 @@ export const getActive = async () => {
       const waterM = parseFloat(sim.water_level_m || 2.0).toFixed(2);
       const ratePerHour = sim.rate_per_hour || (sim.is_rising ? 0.45 : 0.0);
 
-      const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
-      const predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
+      let predictive = {};
+      try {
+        const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
+        predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
+      } catch (_) {}
 
       return [{
         id: `sim_alert_${level.toLowerCase()}`,
@@ -237,53 +292,9 @@ export const getActive = async () => {
         ...predictive,
       }];
     }
-    return [];
   }
 
-  const { rows } = await query(
-    `SELECT a.*, c.location_name, c.lat, c.lng,
-            b.name AS barangay_name, b.risk_level,
-            r.water_level_m AS current_water_level_m
-     FROM flood_alerts a
-     JOIN cameras c ON c.id = a.camera_id
-     LEFT JOIN barangays b ON b.id = c.barangay_id
-     LEFT JOIN water_level_readings r ON r.id = a.reading_id
-     WHERE a.is_active = TRUE
-     ORDER BY a.triggered_at DESC`
-  );
-
-  // attach real rate_per_hour and predictive forecast to each alert
-  const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
-  for (const alert of rows) {
-    const { rows: trend } = await query(
-      `SELECT water_level_m, captured_at
-       FROM water_level_readings
-       WHERE camera_id = $1 AND captured_at >= NOW() - INTERVAL '1 hour'
-       ORDER BY captured_at ASC LIMIT 20`,
-      [alert.camera_id]
-    );
-    if (trend.length >= 2) {
-      let minIdx = 0;
-      for (let i = 1; i < trend.length; i++) {
-        if (parseFloat(trend[i].water_level_m) < parseFloat(trend[minIdx].water_level_m)) minIdx = i;
-      }
-      const from = trend[minIdx];
-      const last = trend[trend.length - 1];
-      const hours = (new Date(last.captured_at) - new Date(from.captured_at)) / 3600000;
-      const delta = parseFloat(last.water_level_m) - parseFloat(from.water_level_m);
-      alert.rate_per_hour = hours > 0 && delta > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
-      alert.rise_start_at = from.captured_at;
-    } else {
-      alert.rate_per_hour = 0;
-      alert.rise_start_at = null;
-    }
-
-    const current_m = parseFloat(alert.current_water_level_m || 0);
-    const predictive = await calculatePredictiveForecast(alert.camera_id, current_m, alert.rate_per_hour, alert.flood_level);
-    Object.assign(alert, predictive);
-  }
-
-  return rows;
+  return [];
 };
 
 export const getHistory = async (params) => {
@@ -335,20 +346,34 @@ export const toggleSiren = async (alertId, sirenActive) => {
 
 export const triggerManualSiren = async (userId) => {
   // 1. Get any active camera to associate the alert with (fallback to first one)
-  const { rows: cameras } = await query(`SELECT id FROM cameras LIMIT 1`);
+  const { rows: cameras } = await query(`SELECT id, location_name, lat, lng, barangay_id FROM cameras LIMIT 1`);
   if (!cameras.length) throw new Error('No cameras configured to trigger alarm on.');
+
+  const cam = cameras[0];
 
   // 2. Create a MANUAL CRITICAL alert
   const { rows: [alert] } = await query(
-    `INSERT INTO flood_alerts (camera_id, flood_level, trigger_type, siren_active, is_active)
-     VALUES ($1, 'CRITICAL', 'MANUAL', TRUE, TRUE)
-     RETURNING id, flood_level, siren_active`,
-    [cameras[0].id]
+    `INSERT INTO flood_alerts (camera_id, flood_level, trigger_type, siren_active, is_active, triggered_at)
+     VALUES ($1, 'CRITICAL', 'MANUAL', TRUE, TRUE, NOW())
+     RETURNING id, camera_id, flood_level, trigger_type, siren_active, is_active, triggered_at`,
+    [cam.id]
   );
 
-  // Broadcast real-time socket event
+  // Broadcast real-time socket events
   const io = getIO();
-  if (io) io.emit('alert:updated', alert);
+  if (io) {
+    const fullAlert = {
+      ...alert,
+      location_name: cam.location_name || 'Lumban River Bridge',
+      lat: cam.lat,
+      lng: cam.lng,
+      flood_level: 'CRITICAL',
+      siren_active: true,
+      is_active: true,
+    };
+    io.emit('alert:created', fullAlert);
+    io.emit('alert:updated', fullAlert);
+  }
 
   // 3. Dispatch Push Notifications to all active users
   const { rows: recipients } = await query(
