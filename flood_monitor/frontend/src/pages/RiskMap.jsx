@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, Tooltip } from
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getRiskAreas, createRiskArea, updateRiskArea, deleteRiskArea } from '../api/risk';
+import { useRainRadar } from '../hooks/useRainRadar';
 import { Modal } from '../components/ui/Modal';
 import { Card } from '../components/ui/Card';
 import toast from 'react-hot-toast';
@@ -11,7 +12,8 @@ import {
   Plus, Edit2, Trash2, Layers, Search, Compass,
   Maximize2, Minimize2, RotateCcw, ShieldAlert,
   Waves, Route, Sliders, ChevronDown,
-  ChevronUp, X, Filter, Info, Navigation, Shield
+  ChevronUp, X, Filter, Info, Navigation, Shield,
+  CloudRain, Wind
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -271,6 +273,19 @@ export default function RiskMapPage() {
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [targetView, setTargetView] = useState(null);
+  const [showWindyModal, setShowWindyModal] = useState(false);
+  const [isWindyFullScreen, setIsWindyFullScreen] = useState(false);
+  const [windyOverlay, setWindyOverlay] = useState('wind');
+  const [showWindyBorder, setShowWindyBorder] = useState(true);
+  const [windyZoom, setWindyZoom] = useState(8.0);
+  const windyContainerRef = React.useRef(null);
+
+  const [showRainRadarModal, setShowRainRadarModal] = useState(false);
+  const [isRainRadarFullScreen, setIsRainRadarFullScreen] = useState(false);
+  const [showRainRadarBorder, setShowRainRadarBorder] = useState(true);
+  const [rainRadarZoom, setRainRadarZoom] = useState(8.5);
+  const rainRadarContainerRef = React.useRef(null);
+
   // Layer Visibility Toggles (Risk & Hazard Map Layers)
   const [layerVisibility, setLayerVisibility] = useState({
     municipalBorder: true,
@@ -278,6 +293,7 @@ export default function RiskMapPage() {
     riskLabels: true,
     floodMap: true,
     roads: true,
+    rainRadar: false,
   });
 
   // Layer Sub-Filters
@@ -305,6 +321,7 @@ export default function RiskMapPage() {
   // Layer Opacities
   const [riskOpacity, setRiskOpacity] = useState(0.5);
   const [floodOpacity, setFloodOpacity] = useState(0.65);
+  const [radarOpacity, setRadarOpacity] = useState(0.7);
   const [basemap, setBasemap] = useState('dark');
 
   // Escape key handler to exit Fullscreen
@@ -326,6 +343,7 @@ export default function RiskMapPage() {
 
   // Data Queries
   const { data: areas = [] } = useQuery({ queryKey: ['risk-areas'], queryFn: getRiskAreas });
+  const { tileUrl: radarTileUrl, radarTimestamp, lastUpdated: radarUpdated, loading: radarLoading } = useRainRadar(layerVisibility.rainRadar);
 
   // Mutations
   const create = useMutation({
@@ -685,7 +703,23 @@ export default function RiskMapPage() {
             )}
           </button>
 
-          {/* 3. Road Network Layer Pill */}
+          {/* 3. Live Doppler Rain Radar Pill */}
+          <button
+            onClick={() => setLayerVisibility(v => ({ ...v, rainRadar: !v.rainRadar }))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              layerVisibility.rainRadar
+                ? 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 shadow-sm'
+                : 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+            }`}
+          >
+            <CloudRain size={13} className={layerVisibility.rainRadar ? 'text-sky-600' : 'text-slate-400'} />
+            Rain Radar (Live)
+            {layerVisibility.rainRadar && (
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+            )}
+          </button>
+
+          {/* 4. Road Network Layer Pill */}
           <button
             onClick={() => setLayerVisibility(v => ({ ...v, roads: !v.roads }))}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -698,7 +732,7 @@ export default function RiskMapPage() {
             Roads ({activeRoadCount})
           </button>
 
-          {/* 4. Barangay Risk Zones Layer Pill */}
+          {/* 5. Barangay Risk Zones Layer Pill */}
           <button
             onClick={() => setLayerVisibility(v => ({ ...v, riskMap: !v.riskMap }))}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -709,6 +743,15 @@ export default function RiskMapPage() {
           >
             <ShieldAlert size={13} className={layerVisibility.riskMap ? 'text-amber-600' : 'text-slate-400'} />
             Barangay Risk Map
+          </button>
+
+          {/* 6. Live Windy.com Wind Map Pill */}
+          <button
+            onClick={() => setShowWindyModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 shadow-sm active:scale-95"
+          >
+            <Wind size={13} className="text-emerald-600 dark:text-emerald-400" />
+            Live Wind Map (Windy)
           </button>
 
           <div className="ml-auto flex items-center gap-2">
@@ -817,6 +860,25 @@ export default function RiskMapPage() {
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Rain Radar Opacity Control */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <CloudRain size={13} className="text-sky-500" /> Live Rain Radar Opacity
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-400">Opacity: {Math.round(radarOpacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={radarOpacity}
+                  onChange={(e) => setRadarOpacity(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                />
               </div>
             </div>
 
@@ -1090,6 +1152,18 @@ export default function RiskMapPage() {
               <TileLayer key={`labels-${basemap}`} url={BASEMAPS[basemap].labelsUrl} maxZoom={19} maxNativeZoom={19} />
             )}
 
+            {/* 5. LIVE METEOROLOGICAL RAIN RADAR (RainViewer API) */}
+            {layerVisibility.rainRadar && radarTileUrl && (
+              <TileLayer
+                key={`radar-${radarTimestamp}-${radarOpacity}`}
+                url={radarTileUrl}
+                opacity={radarOpacity}
+                zIndex={450}
+                maxZoom={19}
+                maxNativeZoom={7}
+              />
+            )}
+
             {/* Centroid Barangay Label Pins (Sleek non-overlapping glowing beacons with hover tooltips) */}
             {layerVisibility.riskLabels && Object.entries(BRGY_CENTERS).map(([name, pos]) => {
               const area = riskMapByName[cleanName(name)] || riskMapByName[name];
@@ -1169,6 +1243,20 @@ export default function RiskMapPage() {
                 className="p-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
               >
                 {isFullScreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              </button>
+              <button
+                onClick={() => setShowRainRadarModal(true)}
+                title="Open Interactive RainViewer Rain Radar Overlay"
+                className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-all"
+              >
+                <CloudRain size={15} />
+              </button>
+              <button
+                onClick={() => setShowWindyModal(true)}
+                title="Open Interactive Windy.com Wind Map"
+                className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-all"
+              >
+                <Wind size={15} />
               </button>
               <button
                 onClick={() => setShowLegend(l => !l)}
@@ -1532,6 +1620,245 @@ export default function RiskMapPage() {
           </div>
         </div>
       </Modal>
+      {/* ------------------------------------------------------------- */}
+      {/* WINDY.COM INTERACTIVE WIND MAP MODAL */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        isOpen={showWindyModal}
+        onClose={() => setShowWindyModal(false)}
+        title="Live Atmospheric Wind & Weather Map (Windy.com)"
+        maxWidth={isWindyFullScreen ? "max-w-none w-[98vw] h-[95vh]" : "max-w-5xl"}
+        headerActions={
+          <button
+            onClick={() => setIsWindyFullScreen(f => !f)}
+            title={isWindyFullScreen ? "Exit Full Screen" : "Full Screen Wind Map"}
+            className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold px-2"
+          >
+            {isWindyFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <span className="hidden sm:inline">{isWindyFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+          </button>
+        }
+      >
+        <div className="space-y-3 flex-1 flex flex-col h-full">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center gap-2">
+              <Wind size={16} className="text-emerald-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Overlay Layer:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'wind', label: '💨 Surface Wind' },
+                { id: 'gust', label: '🌪️ Wind Gusts' },
+                { id: 'rain', label: '🌧️ Rain & Thunder' },
+                { id: 'pressure', label: '🌀 Pressure' },
+              ].map(ov => (
+                <button
+                  key={ov.id}
+                  onClick={() => setWindyOverlay(ov.id)}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    windyOverlay === ov.id
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {ov.label}
+                </button>
+              ))}
+
+              <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
+
+              {/* Lumban Border Toggle */}
+              <button
+                onClick={() => setShowWindyBorder(b => !b)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border flex items-center gap-1.5 ${
+                  showWindyBorder
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <Shield size={13} />
+                <span>Lumban Border: {showWindyBorder ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Border Scale Finetuner Controls */}
+              {showWindyBorder && (
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-0.5 rounded-lg text-xs font-bold">
+                  <span className="text-slate-500 text-[11px]">Border Scale:</span>
+                  <button
+                    onClick={() => setWindyZoom(z => Math.max(6, +(z - 0.5).toFixed(1)))}
+                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
+                    title="Decrease border overlay scale"
+                  >
+                    -
+                  </button>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 min-w-[28px] text-center">{windyZoom}</span>
+                  <button
+                    onClick={() => setWindyZoom(z => Math.min(14, +(z + 0.5).toFixed(1)))}
+                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
+                    title="Increase border overlay scale"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setIsWindyFullScreen(f => {
+                    const next = !f;
+                    setWindyZoom(next ? 8.0 : 9.5);
+                    return next;
+                  });
+                }}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-200 flex items-center gap-1 transition-all"
+              >
+                {isWindyFullScreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                <span>{isWindyFullScreen ? 'Normal View' : 'Full Screen'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={windyContainerRef}
+            className={`relative w-full rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-inner bg-slate-950 flex-1 transition-all ${
+              isWindyFullScreen ? 'h-[calc(95vh-140px)] min-h-[500px]' : 'h-[520px]'
+            }`}
+          >
+            {/* SVG OVERLAY OF LUMBAN MUNICIPAL BORDER */}
+            {showWindyBorder && (
+              <LumbanWindySvgOverlay
+                zoom={windyZoom}
+                containerRef={windyContainerRef}
+              />
+            )}
+
+            <iframe
+              key={`${windyOverlay}-${isWindyFullScreen}`}
+              title="Windy.com Live Wind Stream Map"
+              src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=${isWindyFullScreen ? '11' : '12'}&overlay=${windyOverlay}&product=ecmwf&level=surface&lat=14.2919&lon=121.4601&detailLat=14.2919&detailLon=121.4601&metricWind=kt&marker=true`}
+              className="w-full h-full border-0"
+              allowFullScreen
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 shrink-0 pt-1">
+            <span className="flex items-center gap-2">
+              <span>📍 Centered on <b>Lumban, Laguna (14.2919° N, 121.4601° E)</b></span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                <Shield size={11} /> Lumban GIS Border Overlay Active
+              </span>
+            </span>
+            <span className="text-[11px]">Powered by Windy.com ECMWF Global Numerical Model</span>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ------------------------------------------------------------- */}
+      {/* RAINVIEWER INTERACTIVE DOPPLER RAIN RADAR MODAL */}
+      {/* ------------------------------------------------------------- */}
+      <Modal
+        isOpen={showRainRadarModal}
+        onClose={() => setShowRainRadarModal(false)}
+        title="Live Meteorological Doppler Rain Radar (RainViewer)"
+        maxWidth={isRainRadarFullScreen ? "max-w-none w-[98vw] h-[95vh]" : "max-w-5xl"}
+        headerActions={
+          <button
+            onClick={() => setIsRainRadarFullScreen(f => !f)}
+            title={isRainRadarFullScreen ? "Exit Full Screen" : "Full Screen Rain Radar"}
+            className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold px-2"
+          >
+            {isRainRadarFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            <span className="hidden sm:inline">{isRainRadarFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+          </button>
+        }
+      >
+        <div className="space-y-3 flex-1 flex flex-col h-full">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center gap-2">
+              <CloudRain size={16} className="text-sky-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Live Doppler Radar Player & Animation:</span>
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Lumban Border Toggle */}
+              <button
+                onClick={() => setShowRainRadarBorder(b => !b)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border flex items-center gap-1.5 ${
+                  showRainRadarBorder
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <Shield size={13} />
+                <span>Lumban Border: {showRainRadarBorder ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Border Scale Finetuner Controls */}
+              {showRainRadarBorder && (
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-0.5 rounded-lg text-xs font-bold">
+                  <span className="text-slate-500 text-[11px]">Border Scale:</span>
+                  <button
+                    onClick={() => setRainRadarZoom(z => Math.max(6, +(z - 0.5).toFixed(1)))}
+                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
+                    title="Decrease border overlay scale"
+                  >
+                    -
+                  </button>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 min-w-[28px] text-center">{rainRadarZoom}</span>
+                  <button
+                    onClick={() => setRainRadarZoom(z => Math.min(14, +(z + 0.5).toFixed(1)))}
+                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
+                    title="Increase border overlay scale"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => setIsRainRadarFullScreen(f => !f)}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 hover:bg-sky-200 flex items-center gap-1 transition-all"
+              >
+                {isRainRadarFullScreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                <span>{isRainRadarFullScreen ? 'Normal View' : 'Full Screen'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={rainRadarContainerRef}
+            className={`relative w-full rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-inner bg-slate-950 flex-1 transition-all ${
+              isRainRadarFullScreen ? 'h-[calc(95vh-140px)] min-h-[500px]' : 'h-[520px]'
+            }`}
+          >
+            {/* LUMBAN SVG BORDER OVERLAY */}
+            {showRainRadarBorder && (
+              <LumbanWindySvgOverlay
+                zoom={rainRadarZoom}
+                containerRef={rainRadarContainerRef}
+              />
+            )}
+
+            <iframe
+              key={isRainRadarFullScreen}
+              title="RainViewer Doppler Weather Radar Player"
+              src="https://www.rainviewer.com/map.html?loc=14.2919,121.4601,11&oColorScheme=3&theme=dark&sm=1&sn=1&c=1&o=83&dp=0"
+              className="w-full h-full border-0"
+              allowFullScreen
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 shrink-0 pt-1">
+            <span className="flex items-center gap-2">
+              <span>📍 Centered on <b>Lumban, Laguna (14.2919° N, 121.4601° E)</b></span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                <Shield size={11} /> Lumban GIS Border Overlay Active
+              </span>
+            </span>
+            <span className="text-[11px]">Powered by RainViewer Doppler Weather Radar API</span>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -1611,5 +1938,89 @@ function FormFields({ form, setForm }) {
         />
       </div>
     </div>
+  );
+}
+
+// -------------------------------------------------------------
+// LUMBAN SVG BORDER OVERLAY FOR WINDY IFRAME
+// -------------------------------------------------------------
+function LumbanWindySvgOverlay({ zoom = 12, containerRef }) {
+  const [dims, setDims] = useState({ w: 1000, h: 520 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateSize = () => {
+      if (containerRef.current) {
+        setDims({
+          w: containerRef.current.clientWidth || 1000,
+          h: containerRef.current.clientHeight || 520,
+        });
+      }
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  const centerLat = 14.291969;
+  const centerLon = 121.460112;
+
+  const svgPaths = useMemo(() => {
+    if (!lumbanBorder?.features) return [];
+    const scale = (256 * Math.pow(2, zoom)) / 360;
+    const centerLatRad = (centerLat * Math.PI) / 180;
+    const yCenter = Math.log(Math.tan(Math.PI / 4 + centerLatRad / 2));
+    const containerWidth = dims.w;
+    const containerHeight = dims.h;
+
+    return lumbanBorder.features.map(feature => {
+      const geomType = feature.geometry.type;
+      const polygons = geomType === 'Polygon'
+        ? [feature.geometry.coordinates]
+        : geomType === 'MultiPolygon'
+        ? feature.geometry.coordinates
+        : [];
+
+      return polygons.map(polygon => {
+        const outerRing = polygon[0];
+        if (!outerRing || !outerRing.length) return '';
+        const points = outerRing.map(([lon, lat]) => {
+          const x = (lon - centerLon) * scale + containerWidth / 2;
+          const latRad = (lat * Math.PI) / 180;
+          const yVal = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+          const y = containerHeight / 2 - (yVal - yCenter) * ((256 * Math.pow(2, zoom)) / (2 * Math.PI));
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        return `M ${points.join(' L ')} Z`;
+      }).join(' ');
+    });
+  }, [zoom, dims.w, dims.h]);
+
+  return (
+    <svg
+      className="absolute inset-0 w-full h-full pointer-events-none z-10"
+      viewBox={`0 0 ${dims.w} ${dims.h}`}
+    >
+      <defs>
+        <filter id="windyGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {svgPaths.map((d, i) => (
+        <g key={i}>
+          {/* Semi-transparent cyan fill highlight over Lumban */}
+          <path d={d} fill="#06b6d4" fillOpacity="0.15" />
+          {/* Outer glowing border stroke */}
+          <path d={d} fill="none" stroke="#00f0ff" strokeWidth="4" strokeDasharray="8 5" filter="url(#windyGlow)" />
+          {/* Inner blue dashed border line */}
+          <path d={d} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeDasharray="8 5" />
+        </g>
+      ))}
+    </svg>
   );
 }
