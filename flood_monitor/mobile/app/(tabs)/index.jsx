@@ -104,9 +104,45 @@ export default function HomeScreen() {
       {/* 2. Siren Active Banner */}
       <SirenBanner />
 
+      {/* 2.5 Simulation / Drill Notice */}
+      {reading?.is_simulated && (
+        <View style={{
+          backgroundColor: '#eff6ff',
+          borderColor: '#93c5fd',
+          borderWidth: 1.5,
+          borderRadius: 12,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+          marginBottom: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="flask" size={18} color="#2563eb" />
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#1d4ed8' }}>
+                SIMULATION / DRILL MODE
+              </Text>
+              <Text style={{ fontSize: 10, fontWeight: '600', color: '#3b82f6' }}>
+                Real-time test overlay from Command Center ({reading?.water_level_m}m)
+              </Text>
+            </View>
+          </View>
+          <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: '#ffffff' }}>TEST</Text>
+          </View>
+        </View>
+      )}
+
       {/* 3. Current Flood Status Card */}
-      <View style={[styles.statusCard, { borderColor: '#e2e8f0' }]}>
-        <Text style={styles.statusCardHeading}>CURRENT FLOOD STATUS</Text>
+      <View style={[styles.statusCard, { borderColor: reading?.is_simulated ? '#93c5fd' : '#e2e8f0' }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.statusCardHeading}>CURRENT FLOOD STATUS</Text>
+          {reading?.is_simulated && (
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#2563eb' }}>[SIMULATED]</Text>
+          )}
+        </View>
 
         <View style={styles.statusLevelRow}>
           <View style={[styles.statusGaugeCircle, { backgroundColor: '#ffedd5' }]}>

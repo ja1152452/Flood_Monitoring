@@ -6,6 +6,7 @@ import { validate } from '../../middleware/validate.js';
 import { query } from '../../config/db.js';
 import * as service from './readings.service.js';
 import { streamService } from '../analytics/stream.service.js';
+import { getSimulationState, isSimulationActive } from '../../services/simulation.service.js';
 import Joi from 'joi';
 
 const router = Router();

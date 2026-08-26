@@ -1,6 +1,7 @@
 import { query, withTransaction } from '../../config/db.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { parsePagination, paginate } from '../../utils/pagination.js';
+import { getSimulationState, isSimulationActive } from '../../services/simulation.service.js';
 
 export const ingestReading = async (cameraId, dto) => {
   return withTransaction(async (client) => {

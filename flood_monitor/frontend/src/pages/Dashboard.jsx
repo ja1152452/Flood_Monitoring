@@ -7,10 +7,12 @@ import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { LiveCameraFeed } from '../components/dashboard/LiveCameraFeed';
 import { SirenAlert } from '../components/dashboard/SirenAlert';
 import { FloodBadge } from '../components/ui/Badge';
-import { formatDateTime, formatTime, getFloodConfig } from '../utils/floodUtils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { formatDateTime, formatTime, getFloodConfig, shouldSiren } from '../utils/floodUtils';
+import { TrendingUp, TrendingDown, Minus, Waves } from 'lucide-react';
 import { useReadingsSSE } from '../hooks/useReadingsSSE';
 import { useThemeStore } from '../store/themeStore';
+import { useSimulationStore } from '../store/simulationStore';
+import { classifySimulatedLevel } from '../utils/waterSimulationUtils';
 
 const CAMERA_ID = '3b7e2b66-d4d5-4ae9-be3f-1c7c31e5b03f';
 
@@ -87,6 +89,9 @@ function WeatherCard({ weather }) {
 export default function Dashboard() {
   useReadingsSSE(CAMERA_ID);
 
+  const { mode, simWaterLevel, isSimRising, simRiseSpeed } = useSimulationStore();
+  const isSimulation = mode === 'simulation';
+
   const { data: reading } = useQuery({
     queryKey: ['latest-reading'],
     queryFn: () => getLatestReading(CAMERA_ID),
@@ -133,9 +138,11 @@ export default function Dashboard() {
     retry: 1,
   });
 
-  const level = reading?.flood_level || 'NORMAL';
+  // Effective Level (Real or Simulated)
+  const simClassification = classifySimulatedLevel(simWaterLevel);
+  const level = isSimulation ? simClassification.level : (reading?.flood_level || 'NORMAL');
   const config = getFloodConfig(level);
-  const wl = parseFloat(reading?.water_level_m || 0);
+  const wl = isSimulation ? simWaterLevel : parseFloat(reading?.water_level_m || 0);
 
   const SEVERITY = ['NORMAL', 'MONITOR', 'ALERT', 'EVACUATION', 'CRITICAL'];
   const activeAlert = alerts.length
@@ -144,14 +151,18 @@ export default function Dashboard() {
     )
     : null;
 
-  const rateVal = rate?.rate_per_hour || 0;
+  const simRateVal = isSimRising ? parseFloat((simRiseSpeed * 3600).toFixed(2)) : 0;
+  const rateVal = isSimulation ? simRateVal : (rate?.rate_per_hour || 0);
   const rateSign = rateVal > 0 ? '+' : '';
-  const rateTrend = rate?.trend === 'FALLING' ? 'RECEDING' : (rate?.trend || 'STABLE');
+  const effectiveTrend = isSimulation
+    ? (isSimRising ? 'RISING' : 'STABLE')
+    : (rate?.trend === 'FALLING' ? 'RECEDING' : (rate?.trend || 'STABLE'));
+  const rateTrend = effectiveTrend;
   const rateColor = rateTrend === 'RISING' ? 'text-red-600 dark:text-red-400'
     : rateTrend === 'RECEDING' ? 'text-emerald-600 dark:text-emerald-400'
       : 'text-slate-700 dark:text-slate-300';
 
-  const trendName = trend?.trend === 'FALLING' ? 'RECEDING' : (trend?.trend || 'STABLE');
+  const trendName = effectiveTrend;
 
   const TrendIcon = trendName === 'RISING'
     ? TrendingUp
@@ -174,19 +185,29 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div className="page-header flex items-center justify-between">
+      <div className="page-header flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white">Dashboard</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white">Dashboard</h1>
+            {isSimulation && (
+              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-500/20 text-blue-400 border border-blue-500/40 animate-pulse">
+                <Waves size={12} /> SIMULATION ACTIVE
+              </span>
+            )}
+          </div>
           <p className="text-slate-700 dark:text-slate-300 text-sm font-semibold mt-0.5">
             Pagsanjan–Lumban River — Real-time Monitoring
           </p>
         </div>
         <div className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 shadow-sm">
-          Last update: {formatDateTime(reading?.captured_at)}
+          {isSimulation ? 'Mode: Simulated Sandbox' : `Last update: ${formatDateTime(reading?.captured_at)}`}
         </div>
       </div>
 
-      {activeAlert && <SirenAlert level={activeAlert.flood_level} />}
+      {/* Siren Alert Banner: triggers automatically for active live alerts OR in simulation mode when reaching warning/critical thresholds */}
+      {((activeAlert && !isSimulation) || (isSimulation && shouldSiren(level))) && (
+        <SirenAlert level={isSimulation ? level : activeAlert.flood_level} isSimulated={isSimulation} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -195,15 +216,19 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                {activeAlert && (
+                {(activeAlert || (isSimulation && level !== 'NORMAL')) && (
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500 blink inline-block" />
                 )}
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Flood Status
                 </span>
               </div>
-              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                MDRRMO Standard
+              <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-md border uppercase tracking-wide ${
+                isSimulation
+                  ? 'bg-blue-100 dark:bg-blue-900/60 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300'
+                  : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200'
+              }`}>
+                {isSimulation ? '🧪 SIMULATED VIEW' : 'MDRRMO Standard'}
               </span>
             </div>
 
@@ -230,7 +255,12 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {activeAlert && (
+            {isSimulation && level !== 'NORMAL' && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-2.5 flex items-center gap-1">
+                🧪 Simulated Threshold Breach ({wl.toFixed(2)}m)
+              </div>
+            )}
+            {!isSimulation && activeAlert && (
               <div className="text-xs text-red-600 dark:text-red-400 font-bold mt-2.5 flex items-center gap-1">
                 ⚠ Siren Active — Alerts Dispatched
               </div>
@@ -248,7 +278,9 @@ export default function Dashboard() {
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Water Level
               </span>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{formatTime(reading?.captured_at)}</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {isSimulation ? 'Simulated Value' : formatTime(reading?.captured_at)}
+              </span>
             </div>
 
             <div className="flex items-baseline gap-2 mb-2">
@@ -265,28 +297,40 @@ export default function Dashboard() {
               <span className={`text-sm font-black ${trendColor}`}>
                 {trendName}
               </span>
-              {trend?.delta_m != null && (
+              {isSimulation ? (
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  ({trend.delta_m > 0 ? '+' : ''}{trend.delta_m?.toFixed(2)}m / {trend.delta_cm ?? Math.round(Math.abs(trend.delta_m) * 100)}cm)
+                  ({isSimRising ? `+${(simRiseSpeed * 3600).toFixed(2)} m/hr` : 'Holding Level'})
                 </span>
+              ) : (
+                trend?.delta_m != null && (
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    ({trend.delta_m > 0 ? '+' : ''}{trend.delta_m?.toFixed(2)}m / {trend.delta_cm ?? Math.round(Math.abs(trend.delta_m) * 100)}cm)
+                  </span>
+                )
               )}
             </div>
 
             <div className="text-xs bg-slate-100 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-slate-700 dark:text-slate-300 font-bold">Time Interval:</span>
-                <span className="font-extrabold text-slate-900 dark:text-white">{trend?.time_interval_text || '10 minutes'}</span>
+                <span className="font-extrabold text-slate-900 dark:text-white">
+                  {isSimulation ? 'Real-time Overlay' : (trend?.time_interval_text || '10 minutes')}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-700 dark:text-slate-300 font-bold">Rate of Change:</span>
-                <span className={`font-extrabold ${trendColor}`}>{trend?.rate_text || `${rateVal.toFixed(2)} m/hr`}</span>
+                <span className={`font-extrabold ${trendColor}`}>
+                  {isSimulation ? (isSimRising ? `+${(simRiseSpeed * 3600).toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateVal.toFixed(2)} m/hr`)}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-2.5">
-            <span>Confidence: {reading?.confidence != null ? `${(reading.confidence * 100).toFixed(0)}%` : '--'}</span>
-            <span className="text-[10px] text-slate-700 dark:text-slate-300 font-black uppercase">Real-time Stream</span>
+            <span>Confidence: {isSimulation ? '99% (Simulation)' : (reading?.confidence != null ? `${(reading.confidence * 100).toFixed(0)}%` : '--')}</span>
+            <span className="text-[10px] text-slate-700 dark:text-slate-300 font-black uppercase">
+              {isSimulation ? '🧪 SIMULATED FEED' : 'Real-time Stream'}
+            </span>
           </div>
         </div>
 

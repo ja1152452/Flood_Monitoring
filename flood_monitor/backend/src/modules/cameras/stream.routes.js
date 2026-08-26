@@ -4,6 +4,7 @@ import fs                from 'fs';
 import { authenticate }  from '../../middleware/auth.js';
 import { asyncHandler }  from '../../utils/asyncHandler.js';
 import { getStreamStatus, startHLS, stopHLS } from '../../services/stream/hls.service.js';
+import { getSimulationState, setSimulationState, resetSimulationState } from '../../services/simulation.service.js';
 import { fileURLToPath } from 'url';
 
 const getHlsDir = () => {
@@ -19,6 +20,20 @@ const router = Router();
 
 router.get('/status', asyncHandler(async (_req, res) => {
   res.json({ success: true, data: getStreamStatus() });
+}));
+
+router.get('/simulation', asyncHandler(async (_req, res) => {
+  res.json({ success: true, data: getSimulationState() });
+}));
+
+router.post('/simulation', asyncHandler(async (req, res) => {
+  const updated = setSimulationState(req.body);
+  res.json({ success: true, data: updated });
+}));
+
+router.post('/simulation/reset', asyncHandler(async (_req, res) => {
+  const reset = resetSimulationState();
+  res.json({ success: true, data: reset });
 }));
 
 router.post('/start',

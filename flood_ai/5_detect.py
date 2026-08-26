@@ -285,9 +285,47 @@ def annotate_frame(frame, result):
 
     return annotated
 
-def grab_frame(cap):
-    ret, frame = cap.read()
-    return frame if ret else None
+def meter_to_pixel_y(meters, cal, frame_h):
+    if "points" in cal and len(cal["points"]) >= 2:
+        pts = sorted(cal["points"], key=lambda p: p["m"])
+        xm = [p["m"] for p in pts]
+        yp = [p["px"] for p in pts]
+        if meters <= xm[0]:
+            slope = (yp[1] - yp[0]) / (xm[1] - xm[0]) if (xm[1] - xm[0]) != 0 else 0
+            val = yp[0] + slope * (meters - xm[0])
+        elif meters >= xm[-1]:
+            slope = (yp[-1] - yp[-2]) / (xm[-1] - xm[-2]) if (xm[-1] - xm[-2]) != 0 else 0
+            val = yp[-1] + slope * (meters - xm[-1])
+        else:
+            val = float(np.interp(meters, xm, yp))
+        scale = frame_h / 360.0
+        return int(max(0, min(frame_h, val * scale)))
+    else:
+        scale = frame_h / 360.0
+        return int(max(0, min(frame_h, (cal.get("baseline_pixel_y", 230) - (meters - cal.get("baseline_meters", 3.869)) * cal.get("px_per_meter", 48.08)) * scale)))
+
+def apply_water_simulation(frame, sim_meters, cal):
+    """Overlays semi-transparent simulated floodwater within ROI onto live CCTV frame."""
+    out = frame.copy()
+    h, w = out.shape[:2]
+    roi_cfg = cal.get("roi", {})
+    roi_top = int(h * (roi_cfg.get("top_pct", 10.0) / 100.0))
+    roi_bottom = int(h * (roi_cfg.get("bottom_pct", 90.0) / 100.0))
+    roi_left = int(w * (roi_cfg.get("left_pct", 30.0) / 100.0))
+    roi_right = int(w * (roi_cfg.get("right_pct", 70.0) / 100.0))
+
+    sim_y = meter_to_pixel_y(sim_meters, cal, h)
+    water_top = max(roi_top, min(roi_bottom, sim_y))
+
+    if water_top < roi_bottom:
+        overlay = out.copy()
+        # Murky river water tint BGR: (110, 80, 40)
+        cv2.rectangle(overlay, (roi_left, water_top), (roi_right, roi_bottom), (110, 80, 40), -1)
+        cv2.addWeighted(overlay, 0.65, out, 0.35, 0, out)
+        # Foam / ripple line
+        cv2.line(out, (roi_left, water_top), (roi_right, water_top), (220, 240, 255), 2)
+
+    return out, water_top
 
 def main():
     print("")
@@ -315,11 +353,13 @@ def main():
         return
 
     print("Camera connected!")
-    print("Press Q to quit, S to save frame, F to toggle Fullscreen.")
+    print("Press Q to quit, S to save frame, F to toggle Fullscreen, M to toggle Simulation Mode.")
     print("")
 
     cv2.namedWindow("Lumban Flood Monitor", cv2.WINDOW_NORMAL)
     is_fullscreen = False
+    is_simulation = False
+    sim_level_m   = 2.00
 
     while True:
         frame = grab_frame(cap)
@@ -333,12 +373,32 @@ def main():
             cap.set(cv2.CAP_PROP_FPS, 30)
             continue
 
-        result    = detect_waterline(frame)
-        annotated = annotate_frame(frame, result)
+        if is_simulation:
+            sim_frame, _ = apply_water_simulation(frame, sim_level_m, CAL)
+            result = {
+                "success": True,
+                "water_level_m": sim_level_m,
+                "flood_level": classify(sim_level_m),
+                "waterline_pixel_y": meter_to_pixel_y(sim_level_m, CAL, frame.shape[0]),
+                "confidence": 0.99,
+                "roi": {
+                    "top": int(frame.shape[0] * (CAL.get("roi", {}).get("top_pct", 10.0) / 100.0)),
+                    "bottom": int(frame.shape[0] * (CAL.get("roi", {}).get("bottom_pct", 90.0) / 100.0)),
+                    "left": int(frame.shape[1] * (CAL.get("roi", {}).get("left_pct", 30.0) / 100.0)),
+                    "right": int(frame.shape[1] * (CAL.get("roi", {}).get("right_pct", 70.0) / 100.0)),
+                },
+            }
+            annotated = annotate_frame(sim_frame, result)
+            cv2.putText(annotated, f"[SIMULATION MODE: {sim_level_m:.2f}m] Press 1-4 for Presets, +/- to Adjust",
+                        (10, annotated.shape[0] - 32), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
+        else:
+            result    = detect_waterline(frame)
+            annotated = annotate_frame(frame, result)
 
         if result["success"]:
+            mode_tag = "[SIM] " if is_simulation else ""
             print(
-                f"[{datetime.now().strftime('%H:%M:%S')}]  "
+                f"[{datetime.now().strftime('%H:%M:%S')}]  {mode_tag}"
                 f"Water: {result['water_level_m']:.3f}m  |  "
                 f"Status: {result['flood_level']:12s}  |  "
                 f"Confidence: {result['confidence']:.0%}"
@@ -358,6 +418,21 @@ def main():
             is_fullscreen = not is_fullscreen
             prop = cv2.WINDOW_FULLSCREEN if is_fullscreen else cv2.WINDOW_NORMAL
             cv2.setWindowProperty("Lumban Flood Monitor", cv2.WND_PROP_FULLSCREEN, prop)
+        elif key == ord('m'):
+            is_simulation = not is_simulation
+            print(f"[Mode] Simulation {'ENABLED' if is_simulation else 'DISABLED'}")
+        elif key == ord('1') and is_simulation:
+            sim_level_m = 2.00 # NORMAL
+        elif key == ord('2') and is_simulation:
+            sim_level_m = 3.50 # WARNING
+        elif key == ord('3') and is_simulation:
+            sim_level_m = 5.20 # CRITICAL
+        elif key == ord('4') and is_simulation:
+            sim_level_m = 6.50 # FLOOD
+        elif (key == ord('+') or key == ord('=')) and is_simulation:
+            sim_level_m = min(7.00, sim_level_m + 0.10)
+        elif (key == ord('-') or key == ord('_')) and is_simulation:
+            sim_level_m = max(0.00, sim_level_m - 0.10)
         elif key == ord('s'):
             fname = f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
             cv2.imwrite(fname, annotated)

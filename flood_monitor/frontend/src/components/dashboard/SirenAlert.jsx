@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { shouldSiren, getFloodConfig } from '../../utils/floodUtils';
 import { Volume2, VolumeX, Bell } from 'lucide-react';
 
-export function SirenAlert({ level }) {
+export function SirenAlert({ level, isSimulated = false }) {
   const [muted,     setMuted]     = useState(false);
   const [unlocked,  setUnlocked]  = useState(false);
   const audioRef  = useRef(null);
@@ -44,21 +44,23 @@ export function SirenAlert({ level }) {
 
   return (
     <div
-      className={`flex items-center justify-between rounded-xl px-4 py-3 border siren-pulse`}
+      className="flex items-center justify-between rounded-xl px-4 py-3 border siren-pulse shadow-lg transition-all"
       style={{
-        backgroundColor: config.color + '15',
-        borderColor:     config.color + '60',
+        backgroundColor: config.color + '18',
+        borderColor:     config.color + '80',
       }}>
       <audio ref={audioRef} src="/tornado-siren.mp3" loop />
       
       <div className="flex items-center gap-3">
-        <span className="w-3 h-3 rounded-full blink" style={{ backgroundColor: '#ef4444' }} />
+        <span className="w-3 h-3 rounded-full blink" style={{ backgroundColor: config.color }} />
         <div>
-          <span className="font-bold text-sm" style={{ color: config.color }}>
-            🚨 SIREN ACTIVE — {config.label.toUpperCase()}
+          <span className="font-black text-sm tracking-wide" style={{ color: config.color }}>
+            {isSimulated ? '🧪 SIMULATED SIREN ACTIVE' : '🚨 SIREN ACTIVE'} — {config.label.toUpperCase()}
           </span>
-          <div className="text-xs text-slate-400 mt-0.5">
-            Alerts have been dispatched to all users
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">
+            {isSimulated
+              ? `Simulated water level reached ${config.label} (${config.color === '#7e22ce' ? 'Critical' : 'Alert'})`
+              : 'Emergency warnings and alerts have been dispatched to all units'}
           </div>
         </div>
       </div>
@@ -67,10 +69,10 @@ export function SirenAlert({ level }) {
         {!unlocked && (
           <button
             onClick={handleUnlock}
-            className="flex items-center gap-1.5 text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg shadow font-bold transition-colors"
             title="Click to enable siren sound">
             <Bell size={12} />
-            Enable Siren
+            Sound Siren
           </button>
         )}
         <button
@@ -85,7 +87,7 @@ export function SirenAlert({ level }) {
               }
             }
           }}
-          className="text-slate-400 hover:text-white transition-colors p-1.5"
+          className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
           title={muted ? 'Unmute siren' : 'Mute siren'}>
           {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
         </button>
