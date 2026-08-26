@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, CloudRain } from 'lucide-react';
 import { formatDateTime } from '../../utils/floodUtils';
+import { useRainRadar } from '../../hooks/useRainRadar';
 import lumbanBoundary from '../../data/lumban-border.geojson';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -168,26 +169,34 @@ const LUMBAN_CENTER = [14.291969, 121.460112];
 export function RescueMap({ sosList = [], evacuationCenters = [], responders = [], onRespond, onComplete }) {
   const [basemap, setBasemap] = useState('streets');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showRainRadar, setShowRainRadar] = useState(false);
   const mapContainerRef = useRef(null);
+
+  const { tileUrl: radarTileUrl, radarTimestamp } = useRainRadar(showRainRadar);
 
   const toggleFullScreen = () => {
     const el = mapContainerRef.current;
     if (!el) return;
 
-    if (!document.fullscreenElement) {
+    if (!document.fullscreenElement && !isFullScreen) {
       if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
+        el.requestFullscreen().catch(() => {
+          setIsFullScreen(true);
+        });
       } else if (el.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
-      } else if (el.msRequestFullscreen) {
-        el.msRequestFullscreen();
+      } else {
+        setIsFullScreen(true);
       }
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
       }
+      setIsFullScreen(false);
     }
   };
 
@@ -209,9 +218,8 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
       if (e.key === 'Escape' && isFullScreen) {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
-        } else {
-          setIsFullScreen(false);
         }
+        setIsFullScreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -264,7 +272,23 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
       )}
 
       {/* Floating Basemap Switcher & Fullscreen Button */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md flex-wrap">
+        {/* Live Rain Radar Toggle */}
+        <button
+          onClick={() => setShowRainRadar(r => !r)}
+          className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+            showRainRadar
+              ? 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-400'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Toggle Live Doppler Rain Radar Overlay"
+        >
+          <CloudRain size={13} className={showRainRadar ? 'animate-bounce' : ''} />
+          <span>Rain Radar {showRainRadar ? 'ON' : 'OFF'}</span>
+        </button>
+
+        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+
         <button
           onClick={toggleFullScreen}
           className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
@@ -311,6 +335,18 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
 
         {BASEMAPS[basemap].labelsUrl && (
           <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
+        )}
+
+        {/* Live Rain Radar Overlay */}
+        {showRainRadar && radarTileUrl && (
+          <TileLayer
+            key={`rescue-radar-${radarTimestamp}`}
+            url={radarTileUrl}
+            opacity={0.75}
+            zIndex={500}
+            maxZoom={19}
+            maxNativeZoom={16}
+          />
         )}
 
         <GeoJSON

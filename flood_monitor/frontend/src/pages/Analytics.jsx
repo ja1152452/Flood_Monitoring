@@ -24,49 +24,49 @@ const CAMERA_ID_READINGS = CAMERA_ID;
 
 const RISK_COLORS = {
   VERY_HIGH: '#ef4444',
-  HIGH:      '#f97316',
-  MODERATE:  '#f59e0b',
-  LOW:       '#22c55e',
+  HIGH: '#f97316',
+  MODERATE: '#f59e0b',
+  LOW: '#22c55e',
 };
 
 const STATUS_COLORS = {
-  NORMAL:     '#16a34a',
-  MONITOR:    '#d97706',
-  ALERT:      '#ea580c',
+  NORMAL: '#16a34a',
+  MONITOR: '#d97706',
+  ALERT: '#ea580c',
   EVACUATION: '#dc2626',
-  CRITICAL:   '#7e22ce',
+  CRITICAL: '#7e22ce',
 };
 
 const ROLE_COLORS = {
-  SUPER_ADMIN:       '#7c3aed',
-  ADMIN:             '#3b82f6',
-  RESCUE:            '#22c55e',
-  CITIZEN:           '#94a3b8',
-  MDRRMO:            '#f97316',
-  MSWDO:             '#06b6d4',
+  SUPER_ADMIN: '#7c3aed',
+  ADMIN: '#3b82f6',
+  RESCUE: '#22c55e',
+  CITIZEN: '#94a3b8',
+  MDRRMO: '#f97316',
+  MSWDO: '#06b6d4',
   BARANGAY_OFFICIAL: '#f59e0b',
-  BFP:               '#ef4444',
-  PNP:               '#0ea5e9',
-  RHU:               '#a855f7',
+  BFP: '#ef4444',
+  PNP: '#0ea5e9',
+  RHU: '#a855f7',
 };
 
 const ROLE_LABELS = {
-  SUPER_ADMIN:       'Super Admin',
-  ADMIN:             'MSWDO',
-  RESCUE:            'Responder',
-  CITIZEN:           'Resident',
-  MDRRMO:            'MDRRMO',
-  MSWDO:             'MSWDO Staff',
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'MSWDO',
+  RESCUE: 'Responder',
+  CITIZEN: 'Resident',
+  MDRRMO: 'MDRRMO',
+  MSWDO: 'MSWDO Staff',
   BARANGAY_OFFICIAL: 'Barangay Official',
-  BFP:               'BFP',
-  PNP:               'PNP',
-  RHU:               'RHU',
+  BFP: 'BFP',
+  PNP: 'PNP',
+  RHU: 'RHU',
 };
 
 const TOOLTIP_STYLE = {
   contentStyle: { backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 },
-  labelStyle:   { color: '#94a3b8', fontSize: 12 },
-  itemStyle:    { color: '#f1f5f9', fontSize: 12 },
+  labelStyle: { color: '#94a3b8', fontSize: 12 },
+  itemStyle: { color: '#f1f5f9', fontSize: 12 },
 };
 
 function StatCard({ label, value, sub, color = 'text-slate-900 dark:text-white' }) {
@@ -91,7 +91,7 @@ function ChartCard({ title, sub, children }) {
   );
 }
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function getWeekRange(weekStr) {
   const [year, w] = weekStr.split('-W');
@@ -107,7 +107,7 @@ function getWeekRange(weekStr) {
 
 export default function Analytics() {
   const now = new Date();
-  
+
   // Data Source Switcher: 'live' (Real Database) vs 'simulation' (Drill Recordings)
   const [dataSource, setDataSource] = useState('live');
 
@@ -132,39 +132,39 @@ export default function Analytics() {
   }, [drillSessions, selectedDrillId]);
 
   const [wlFilter, setWlFilter] = useState({
-    type:        'all',
-    month:       now.getMonth(),
-    year:        now.getFullYear(),
-    date:        `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
-    week:        `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(),0,1)) / 604800000)).padStart(2,'0')}`,
+    type: 'all',
+    month: now.getMonth(),
+    year: now.getFullYear(),
+    date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    week: `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0')}`,
     flood_level: '',
   });
   const [pdfPreview, setPdfPreview] = useState(null);
 
   const { data: stats } = useQuery({
-    queryKey:       ['user-stats'],
-    queryFn:        getUserStats,
+    queryKey: ['user-stats'],
+    queryFn: getUserStats,
     refetchInterval: 60000,
     enabled: dataSource === 'live',
   });
 
   const { data: summary } = useQuery({
     queryKey: ['summary'],
-    queryFn:  getSummary,
+    queryFn: getSummary,
     refetchInterval: 60000,
     enabled: dataSource === 'live',
   });
 
   const { data: hourly = [] } = useQuery({
-    queryKey:       ['hourly', CAMERA_ID],
-    queryFn:        () => getHourlyData(CAMERA_ID, 24),
+    queryKey: ['hourly', CAMERA_ID],
+    queryFn: () => getHourlyData(CAMERA_ID, 24),
     refetchInterval: 60000,
     enabled: dataSource === 'live',
   });
 
   const { data: history = [] } = useQuery({
     queryKey: ['alert-history'],
-    queryFn:  () => getAlertHistory({ limit: 20 }),
+    queryFn: () => getAlertHistory({ limit: 20 }),
     enabled: dataSource === 'live',
   });
 
@@ -177,8 +177,8 @@ export default function Analytics() {
     }
     if (wlFilter.type === 'date') {
       return {
-        from:  `${wlFilter.date}T00:00:00+08:00`,
-        to:    `${wlFilter.date}T23:59:59+08:00`,
+        from: `${wlFilter.date}T00:00:00+08:00`,
+        to: `${wlFilter.date}T23:59:59+08:00`,
         limit: 5000,
         flood_level: wlFilter.flood_level || undefined,
       };
@@ -186,8 +186,8 @@ export default function Analytics() {
     if (wlFilter.type === 'week') {
       const { start, end } = getWeekRange(wlFilter.week);
       return {
-        from:  `${start.toISOString().slice(0,10)}T00:00:00+08:00`,
-        to:    `${end.toISOString().slice(0,10)}T23:59:59+08:00`,
+        from: `${start.toISOString().slice(0, 10)}T00:00:00+08:00`,
+        to: `${end.toISOString().slice(0, 10)}T23:59:59+08:00`,
         limit: 5000,
         flood_level: wlFilter.flood_level || undefined,
       };
@@ -196,8 +196,8 @@ export default function Analytics() {
     const m = String(wlFilter.month + 1).padStart(2, '0');
     const lastDay = new Date(y, wlFilter.month + 1, 0).getDate();
     return {
-      from:  `${y}-${m}-01T00:00:00+08:00`,
-      to:    `${y}-${m}-${String(lastDay).padStart(2,'0')}T23:59:59+08:00`,
+      from: `${y}-${m}-01T00:00:00+08:00`,
+      to: `${y}-${m}-${String(lastDay).padStart(2, '0')}T23:59:59+08:00`,
       limit: 5000,
       flood_level: wlFilter.flood_level || undefined,
     };
@@ -212,8 +212,8 @@ export default function Analytics() {
 
   const { data: wlHistory = [], isFetching: wlLoading } = useQuery({
     queryKey: ['all-readings', wlParams],
-    queryFn:  () => getAllReadings(CAMERA_ID_READINGS, wlParams),
-    enabled:  dataSource === 'live',
+    queryFn: () => getAllReadings(CAMERA_ID_READINGS, wlParams),
+    enabled: dataSource === 'live',
   });
 
   const totalTablePages = Math.ceil((wlHistory || []).length / ROWS_PER_PAGE) || 1;
@@ -235,15 +235,15 @@ export default function Analytics() {
 
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation-centers'],
-    queryFn:  getEvacuationCenters,
-    enabled:  dataSource === 'live',
+    queryFn: getEvacuationCenters,
+    enabled: dataSource === 'live',
   });
 
   const centerIdsKey = useMemo(() => (centers || []).map(c => c.id).join(','), [centers]);
 
   const { data: allFamilies = [] } = useQuery({
     queryKey: ['all-families', centerIdsKey],
-    queryFn:  async () => {
+    queryFn: async () => {
       if (!centers.length) return [];
       const results = await Promise.all(
         centers.map(c => api.get(`/evacuation/${c.id}/families`).then(r => (r.data.data || []).map(f => ({ ...f, center_name: c.name }))))
@@ -255,7 +255,7 @@ export default function Analytics() {
 
   const { data: weather } = useQuery({
     queryKey: ['weather'],
-    queryFn:  getWeather,
+    queryFn: getWeather,
     refetchInterval: 300000,
   });
   const weatherLabel = weather ? `${weather.description}, ${weather.temp}°C` : '—';
@@ -268,8 +268,8 @@ export default function Analytics() {
     doc.setFontSize(9); doc.setTextColor(100);
     const label = wlFilter.type === 'all' ? 'All-Time Historical Database Records'
       : wlFilter.type === 'date' ? wlFilter.date
-      : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
-      : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
+        : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
+          : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
     doc.text(`Period: ${label}`, 14, 23);
     doc.text(`Weather: ${weatherLabel}`, 14, 28);
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
@@ -297,8 +297,8 @@ export default function Analytics() {
     const doc = buildWlPdf();
     const label = wlFilter.type === 'all' ? 'all-time'
       : wlFilter.type === 'date' ? wlFilter.date
-      : wlFilter.type === 'week' ? wlFilter.week
-      : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2,'0')}`;
+        : wlFilter.type === 'week' ? wlFilter.week
+          : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2, '0')}`;
     const filename = `water-level-history-${label}.pdf`;
     const url = doc.output('bloburl');
     setPdfPreview({ url, filename });
@@ -340,18 +340,18 @@ export default function Analytics() {
     setPdfPreview({ url, filename });
   };
 
-  const byBarangay  = stats?.by_barangay  || [];
-  const byRole      = stats?.by_role      || [];
-  const sosStat     = stats?.sos_stats    || {};
+  const byBarangay = stats?.by_barangay || [];
+  const byRole = stats?.by_role || [];
+  const sosStat = stats?.sos_stats || {};
   const sosBarangay = stats?.sos_barangay || [];
   const sosTimeline = stats?.sos_timeline || [];
 
-  const totalUsers    = byRole.reduce((s, r) => s + parseInt(r.count), 0);
+  const totalUsers = byRole.reduce((s, r) => s + parseInt(r.count), 0);
   const totalRescuers = byRole.find(r => r.role === 'RESCUE')?.count || 0;
-  const totalResidents= byRole.find(r => r.role === 'CITIZEN')?.count || 0;
+  const totalResidents = byRole.find(r => r.role === 'CITIZEN')?.count || 0;
 
   const roleChartData = byRole.map(r => ({
-    name:  ROLE_LABELS[r.role] || r.role,
+    name: ROLE_LABELS[r.role] || r.role,
     value: parseInt(r.count),
     color: ROLE_COLORS[r.role] || '#64748b',
   }));
@@ -360,24 +360,24 @@ export default function Analytics() {
     .filter(b => parseInt(b.total_users) > 0)
     .slice(0, 12)
     .map(b => ({
-      name:      b.barangay.replace(' (Poblacion)', '').replace('(Residential)', ''),
+      name: b.barangay.replace(' (Poblacion)', '').replace('(Residential)', ''),
       residents: parseInt(b.residents || 0),
-      rescuers:  parseInt(b.rescuers || 0),
+      rescuers: parseInt(b.rescuers || 0),
     }));
 
   const sosBarangayData = sosBarangay
     .slice(0, 8)
     .map(b => ({
-      name:     b.barangay.replace(' (Poblacion)', ''),
-      total:    parseInt(b.total_sos),
+      name: b.barangay.replace(' (Poblacion)', ''),
+      total: parseInt(b.total_sos),
       resolved: parseInt(b.resolved || 0),
-      pending:  parseInt(b.total_sos) - parseInt(b.resolved || 0),
-      risk:     b.risk_level,
+      pending: parseInt(b.total_sos) - parseInt(b.resolved || 0),
+      risk: b.risk_level,
     }));
 
   const timelineData = sosTimeline.map(r => ({
-    date:     new Date(r.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
-    total:    parseInt(r.total),
+    date: new Date(r.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+    total: parseInt(r.total),
     resolved: parseInt(r.resolved),
   }));
 
@@ -431,21 +431,19 @@ export default function Analytics() {
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
             <button
               onClick={() => setDataSource('live')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-                dataSource === 'live'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'live'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}>
+                }`}>
               <Activity size={14} />
               Real Live River Data
             </button>
             <button
               onClick={() => setDataSource('simulation')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-                dataSource === 'simulation'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'simulation'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}>
+                }`}>
               <Waves size={14} />
               Simulation Drill Data
             </button>
@@ -622,10 +620,10 @@ export default function Analytics() {
               User Overview
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard label="Total Users"   value={totalUsers}    sub="All registered accounts" />
-              <StatCard label="Responders"    value={totalRescuers}  sub="Barangay rescue teams"  color="text-emerald-600 dark:text-emerald-400" />
-              <StatCard label="Residents"     value={totalResidents} sub="Registered via mobile"  color="text-blue-600 dark:text-blue-400"  />
-              <StatCard label="Barangays"     value={byBarangay.filter(b => b.total_users > 0).length} sub="With registered users" color="text-amber-600 dark:text-amber-400" />
+              <StatCard label="Total Users" value={totalUsers} sub="All registered accounts" />
+              <StatCard label="Responders" value={totalRescuers} sub="Barangay rescue teams" color="text-emerald-600 dark:text-emerald-400" />
+              <StatCard label="Residents" value={totalResidents} sub="Registered via mobile" color="text-blue-600 dark:text-blue-400" />
+              <StatCard label="Barangays" value={byBarangay.filter(b => b.total_users > 0).length} sub="With registered users" color="text-amber-600 dark:text-amber-400" />
             </div>
           </div>
 
@@ -644,8 +642,8 @@ export default function Analytics() {
                   <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                   <Tooltip {...TOOLTIP_STYLE} />
                   <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  <Bar dataKey="residents" name="Residents"  fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="rescuers"  name="Responders" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="residents" name="Residents" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="rescuers" name="Responders" fill="#22c55e" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -677,10 +675,10 @@ export default function Analytics() {
               SOS Emergency Requests
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-              <StatCard label="Total SOS"       value={sosStat.total     || 0} sub="All time requests" />
-              <StatCard label="Resolved"        value={sosStat.resolved  || 0} sub={`${responseRate}% resolution rate`} color="text-emerald-600 dark:text-emerald-400" />
-              <StatCard label="Pending"         value={sosStat.pending   || 0} sub="Awaiting response" color="text-amber-600 dark:text-amber-400" />
-              <StatCard label="Critical/Evac"   value={sosStat.critical  || 0} sub="Urgent priority"   color="text-red-600 dark:text-red-400" />
+              <StatCard label="Total SOS" value={sosStat.total || 0} sub="All time requests" />
+              <StatCard label="Resolved" value={sosStat.resolved || 0} sub={`${responseRate}% resolution rate`} color="text-emerald-600 dark:text-emerald-400" />
+              <StatCard label="Pending" value={sosStat.pending || 0} sub="Awaiting response" color="text-amber-600 dark:text-amber-400" />
+              <StatCard label="Critical/Evac" value={sosStat.critical || 0} sub="Urgent priority" color="text-red-600 dark:text-red-400" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -699,7 +697,7 @@ export default function Analytics() {
                     <Tooltip {...TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                     <Bar dataKey="resolved" name="Resolved" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="pending"  name="Pending"  fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -712,8 +710,8 @@ export default function Analytics() {
                     <YAxis tick={{ fill: '#64748b', fontSize: 11 }} allowDecimals={false} />
                     <Tooltip {...TOOLTIP_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                    <Line type="monotone" dataKey="total"    name="Total SOS" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="resolved" name="Resolved"  stroke="#22c55e" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="total" name="Total SOS" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#22c55e" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -742,11 +740,10 @@ export default function Analytics() {
                 ].map(t => (
                   <button key={t.id}
                     onClick={() => setWlFilter(f => ({ ...f, type: t.id }))}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                      wlFilter.type === t.id 
-                        ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm' 
+                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${wlFilter.type === t.id
+                        ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm'
                         : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
-                    }`}>
+                      }`}>
                     {t.label}
                   </button>
                 ))}
@@ -900,7 +897,7 @@ export default function Analytics() {
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
                       <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                        {['#','Head of Family','Age','Barangay','Members','Contact','Arrival Date','Center','Notes'].map(h => (
+                        {['#', 'Head of Family', 'Age', 'Barangay', 'Members', 'Contact', 'Arrival Date', 'Center', 'Notes'].map(h => (
                           <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -937,7 +934,7 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                      {['Barangay','Risk Level','Total Users','Responders','Residents'].map(h => (
+                      {['Barangay', 'Risk Level', 'Total Users', 'Responders', 'Residents'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                           {h}
                         </th>
@@ -952,7 +949,7 @@ export default function Analytics() {
                           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                             style={{
                               backgroundColor: RISK_COLORS[b.risk_level] + '22',
-                              color:           RISK_COLORS[b.risk_level] || '#64748b',
+                              color: RISK_COLORS[b.risk_level] || '#64748b',
                             }}>
                             {b.risk_level?.replace('_', ' ')}
                           </span>

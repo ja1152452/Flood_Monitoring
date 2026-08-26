@@ -138,26 +138,29 @@ export default function Evacuation() {
   const [mapBasemap, setMapBasemap] = useState('streets');
   const [isMapFullScreen, setIsMapFullScreen] = useState(false);
 
-  const mapContainerRef = useRef(null);
-
   const toggleFullScreen = () => {
     const el = mapContainerRef.current;
     if (!el) return;
 
-    if (!document.fullscreenElement) {
+    if (!document.fullscreenElement && !isMapFullScreen) {
       if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
+        el.requestFullscreen().catch(() => {
+          setIsMapFullScreen(true);
+        });
       } else if (el.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
-      } else if (el.msRequestFullscreen) {
-        el.msRequestFullscreen();
+      } else {
+        setIsMapFullScreen(true);
       }
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
       }
+      setIsMapFullScreen(false);
     }
   };
 
@@ -179,9 +182,8 @@ export default function Evacuation() {
       if (e.key === 'Escape' && isMapFullScreen) {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
-        } else {
-          setIsMapFullScreen(false);
         }
+        setIsMapFullScreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -700,8 +702,10 @@ export default function Evacuation() {
         <div
           ref={mapContainerRef}
           style={{ height: isMapFullScreen ? '100vh' : 'auto', width: '100%' }}
-          className={`relative bg-white dark:bg-slate-800 overflow-hidden flex flex-col shadow-sm dark:shadow-none transition-all ${
-            isMapFullScreen ? 'w-screen h-screen rounded-none border-none' : 'rounded-2xl border border-slate-200 dark:border-slate-700'
+          className={`relative overflow-hidden flex flex-col shadow-sm dark:shadow-none transition-all ${
+            isMapFullScreen
+              ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none border-none bg-slate-950'
+              : 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700'
           }`}
         >
           {isMapFullScreen && (

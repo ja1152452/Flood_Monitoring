@@ -327,26 +327,29 @@ export default function RiskMapPage() {
   const [basemap, setBasemap] = useState('dark');
 
   // DOM Ref for Map Container (Only the map element enters fullscreen)
-  const mapContainerRef = useRef(null);
-
   const toggleFullScreen = () => {
     const el = mapContainerRef.current;
     if (!el) return;
 
-    if (!document.fullscreenElement) {
+    if (!document.fullscreenElement && !isFullScreen) {
       if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
+        el.requestFullscreen().catch(() => {
+          setIsFullScreen(true);
+        });
       } else if (el.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
-      } else if (el.msRequestFullscreen) {
-        el.msRequestFullscreen();
+      } else {
+        setIsFullScreen(true);
       }
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
       }
+      setIsFullScreen(false);
     }
   };
 
@@ -369,9 +372,8 @@ export default function RiskMapPage() {
       if (e.key === 'Escape' && isFullScreen) {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
-        } else {
-          setIsFullScreen(false);
         }
+        setIsFullScreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1008,10 +1010,25 @@ export default function RiskMapPage() {
         <div
           ref={mapContainerRef}
           style={{ height: isFullScreen ? '100vh' : '620px', width: '100%' }}
-          className={`relative bg-slate-950 overflow-hidden shadow-xl transition-all ${
-            isFullScreen ? 'w-screen h-screen rounded-none border-none' : 'rounded-3xl border border-slate-300 dark:border-slate-700'
+          className={`relative overflow-hidden shadow-xl transition-all ${
+            isFullScreen
+              ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none border-none bg-slate-950'
+              : 'bg-slate-950 rounded-3xl border border-slate-300 dark:border-slate-700'
           }`}
         >
+          {/* Fullscreen Mode Top Status Indicator */}
+          {isFullScreen && (
+            <div className="absolute top-4 left-4 z-[1100] flex items-center gap-2.5 bg-slate-900/90 text-white px-4 py-2 rounded-2xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Risk Map</span>
+              <button
+                onClick={toggleFullScreen}
+                className="ml-2 px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
+                <Minimize2 size={13} /> Exit Fullscreen (Esc)
+              </button>
+            </div>
+          )}
+
           {/* Map Viewport */}
           <MapContainer
             center={LUMBAN_CENTER}
@@ -1205,9 +1222,9 @@ export default function RiskMapPage() {
                 key={`radar-${radarTimestamp}-${radarOpacity}`}
                 url={radarTileUrl}
                 opacity={radarOpacity}
-                zIndex={450}
+                zIndex={500}
                 maxZoom={19}
-                maxNativeZoom={7}
+                maxNativeZoom={16}
               />
             )}
 
