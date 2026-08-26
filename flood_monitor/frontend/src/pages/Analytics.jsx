@@ -132,7 +132,7 @@ export default function Analytics() {
   }, [drillSessions, selectedDrillId]);
 
   const [wlFilter, setWlFilter] = useState({
-    type:        'month',
+    type:        'all',
     month:       now.getMonth(),
     year:        now.getFullYear(),
     date:        `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
