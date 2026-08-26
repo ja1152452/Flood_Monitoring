@@ -72,9 +72,9 @@ export function RiskMap({ height = '500px' }) {
     mapObj.current = map;
     map.setView(LUMBAN_CENTER, 14);
 
-    // Light political-style base tile
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19,
+    // Standard OpenStreetMap base tile
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
     }).addTo(map);
 
     // Lumban boundary outline from real GeoJSON
@@ -116,10 +116,7 @@ export function RiskMap({ height = '500px' }) {
       }).addTo(map);
     });
 
-    // Labels on top
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-      attribution: '', maxZoom: 19,
-    }).addTo(map);
+
 
     // Camera marker
     L.marker(LUMBAN_CENTER, {

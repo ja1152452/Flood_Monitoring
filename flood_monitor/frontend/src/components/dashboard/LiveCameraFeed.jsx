@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import { 
   Camera, WifiOff, RefreshCw, Radio, Maximize2, Minimize2, 
   Play, Pause, RotateCcw, Sliders, Waves, Activity, 
-  Timer, Clock, CheckCircle2, ArrowRight, Layers 
+  Timer, Clock, CheckCircle2, ArrowRight, Layers, Link2, Edit3, X, Video
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
@@ -28,6 +28,21 @@ export function LiveCameraFeed() {
   const [youtubeId, setYoutubeId] = useState(() => {
     return localStorage.getItem('youtube_live_id') || DEFAULT_YOUTUBE_ID;
   });
+  const [isEditYoutubeOpen, setIsEditYoutubeOpen] = useState(false);
+  const [tempYoutubeInput, setTempYoutubeInput] = useState(() => {
+    return localStorage.getItem('youtube_live_id') || DEFAULT_YOUTUBE_ID;
+  });
+
+  const handleSaveYoutubeUrl = (customVal) => {
+    const rawVal = customVal !== undefined ? customVal : tempYoutubeInput;
+    if (!rawVal || !rawVal.trim()) return;
+    let input = rawVal.trim();
+    const match = input.match(/(?:v=|\/embed\/|\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (match) input = match[1];
+    setYoutubeId(input);
+    localStorage.setItem('youtube_live_id', input);
+    setIsEditYoutubeOpen(false);
+  };
 
   // --- Shared Simulation Store ---
   const {
@@ -320,6 +335,18 @@ export function LiveCameraFeed() {
               }`}>
               YouTube
             </button>
+            {status === 'youtube' && (
+              <button
+                onClick={() => {
+                  setTempYoutubeInput(localStorage.getItem('youtube_live_id') || youtubeId || '');
+                  setIsEditYoutubeOpen(true);
+                }}
+                className="px-2 py-1 text-xs font-black rounded-lg bg-red-700 hover:bg-red-600 text-white flex items-center gap-1 shadow-sm transition-all active:scale-95"
+                title="Change YouTube Live Video Link or ID">
+                <Edit3 size={11} />
+                Set Link
+              </button>
+            )}
             <button
               onClick={() => setStatus('hls')}
               className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
@@ -352,8 +379,21 @@ export function LiveCameraFeed() {
       {/* Video Viewport Container */}
       <div 
         ref={videoViewportRef}
-        className="relative flex-1 min-h-[320px] max-h-[500px] bg-black flex items-center justify-center overflow-hidden">
+        className="relative flex-1 min-h-[320px] max-h-[500px] bg-black flex items-center justify-center overflow-hidden group">
         
+        {/* Quick Link Button in top right of viewport when in YouTube mode */}
+        {status === 'youtube' && (
+          <button
+            onClick={() => {
+              setTempYoutubeInput(localStorage.getItem('youtube_live_id') || youtubeId || '');
+              setIsEditYoutubeOpen(true);
+            }}
+            className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-red-600 text-white text-xs font-black border border-white/20 backdrop-blur-sm shadow-lg transition-all active:scale-95">
+            <Link2 size={13} />
+            Paste YouTube Link
+          </button>
+        )}
+
         {/* Source 1: YouTube Stream */}
         {status === 'youtube' && (
           <div className="relative w-full h-full min-h-[320px] max-h-[500px] flex items-center justify-center bg-black">
@@ -371,7 +411,10 @@ export function LiveCameraFeed() {
               <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-3">
                 <p className="text-sm font-semibold">No YouTube Live URL Configured</p>
                 <button
-                  onClick={changeYoutubeId}
+                  onClick={() => {
+                    setTempYoutubeInput('');
+                    setIsEditYoutubeOpen(true);
+                  }}
                   className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg shadow-md transition-all">
                   Set YouTube Stream
                 </button>
@@ -806,6 +849,61 @@ export function LiveCameraFeed() {
           )}
         </div>
       </div>
+
+      {/* Edit YouTube Stream Modal */}
+      {isEditYoutubeOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="p-1.5 bg-red-600 text-white rounded-lg">
+                  <Video size={16} />
+                </span>
+                Set YouTube Live Stream Link
+              </h3>
+              <button
+                onClick={() => setIsEditYoutubeOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg">
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Paste your YouTube Live Video URL, embed link, or Video ID to stream directly in the CCTV box:
+            </p>
+
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                placeholder="https://www.youtube.com/watch?v=YOUR_VIDEO_ID"
+                value={tempYoutubeInput}
+                onChange={(e) => setTempYoutubeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveYoutubeUrl();
+                }}
+                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-red-500"
+                autoFocus
+              />
+              <p className="text-[10px] text-slate-500 font-medium">
+                Accepts: <code className="text-red-500 font-mono">https://www.youtube.com/watch?v=...</code>, <code className="text-red-500 font-mono">https://youtu.be/...</code>, or Channel ID.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setIsEditYoutubeOpen(false)}
+                className="px-3.5 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveYoutubeUrl()}
+                className="px-4 py-2 text-xs font-black bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-md transition-all active:scale-95">
+                Save & Play Stream
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

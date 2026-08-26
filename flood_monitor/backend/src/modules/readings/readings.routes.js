@@ -26,8 +26,24 @@ router.get('/latest',
   authenticate,
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
+    if (isSimulationActive()) {
+      const sim = getSimulationState();
+      return res.json({
+        success: true,
+        data: {
+          id: 'simulated-reading',
+          water_level_m: sim.water_level_m,
+          flood_level: sim.flood_level,
+          confidence: 0.99,
+          captured_at: new Date().toISOString(),
+          is_simulated: true,
+          location_name: 'Pagsanjan-Lumban River Bridge (SIMULATION / DRILL)',
+          barangay: 'Lumban',
+        },
+      });
+    }
     const data = await service.getLatest(null);
-    res.json({ success: true, data });
+    res.json({ success: true, data: data ? { ...data, is_simulated: false } : null });
   })
 );
 
@@ -35,6 +51,17 @@ router.get('/rate-of-rise',
   authenticate,
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
+    if (isSimulationActive()) {
+      const sim = getSimulationState();
+      return res.json({
+        success: true,
+        data: {
+          rate_per_hour: sim.rate_per_hour || 0,
+          trend: sim.is_rising ? 'RISING' : 'STABLE',
+          is_simulated: true,
+        },
+      });
+    }
     const { rows } = await query(
       `SELECT water_level_m, captured_at
        FROM water_level_readings

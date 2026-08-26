@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../api/axios';
 import { classifySimulatedLevel } from '../utils/waterSimulationUtils';
+import { startDrillRecording, recordDrillPoint, finishDrillRecording } from '../utils/simulationRecorder';
 
 let syncTimeout = null;
 const syncToBackend = (state) => {
@@ -42,11 +43,13 @@ export const useSimulationStore = create((set, get) => ({
   scenarioIsRunning: false,
   scenarioPhase: 'idle', // 'idle' | 'rising' | 'peak' | 'receding' | 'completed'
   scenarioIsCycle: false,
+  lastRecordedSec: -1,
 
   setMode: (mode) => {
     set({ mode });
     if (mode === 'live') {
       set({ isSimRising: false, scenarioIsRunning: false, scenarioPhase: 'idle' });
+      finishDrillRecording();
     }
     syncToBackend(get());
   },
@@ -61,6 +64,11 @@ export const useSimulationStore = create((set, get) => ({
 
   setIsSimRising: (isRising) => {
     set({ isSimRising: isRising });
+    if (isRising) {
+      startDrillRecording('Manual Simulation Run', { startLevelM: get().simWaterLevel });
+    } else {
+      finishDrillRecording();
+    }
     syncToBackend(get());
   },
 
@@ -70,12 +78,14 @@ export const useSimulationStore = create((set, get) => ({
   },
 
   resetSimulation: () => {
+    finishDrillRecording();
     set({
       isSimRising: false,
       simWaterLevel: 2.00,
       scenarioIsRunning: false,
       scenarioElapsedSec: 0,
       scenarioPhase: 'idle',
+      lastRecordedSec: -1,
     });
     syncToBackend(get());
   },
@@ -98,19 +108,41 @@ export const useSimulationStore = create((set, get) => ({
       scenarioPhase: 'idle',
       scenarioIsRunning: false,
       simWaterLevel: preset.startM,
+      lastRecordedSec: -1,
     });
     syncToBackend(get());
   },
 
   startScenario: () => {
     const s = get();
-    // If starting from idle or completed, start at startMeters
+    const drillName = s.scenarioIsCycle ? `Full Cycle Drill (${s.scenarioStartMeters}m ➔ ${s.scenarioTargetMeters}m)` : `Flood Rise Drill (${s.scenarioStartMeters}m ➔ ${s.scenarioTargetMeters}m)`;
+    startDrillRecording(
+      drillName,
+      {
+        startLevelM: s.scenarioStartMeters,
+        targetLevelM: s.scenarioTargetMeters,
+        scenarioType: s.scenarioIsCycle ? 'full_cycle' : 'rise',
+      }
+    );
+
+    api.post('/stream/simulation/audit-log', {
+      action: 'DRILL_SCENARIO_STARTED',
+      details: {
+        scenario_name: drillName,
+        start_level_m: s.scenarioStartMeters,
+        target_level_m: s.scenarioTargetMeters,
+        duration_sec: s.scenarioDurationSec,
+        is_cycle: s.scenarioIsCycle,
+      },
+    }).catch(() => {});
+
     if (s.scenarioPhase === 'idle' || s.scenarioPhase === 'completed') {
       set({
         simWaterLevel: s.scenarioStartMeters,
         scenarioElapsedSec: 0,
         scenarioPhase: 'rising',
         scenarioIsRunning: true,
+        lastRecordedSec: -1,
       });
     } else {
       set({ scenarioIsRunning: true });
@@ -124,12 +156,14 @@ export const useSimulationStore = create((set, get) => ({
   },
 
   resetScenario: () => {
+    finishDrillRecording();
     const s = get();
     set({
       scenarioIsRunning: false,
       scenarioElapsedSec: 0,
       scenarioPhase: 'idle',
       simWaterLevel: s.scenarioStartMeters,
+      lastRecordedSec: -1,
     });
     syncToBackend(get());
   },
@@ -178,6 +212,34 @@ export const useSimulationStore = create((set, get) => ({
 
     const isDone = progress >= 1.0;
     const roundedM = Math.round(currentM * 100) / 100;
+    const classification = classifySimulatedLevel(roundedM);
+
+    // Record sample point every second
+    const secFloor = Math.floor(newElapsed);
+    if (secFloor > s.lastRecordedSec) {
+      recordDrillPoint({
+        elapsedSec: secFloor,
+        waterLevelM: roundedM,
+        floodLevel: classification.level,
+        phase: phase,
+        ratePerHour: phase === 'rising' ? parseFloat((((targetM - startM) / totalDuration) * 3600).toFixed(1)) : 0,
+      });
+      set({ lastRecordedSec: secFloor });
+    }
+
+    if (isDone) {
+      finishDrillRecording();
+      api.post('/stream/simulation/audit-log', {
+        action: 'DRILL_SCENARIO_COMPLETED',
+        details: {
+          start_level_m: startM,
+          target_level_m: targetM,
+          peak_level_m: roundedM,
+          duration_sec: totalDuration,
+          status: classification.level,
+        },
+      }).catch(() => {});
+    }
 
     set({
       scenarioElapsedSec: isDone ? totalDuration : newElapsed,

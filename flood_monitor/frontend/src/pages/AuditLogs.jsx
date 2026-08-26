@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAuditLogs } from '../api/analytics';
 import { formatDateTime } from '../utils/floodUtils';
-import { Search } from 'lucide-react';
+import { Search, Activity, Waves, Layers } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -15,6 +15,8 @@ const ACTION_COLORS = {
   SOS:          { bg: '#ffedd5', color: '#c2410c' },
   BACKUP:       { bg: '#f3e8ff', color: '#7e22ce' },
   LOGIN:        { bg: '#dcfce7', color: '#166534' },
+  SIMULATION:   { bg: '#e0e7ff', color: '#4338ca' },
+  DRILL:        { bg: '#ede9fe', color: '#6d28d9' },
   DEFAULT:      { bg: '#f1f5f9', color: '#475569' },
 };
 
@@ -27,18 +29,21 @@ function getActionStyle(action = '') {
 
 const ACTION_FILTER_OPTIONS = [
   { value: '',            label: 'All Actions' },
-  { value: 'SOS',         label: 'SOS' },
-  { value: 'BACKUP',      label: 'Backup' },
-  { value: 'CREATED',     label: 'Created' },
-  { value: 'UPDATED',     label: 'Updated' },
-  { value: 'DELETED',     label: 'Deleted' },
-  { value: 'LOGIN',       label: 'Login' },
+  { value: 'SIMULATION',  label: '🧪 Simulation & Drills' },
+  { value: 'DRILL',       label: '⏱️ Drill Scenarios' },
+  { value: 'SOS',         label: '🚨 SOS Emergencies' },
+  { value: 'BACKUP',      label: '💾 Backups' },
+  { value: 'CREATED',     label: '➕ Created' },
+  { value: 'UPDATED',     label: '✏️ Updated' },
+  { value: 'DELETED',     label: '🗑️ Deleted' },
+  { value: 'LOGIN',       label: '🔑 Login' },
 ];
 
 export default function AuditLogs() {
   const [page,          setPage]          = useState(0);
   const [search,        setSearch]        = useState('');
   const [actionFilter,  setActionFilter]  = useState('');
+  const [categoryTab,   setCategoryTab]   = useState('all'); // 'all' | 'live' | 'simulation'
 
   const { data: logs = [] } = useQuery({
     queryKey: ['audit-logs', page],
@@ -48,6 +53,10 @@ export default function AuditLogs() {
   });
 
   const filtered = logs.filter(log => {
+    const isSim = (log.action || '').includes('SIMULATION') || (log.action || '').includes('DRILL') || (log.entity_type || '').includes('SIMULATION');
+    if (categoryTab === 'live' && isSim) return false;
+    if (categoryTab === 'simulation' && !isSim) return false;
+
     const matchSearch = !search ||
       (log.user_email || '').toLowerCase().includes(search.toLowerCase()) ||
       (log.action     || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -62,7 +71,7 @@ export default function AuditLogs() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Audit Trail</h1>
           <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-            Master log of all activities — residents, responders &amp; admin
+            Master activity log — real emergency operations, administration, and simulation drill tests
           </p>
         </div>
 
@@ -79,12 +88,46 @@ export default function AuditLogs() {
           <select
             value={actionFilter}
             onChange={e => { setActionFilter(e.target.value); setPage(0); }}
-            className="text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm">
+            className="text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm font-semibold">
             {ACTION_FILTER_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Category Pills Switcher */}
+      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 w-fit shadow-inner">
+        <button
+          onClick={() => { setCategoryTab('all'); setPage(0); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+            categoryTab === 'all'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}>
+          <Layers size={13} />
+          All Activities
+        </button>
+        <button
+          onClick={() => { setCategoryTab('live'); setPage(0); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+            categoryTab === 'live'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}>
+          <Activity size={13} />
+          Live Operations Only
+        </button>
+        <button
+          onClick={() => { setCategoryTab('simulation'); setPage(0); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+            categoryTab === 'simulation'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}>
+          <Waves size={13} />
+          Simulation &amp; Drills Only
+        </button>
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">

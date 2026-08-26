@@ -1,8 +1,10 @@
 import { Router }        from 'express';
 import path              from 'path';
 import fs                from 'fs';
+import jwt               from 'jsonwebtoken';
 import { authenticate }  from '../../middleware/auth.js';
 import { asyncHandler }  from '../../utils/asyncHandler.js';
+import { writeAuditLog } from '../../middleware/audit.js';
 import { getStreamStatus, startHLS, stopHLS } from '../../services/stream/hls.service.js';
 import { getSimulationState, setSimulationState, resetSimulationState } from '../../services/simulation.service.js';
 import { fileURLToPath } from 'url';
@@ -16,6 +18,18 @@ const getHlsDir = () => {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../hls');
 };
 
+const extractUserId = (req) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'lumban_flood_monitor_jwt_secret_key_2024');
+      return decoded.sub;
+    }
+  } catch {}
+  return null;
+};
+
 const router = Router();
 
 router.get('/status', asyncHandler(async (_req, res) => {
@@ -27,13 +41,64 @@ router.get('/simulation', asyncHandler(async (_req, res) => {
 }));
 
 router.post('/simulation', asyncHandler(async (req, res) => {
+  const previousState = getSimulationState();
   const updated = setSimulationState(req.body);
+  const userId = extractUserId(req);
+
+  // Write audit log if simulation active state changed
+  if (!previousState.active && updated.active) {
+    await writeAuditLog({
+      userId,
+      action: 'SIMULATION_STARTED',
+      entityType: 'FLOOD_SIMULATION',
+      after: {
+        water_level_m: updated.water_level_m,
+        flood_level: updated.flood_level,
+        is_rising: updated.is_rising,
+      },
+      ip: req.ip,
+    });
+  } else if (previousState.active && !updated.active) {
+    await writeAuditLog({
+      userId,
+      action: 'SIMULATION_STOPPED',
+      entityType: 'FLOOD_SIMULATION',
+      before: {
+        water_level_m: previousState.water_level_m,
+        flood_level: previousState.flood_level,
+      },
+      ip: req.ip,
+    });
+  }
+
   res.json({ success: true, data: updated });
 }));
 
-router.post('/simulation/reset', asyncHandler(async (_req, res) => {
+router.post('/simulation/reset', asyncHandler(async (req, res) => {
   const reset = resetSimulationState();
+  const userId = extractUserId(req);
+  await writeAuditLog({
+    userId,
+    action: 'SIMULATION_RESET',
+    entityType: 'FLOOD_SIMULATION',
+    after: { water_level_m: 2.00, flood_level: 'NORMAL' },
+    ip: req.ip,
+  });
   res.json({ success: true, data: reset });
+}));
+
+router.post('/simulation/audit-log', asyncHandler(async (req, res) => {
+  const userId = extractUserId(req);
+  const { action, details, entityId } = req.body;
+  await writeAuditLog({
+    userId,
+    action: action || 'SIMULATION_EVENT',
+    entityType: 'FLOOD_SIMULATION',
+    entityId: entityId || null,
+    after: details || {},
+    ip: req.ip,
+  });
+  res.json({ success: true });
 }));
 
 router.post('/start',
