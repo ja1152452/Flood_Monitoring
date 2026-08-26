@@ -371,16 +371,52 @@ export default function RiskMapPage() {
   // Escape key handler to exit Fullscreen
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isFullScreen) {
+      if (e.key === 'Escape') {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
         }
         setIsFullScreen(false);
+        setIsWindyFullScreen(false);
+        setIsRainRadarFullScreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
+  }, [isFullScreen, isWindyFullScreen, isRainRadarFullScreen]);
+
+  const toggleWindyFullScreen = () => {
+    setIsWindyFullScreen(f => {
+      const next = !f;
+      if (next) {
+        setWindyZoom(8.0);
+        if (windyContainerRef.current?.requestFullscreen) {
+          windyContainerRef.current.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setWindyZoom(9.5);
+      }
+      return next;
+    });
+  };
+
+  const toggleRainRadarFullScreen = () => {
+    setIsRainRadarFullScreen(f => {
+      const next = !f;
+      if (next) {
+        if (rainRadarContainerRef.current?.requestFullscreen) {
+          rainRadarContainerRef.current.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      return next;
+    });
+  };
 
   // Modal / Form States
   const [showAdd, setShowAdd] = useState(false);
@@ -1018,19 +1054,6 @@ export default function RiskMapPage() {
               : 'bg-slate-950 rounded-3xl border border-slate-300 dark:border-slate-700'
           }`}
         >
-          {/* Fullscreen Mode Top Status Indicator */}
-          {isFullScreen && (
-            <div className="absolute top-4 left-4 z-[1100] flex items-center gap-2.5 bg-slate-900/90 text-white px-4 py-2 rounded-2xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Risk Map</span>
-              <button
-                onClick={toggleFullScreen}
-                className="ml-2 px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
-                <Minimize2 size={13} /> Exit Fullscreen (Esc)
-              </button>
-            </div>
-          )}
-
           {/* Map Viewport */}
           <MapContainer
             center={LUMBAN_CENTER}
@@ -1709,13 +1732,20 @@ export default function RiskMapPage() {
       {/* ------------------------------------------------------------- */}
       <Modal
         isOpen={showWindyModal}
-        onClose={() => setShowWindyModal(false)}
+        onClose={() => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+          setIsWindyFullScreen(false);
+          setShowWindyModal(false);
+        }}
         title="Live Atmospheric Wind & Weather Map (Windy.com)"
-        maxWidth={isWindyFullScreen ? "max-w-none w-[98vw] h-[95vh]" : "max-w-5xl"}
+        maxWidth={isWindyFullScreen ? "!max-w-none !w-screen !h-screen !max-h-screen !rounded-none !p-0 !m-0" : "max-w-5xl"}
+        className={isWindyFullScreen ? "!rounded-none !h-screen !max-h-screen" : ""}
         headerActions={
           <button
-            onClick={() => setIsWindyFullScreen(f => !f)}
-            title={isWindyFullScreen ? "Exit Full Screen" : "Full Screen Wind Map"}
+            onClick={toggleWindyFullScreen}
+            title={isWindyFullScreen ? "Exit Full Screen" : "Full Screen Wind Map (Whole Monitor)"}
             className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold px-2"
           >
             {isWindyFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -1785,27 +1815,13 @@ export default function RiskMapPage() {
                   </button>
                 </div>
               )}
-
-              <button
-                onClick={() => {
-                  setIsWindyFullScreen(f => {
-                    const next = !f;
-                    setWindyZoom(next ? 8.0 : 9.5);
-                    return next;
-                  });
-                }}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-200 flex items-center gap-1 transition-all"
-              >
-                {isWindyFullScreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                <span>{isWindyFullScreen ? 'Normal View' : 'Full Screen'}</span>
-              </button>
             </div>
           </div>
 
           <div
             ref={windyContainerRef}
             className={`relative w-full rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-inner bg-slate-950 flex-1 transition-all ${
-              isWindyFullScreen ? 'h-[calc(95vh-140px)] min-h-[500px]' : 'h-[520px]'
+              isWindyFullScreen ? 'h-[calc(100vh-140px)] min-h-[500px]' : 'h-[520px]'
             }`}
           >
             {/* SVG OVERLAY OF LUMBAN MUNICIPAL BORDER */}
@@ -1842,13 +1858,20 @@ export default function RiskMapPage() {
       {/* ------------------------------------------------------------- */}
       <Modal
         isOpen={showRainRadarModal}
-        onClose={() => setShowRainRadarModal(false)}
+        onClose={() => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+          setIsRainRadarFullScreen(false);
+          setShowRainRadarModal(false);
+        }}
         title="Live Meteorological Doppler Rain Radar (RainViewer)"
-        maxWidth={isRainRadarFullScreen ? "max-w-none w-[98vw] h-[95vh]" : "max-w-5xl"}
+        maxWidth={isRainRadarFullScreen ? "!max-w-none !w-screen !h-screen !max-h-screen !rounded-none !p-0 !m-0" : "max-w-5xl"}
+        className={isRainRadarFullScreen ? "!rounded-none !h-screen !max-h-screen" : ""}
         headerActions={
           <button
-            onClick={() => setIsRainRadarFullScreen(f => !f)}
-            title={isRainRadarFullScreen ? "Exit Full Screen" : "Full Screen Rain Radar"}
+            onClick={toggleRainRadarFullScreen}
+            title={isRainRadarFullScreen ? "Exit Full Screen" : "Full Screen Rain Radar (Whole Monitor)"}
             className="p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold px-2"
           >
             {isRainRadarFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -1898,21 +1921,13 @@ export default function RiskMapPage() {
                   </button>
                 </div>
               )}
-
-              <button
-                onClick={() => setIsRainRadarFullScreen(f => !f)}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 hover:bg-sky-200 flex items-center gap-1 transition-all"
-              >
-                {isRainRadarFullScreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                <span>{isRainRadarFullScreen ? 'Normal View' : 'Full Screen'}</span>
-              </button>
             </div>
           </div>
 
           <div
             ref={rainRadarContainerRef}
             className={`relative w-full rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-inner bg-slate-950 flex-1 transition-all ${
-              isRainRadarFullScreen ? 'h-[calc(95vh-140px)] min-h-[500px]' : 'h-[520px]'
+              isRainRadarFullScreen ? 'h-[calc(100vh-140px)] min-h-[500px]' : 'h-[520px]'
             }`}
           >
             {/* LUMBAN SVG BORDER OVERLAY */}
