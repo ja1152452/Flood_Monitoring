@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, Polyline } from 'react-leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { formatDateTime } from '../../utils/floodUtils';
 import lumbanBoundary from '../../data/lumban-border.geojson';
 
@@ -11,6 +12,20 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
+
+function MapResizeController({ isFullScreen }) {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 100);
+    const t2 = setTimeout(() => map.invalidateSize(), 300);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isFullScreen, map]);
+  return null;
+}
 
 const BASEMAPS = {
   streets: {
@@ -120,6 +135,17 @@ const LUMBAN_CENTER = [14.291969, 121.460112];
 
 export function RescueMap({ sosList = [], evacuationCenters = [], responders = [], onRespond, onComplete }) {
   const [basemap, setBasemap] = useState('streets');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
 
   // Compute vector lines for dispatched responders to SOS location
   const vectorLines = [];
@@ -145,9 +171,52 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
   });
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
-      {/* Floating Basemap Switcher */}
+    <div className={`relative w-full overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700 transition-all ${
+      isFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none bg-slate-950' : 'rounded-2xl'
+    }`}>
+      {/* Fullscreen Mode Top Status Indicator */}
+      {isFullScreen && (
+        <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Rescue Map</span>
+          <button
+            onClick={() => {
+              setIsFullScreen(false);
+              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            }}
+            className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
+            <Minimize2 size={12} /> Exit (Esc)
+          </button>
+        </div>
+      )}
+
+      {/* Floating Basemap Switcher & Fullscreen Button */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md">
+        <button
+          onClick={() => {
+            const next = !isFullScreen;
+            setIsFullScreen(next);
+            try {
+              if (next && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else if (!next && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+              }
+            } catch {}
+          }}
+          className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+            isFullScreen
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Toggle Fullscreen Map View (Entire Monitor)"
+        >
+          {isFullScreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          <span>{isFullScreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+        </button>
+
+        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+
         {Object.values(BASEMAPS).map(bm => (
           <button
             key={bm.id}
@@ -167,8 +236,9 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
       <MapContainer
         center={LUMBAN_CENTER}
         zoom={14}
-        style={{ height: '490px', width: '100%', background: '#09101d' }}
+        style={{ height: isFullScreen ? '100%' : '490px', width: '100%', background: '#09101d' }}
       >
+        <MapResizeController isFullScreen={isFullScreen} />
         <TileLayer
           key={basemap}
           url={BASEMAPS[basemap].url}

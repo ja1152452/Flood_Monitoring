@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import lumbanBoundary from '../data/lumban-border.geojson';
 import { getEvacuationCenters, updateEvacuationCenter, deleteEvacuationCenter } from '../api/evacuation';
 import api from '../api/axios';
 import { Modal } from '../components/ui/Modal';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Users, Trash2, Download, X, Printer } from 'lucide-react';
+import { Plus, Edit2, Users, Trash2, Download, X, Printer, Maximize2, Minimize2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -102,6 +102,20 @@ function LocationPicker({ onPick }) {
   return null;
 }
 
+function MapResizeController({ isFullScreen }) {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 100);
+    const t2 = setTimeout(() => map.invalidateSize(), 300);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isFullScreen, map]);
+  return null;
+}
+
 export default function Evacuation() {
   const qc = useQueryClient();
 
@@ -117,6 +131,17 @@ export default function Evacuation() {
   const [filterAgeMin, setFilterAgeMin] = useState('');
   const [filterAgeMax, setFilterAgeMax] = useState('');
   const [mapBasemap, setMapBasemap] = useState('streets');
+  const [isMapFullScreen, setIsMapFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isMapFullScreen) {
+        setIsMapFullScreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMapFullScreen]);
 
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation'],
@@ -627,31 +652,76 @@ export default function Evacuation() {
 
       {activeTab === 'centers' && (<>
 
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+        <div className={`relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm dark:shadow-none transition-all ${
+          isMapFullScreen ? 'fixed inset-0 z-[5000] w-screen h-screen rounded-none' : 'rounded-2xl'
+        }`}>
+          {isMapFullScreen && (
+            <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Map Mode</span>
+              <button
+                onClick={() => {
+                  setIsMapFullScreen(false);
+                  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+                }}
+                className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
+                <Minimize2 size={12} /> Exit (Esc)
+              </button>
+            </div>
+          )}
+
           <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
             <div>
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">Evacuation Centers Map — Lumban, Laguna</h3>
               <p className="text-xs text-slate-500 mt-0.5">Click a marker to see capacity and contact details</p>
             </div>
-            {/* Basemap Switcher */}
-            <div className="flex bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-              {Object.values(BASEMAPS).map(bm => (
-                <button
-                  key={bm.id}
-                  onClick={() => setMapBasemap(bm.id)}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                    mapBasemap === bm.id
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <span>{bm.icon}</span>
-                  <span className="hidden sm:inline">{bm.name}</span>
-                </button>
-              ))}
+            
+            <div className="flex items-center gap-2">
+              {/* Fullscreen Button */}
+              <button
+                onClick={() => {
+                  const next = !isMapFullScreen;
+                  setIsMapFullScreen(next);
+                  try {
+                    if (next && document.documentElement.requestFullscreen) {
+                      document.documentElement.requestFullscreen().catch(() => {});
+                    } else if (!next && document.fullscreenElement) {
+                      document.exitFullscreen().catch(() => {});
+                    }
+                  } catch {}
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                  isMapFullScreen
+                    ? 'bg-red-600 text-white border-red-500 shadow-md'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                }`}
+                title="Toggle Fullscreen Map View (Entire Monitor)"
+              >
+                {isMapFullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                <span>{isMapFullScreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+              </button>
+
+              {/* Basemap Switcher */}
+              <div className="flex bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                {Object.values(BASEMAPS).map(bm => (
+                  <button
+                    key={bm.id}
+                    onClick={() => setMapBasemap(bm.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                      mapBasemap === bm.id
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{bm.icon}</span>
+                    <span className="hidden sm:inline">{bm.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ height: '440px', width: '100%', background: '#09101d' }}>
+          <MapContainer center={LUMBAN_CENTER} zoom={15} style={{ height: isMapFullScreen ? '100%' : '460px', width: '100%', background: '#09101d' }}>
+            <MapResizeController isFullScreen={isMapFullScreen} />
             <TileLayer
               key={mapBasemap}
               url={BASEMAPS[mapBasemap].url}
