@@ -234,9 +234,12 @@ export default function Analytics() {
     enabled:  dataSource === 'live',
   });
 
+  const centerIdsKey = useMemo(() => (centers || []).map(c => c.id).join(','), [centers]);
+
   const { data: allFamilies = [] } = useQuery({
-    queryKey: ['all-families', centers.map(c => c.id)],
+    queryKey: ['all-families', centerIdsKey],
     queryFn:  async () => {
+      if (!centers.length) return [];
       const results = await Promise.all(
         centers.map(c => api.get(`/evacuation/${c.id}/families`).then(r => (r.data.data || []).map(f => ({ ...f, center_name: c.name }))))
       );

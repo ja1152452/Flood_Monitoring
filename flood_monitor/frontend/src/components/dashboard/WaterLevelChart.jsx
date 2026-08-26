@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
@@ -23,40 +24,49 @@ const LEVEL_COLORS = {
 export function WaterLevelChart({ data = [], title = 'Water Level History', floodLevel = '' }) {
   const { isDark } = useThemeStore();
 
-  // 1. Sort data chronologically by timestamp
-  const sortedData = [...data].sort((a, b) => {
-    const tA = new Date(a.captured_at || a.recorded_at || a.created_at || a.hour || 0).getTime();
-    const tB = new Date(b.captured_at || b.recorded_at || b.created_at || b.hour || 0).getTime();
-    return tA - tB;
-  });
+  const { formatted, isMultiDay, yMin, yMax } = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) {
+      return { formatted: [], isMultiDay: false, yMin: 0, yMax: 6.5 };
+    }
 
-  // 2. Check if data spans multiple days
-  const isMultiDay = sortedData.length > 1 && (() => {
-    const first = new Date(sortedData[0].captured_at || sortedData[0].recorded_at || sortedData[0].created_at || sortedData[0].hour || 0);
-    const last  = new Date(sortedData[sortedData.length - 1].captured_at || sortedData[sortedData.length - 1].recorded_at || sortedData[sortedData.length - 1].created_at || sortedData[sortedData.length - 1].hour || 0);
-    return first.toDateString() !== last.toDateString();
-  })();
+    // 1. Sort data chronologically by timestamp
+    const sorted = [...data].sort((a, b) => {
+      const tA = new Date(a.captured_at || a.recorded_at || a.created_at || a.hour || 0).getTime();
+      const tB = new Date(b.captured_at || b.recorded_at || b.created_at || b.hour || 0).getTime();
+      return tA - tB;
+    });
 
-  const formatted = sortedData.map(d => {
-    const rawTime = d.captured_at || d.recorded_at || d.created_at || d.hour;
-    const dt = rawTime ? new Date(rawTime) : new Date();
-    const levelVal = parseFloat(d.water_level_m ?? d.avg_level_m ?? 0);
+    // 2. Check if data spans multiple days
+    const first = new Date(sorted[0].captured_at || sorted[0].recorded_at || sorted[0].created_at || sorted[0].hour || 0);
+    const last  = new Date(sorted[sorted.length - 1].captured_at || sorted[sorted.length - 1].recorded_at || sorted[sorted.length - 1].created_at || sorted[sorted.length - 1].hour || 0);
+    const multiDay = first.toDateString() !== last.toDateString();
+
+    const fmt = sorted.map(d => {
+      const rawTime = d.captured_at || d.recorded_at || d.created_at || d.hour;
+      const dt = rawTime ? new Date(rawTime) : new Date();
+      const levelVal = parseFloat(d.water_level_m ?? d.avg_level_m ?? 0);
+      return {
+        timestamp: dt.getTime(),
+        timeLabel: multiDay ? format(dt, 'MMM dd HH:mm') : format(dt, 'HH:mm'),
+        fullDateTime: format(dt, 'yyyy-MM-dd HH:mm:ss'),
+        level: Math.max(0, levelVal),
+        status: d.flood_level || d.status || 'NORMAL',
+      };
+    });
+
+    const levels = fmt.map(d => d.level);
+    const minVal = levels.length ? Math.min(...levels) : 0;
+    const maxVal = levels.length ? Math.max(...levels) : 3;
+    const computedMin = Math.max(0, Math.floor(minVal - 0.2));
+    const computedMax = Math.max(6.5, Math.ceil(maxVal + 0.5));
+
     return {
-      timestamp: dt.getTime(),
-      timeLabel: isMultiDay ? format(dt, 'MMM dd HH:mm') : format(dt, 'HH:mm'),
-      fullDateTime: format(dt, 'yyyy-MM-dd HH:mm:ss'),
-      level: Math.max(0, levelVal),
-      status: d.flood_level || d.status || 'NORMAL',
+      formatted: fmt,
+      isMultiDay: multiDay,
+      yMin: computedMin,
+      yMax: computedMax,
     };
-  });
-
-  // 3. Dynamic Y-Axis Domain calculation so water level line fills the chart height
-  const levels = formatted.map(d => d.level);
-  const minVal = levels.length ? Math.min(...levels) : 0;
-  const maxVal = levels.length ? Math.max(...levels) : 3;
-
-  const yMin = Math.max(0, Math.floor(minVal - 0.2));
-  const yMax = Math.max(6.5, Math.ceil(maxVal + 0.5));
+  }, [data]);
 
   const strokeColor = LEVEL_COLORS[floodLevel] || '#2563EB';
 
