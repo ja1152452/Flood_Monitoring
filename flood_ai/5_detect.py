@@ -22,11 +22,12 @@ PX_PER_METER     = CAL["px_per_meter"]
 
 # Colored marker ranges for dry staff gauge bands (ONLY vivid colored bands — white removed to avoid water reflection glare!)
 MARKER_RANGES = {
-  "purple":   ([115, 30,  30],  [160, 255, 255]),
-  "red_low":  ([0,   40,  40],  [15,  255, 255]),
-  "red_high": ([155, 40,  40],  [180, 255, 255]),
-  "orange":   ([10,  35,  35],  [28,  255, 255]),
-  "yellow":   ([14,  35,  35],  [40,  255, 255]),
+  "purple":     ([115, 30,  30],  [160, 255, 255]),
+  "red_low":    ([0,   40,  40],  [15,  255, 255]),
+  "red_high":   ([155, 40,  40],  [180, 255, 255]),
+  "orange":     ([10,  35,  35],  [28,  255, 255]),
+  "yellow":     ([14,  35,  35],  [40,  255, 255]),
+  "white_band": ([85,  10, 120],  [140, 75,  240]),
 }
 
 # Brown floodwater color range (muddy river water during rising flood)
@@ -113,39 +114,46 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
     waterline_y = None
     ai_confidence = 0.88
 
+    # --- 0. MANUAL OVERRIDE (If locked in Web Calibrator) ---
+    manual_y = _cal.get("manual_waterline_y")
+    if manual_y is not None and int(manual_y) > 0:
+        waterline_y = int(manual_y)
+        ai_confidence = 0.98
+
     # --- 1. PRIMARY AI ENGINE (YOLOv12) ---
-    ai_model = get_yolo_model()
-    if ai_model is not None:
-        try:
-            results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.35)
-            if results and len(results[0].boxes) > 0:
-                boxes = results[0].boxes
-                for box in boxes:
-                    cls_id = int(box.cls[0])
-                    conf_val = float(box.conf[0])
-                    # Class 0: water_surface (Top edge of water box = actual waterline)
-                    if cls_id == 0 and conf_val >= 0.35:
-                        top_y = int(box.xyxy[0][1])
-                        pred_y = roi_top + top_y
-                        if pred_y < int(h * 0.95):  # Valid waterline inside ROI
-                            waterline_y = pred_y
-                            ai_confidence = conf_val
-                            break
-        except Exception as err:
-            print(f"[AI Predict Warning] {err}")
+    if waterline_y is None:
+        ai_model = get_yolo_model()
+        if ai_model is not None:
+            try:
+                results = ai_model.predict(source=bgr_roi, verbose=False, conf=0.35)
+                if results and len(results[0].boxes) > 0:
+                    boxes = results[0].boxes
+                    for box in boxes:
+                        cls_id = int(box.cls[0])
+                        conf_val = float(box.conf[0])
+                        # Class 0: water_surface (Top edge of water box = actual waterline)
+                        if cls_id == 0 and conf_val >= 0.35:
+                            top_y = int(box.xyxy[0][1])
+                            pred_y = roi_top + top_y
+                            if pred_y < int(h * 0.95):  # Valid waterline inside ROI
+                                waterline_y = pred_y
+                                ai_confidence = conf_val
+                                break
+            except Exception as err:
+                print(f"[AI Predict Warning] {err}")
 
     # --- 2. SECONDARY REAL-TIME SATURATION & COLOR DETECTOR ---
     if waterline_y is None:
         hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
 
-        # Mask for vivid staff gauge painted colors (Yellow, Orange, Red, Purple)
+        # Mask for vivid staff gauge painted colors + white bottom band
         gauge_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
         for name, (lower, upper) in MARKER_RANGES.items():
             gauge_mask = cv2.bitwise_or(gauge_mask,
                 cv2.inRange(hsv_roi, np.array(lower), np.array(upper)))
 
-        # Remove extreme sunlight white glare (V > 240, S < 30)
-        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 235]), np.array([180, 45, 255]))
+        # Remove extreme sunlight white glare (V > 245, S < 25)
+        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 245]), np.array([180, 25, 255]))
         gauge_mask = cv2.bitwise_and(gauge_mask, cv2.bitwise_not(glare_mask))
 
         kernel = np.ones((5, 5), np.uint8)
@@ -171,61 +179,6 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
                     break
             waterline_y = roi_top + sat_y
             ai_confidence = 0.85
-
-    # --- 3. FALLBACK ANCHOR IF CAMERA IS BLOCKED OR SMUDGED ---
-    if waterline_y is None:
-        manual_y = _cal.get("manual_waterline_y")
-        if manual_y is not None:
-            waterline_y = int(manual_y)
-            ai_confidence = 0.95
-
-    # --- 2. FALLBACK: SHADOW-PROOF BOTTOM-UP SATURATION & COLOR DETECTOR ---
-    if waterline_y is None:
-        hsv_roi = cv2.cvtColor(bgr_roi, cv2.COLOR_BGR2HSV)
-
-        combined_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
-        for name, (lower, upper) in MARKER_RANGES.items():
-            combined_mask = cv2.bitwise_or(combined_mask,
-                cv2.inRange(hsv_roi, np.array(lower), np.array(upper)))
-
-        # Remove extreme glare
-        glare_mask = cv2.inRange(hsv_roi, np.array([0, 0, 240]), np.array([180, 30, 255]))
-        combined_mask = cv2.bitwise_and(combined_mask, cv2.bitwise_not(glare_mask))
-
-        kernel = np.ones((5, 5), np.uint8)
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN,  kernel)
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
-
-        row_counts = np.sum(combined_mask > 0, axis=1)
-        min_band_px = max(5, int(roi_w * 0.18))
-        valid_rows = np.where(row_counts >= min_band_px)[0]
-
-        # Detect water surface edge using calibrated water HSV range
-        w_range = _cal.get("water_hsv_range", {})
-        w_lower = np.array(w_range.get("lower", [0, 10, 33]))
-        w_upper = np.array(w_range.get("upper", [176, 255, 255]))
-        water_mask = cv2.inRange(hsv_roi, w_lower, w_upper)
-        row_water = np.sum(water_mask > 0, axis=1)
-        water_rows = np.where(row_water > (roi_w * 0.25))[0]
-
-        # Transparent Water / Sunlight Glare Strategy:
-        # If water is transparent or glaring, prioritize bottom-up gauge board marker submersion scanning!
-        if len(valid_rows) > 0:
-            # Bottom-Up Scanning: The bottom edge of the lowest visible dry marker = exact waterline
-            waterline_y = roi_top + int(valid_rows[-1])
-        elif len(water_rows) > 0:
-            top_water_y = roi_top + int(water_rows[0])
-            waterline_y = top_water_y
-        else:
-            # Saturation transition: find where painted board (S>45) turns to water/glare
-            sat = hsv_roi[:, :, 1]
-            row_sat = np.mean(sat, axis=1)
-            sat_y = 0
-            for y in range(len(row_sat) - 1, -1, -1):
-                if row_sat[y] > 45:
-                    sat_y = y
-                    break
-            waterline_y = roi_top + sat_y
 
     if waterline_y is None:
         return {"success": False, "reason": "No staff gauge or water surface detected"}
