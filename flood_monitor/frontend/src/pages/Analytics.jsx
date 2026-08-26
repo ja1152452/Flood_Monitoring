@@ -8,7 +8,7 @@ import { getWeather } from '../api/weather';
 import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
-import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw } from 'lucide-react';
+import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getStoredDrillSessions, deleteDrillSession } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -198,11 +198,25 @@ export default function Analytics() {
     };
   }, [wlFilter]);
 
+  const [tablePage, setTablePage] = useState(1);
+  const ROWS_PER_PAGE = 50;
+
+  useEffect(() => {
+    setTablePage(1);
+  }, [wlFilter]);
+
   const { data: wlHistory = [], isFetching: wlLoading } = useQuery({
     queryKey: ['all-readings', wlParams],
     queryFn:  () => getAllReadings(CAMERA_ID_READINGS, wlParams),
     enabled:  dataSource === 'live',
   });
+
+  const totalTablePages = Math.ceil((wlHistory || []).length / ROWS_PER_PAGE) || 1;
+  const paginatedWlHistory = useMemo(() => {
+    if (!Array.isArray(wlHistory)) return [];
+    const start = (tablePage - 1) * ROWS_PER_PAGE;
+    return wlHistory.slice(start, start + ROWS_PER_PAGE);
+  }, [wlHistory, tablePage]);
 
   const processedWlHistory = useMemo(() => {
     if (!Array.isArray(wlHistory) || wlHistory.length <= 250) return wlHistory;
@@ -784,7 +798,7 @@ export default function Analytics() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto max-h-96">
+              <div className="overflow-x-auto max-h-[32rem]">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
@@ -794,7 +808,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                    {wlHistory.map(r => {
+                    {paginatedWlHistory.map(r => {
                       const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
                       const config = getFloodConfig(r.flood_level || r.status);
                       const statusColor = STATUS_COLORS[r.flood_level || r.status] || '#64748b';
@@ -834,6 +848,32 @@ export default function Analytics() {
               {wlLoading && (
                 <div className="flex items-center justify-center py-10">
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* Table Pagination Bar */}
+              {wlHistory.length > ROWS_PER_PAGE && (
+                <div className="px-5 py-3.5 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2 bg-slate-50 dark:bg-slate-900/50">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    Showing <span className="font-bold text-slate-900 dark:text-white">{(tablePage - 1) * ROWS_PER_PAGE + 1}</span> to <span className="font-bold text-slate-900 dark:text-white">{Math.min(tablePage * ROWS_PER_PAGE, wlHistory.length)}</span> of <span className="font-bold text-blue-600 dark:text-blue-400">{wlHistory.length.toLocaleString()}</span> entries
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                      disabled={tablePage === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <span className="text-xs font-bold px-2 text-slate-700 dark:text-slate-300">
+                      Page {tablePage} of {totalTablePages}
+                    </span>
+                    <button
+                      onClick={() => setTablePage(p => Math.min(totalTablePages, p + 1))}
+                      disabled={tablePage >= totalTablePages}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
