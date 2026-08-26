@@ -709,18 +709,6 @@ export default function Evacuation() {
               : 'bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700'
           }`}
         >
-          {isMapFullScreen && (
-            <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Map Mode</span>
-              <button
-                onClick={toggleFullScreen}
-                className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
-                <Minimize2 size={12} /> Exit (Esc)
-              </button>
-            </div>
-          )}
-
           <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2 shrink-0">
             <div>
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">Evacuation Centers Map — Lumban, Laguna</h3>

@@ -1294,19 +1294,6 @@ export default function RiskMapPage() {
             })}
           </MapContainer>
 
-          {/* Fullscreen Mode Top Status Indicator */}
-          {isFullScreen && (
-            <div className="absolute top-4 left-4 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-2 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Map Mode</span>
-              <button
-                onClick={toggleFullScreen}
-                className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
-                <Minimize2 size={12} /> Exit (Esc)
-              </button>
-            </div>
-          )}
-
           {/* ------------------------------------------------------------- */}
           {/* FLOATING MAP CONTROLS OVERLAY */}
           {/* ------------------------------------------------------------- */}

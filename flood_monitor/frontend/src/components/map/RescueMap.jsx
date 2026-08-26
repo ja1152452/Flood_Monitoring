@@ -258,19 +258,6 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
         isFullScreen ? 'w-screen h-screen rounded-none border-none fixed inset-0 z-[5000] bg-slate-950' : 'rounded-2xl border border-slate-200 dark:border-slate-700'
       }`}
     >
-      {/* Fullscreen Mode Top Status Indicator */}
-      {isFullScreen && (
-        <div className="absolute top-3 left-3 z-[1100] flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-2xl backdrop-blur-md">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-xs font-black uppercase tracking-wider text-slate-100">Fullscreen Rescue Map</span>
-          <button
-            onClick={toggleFullScreen}
-            className="ml-2 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all flex items-center gap-1 shadow-sm active:scale-95">
-            <Minimize2 size={12} /> Exit (Esc)
-          </button>
-        </div>
-      )}
-
       {/* Floating Basemap Switcher & Fullscreen Button */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700/80 backdrop-blur-md flex-wrap">
         {/* Live Rain Radar Toggle */}
