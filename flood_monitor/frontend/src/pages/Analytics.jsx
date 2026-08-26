@@ -196,6 +196,16 @@ export default function Analytics() {
     enabled:  dataSource === 'live',
   });
 
+  const processedWlHistory = useMemo(() => {
+    if (!Array.isArray(wlHistory) || wlHistory.length <= 250) return wlHistory;
+    const step = Math.ceil(wlHistory.length / 200);
+    const sampled = [];
+    for (let i = 0; i < wlHistory.length; i += step) {
+      sampled.push(wlHistory[i]);
+    }
+    return sampled;
+  }, [wlHistory]);
+
   const { data: centers = [] } = useQuery({
     queryKey: ['evacuation-centers'],
     queryFn:  getEvacuationCenters,
@@ -258,6 +268,42 @@ export default function Analytics() {
       : wlFilter.type === 'week' ? wlFilter.week
       : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2,'0')}`;
     const filename = `water-level-history-${label}.pdf`;
+    const url = doc.output('bloburl');
+    setPdfPreview({ url, filename });
+  };
+
+  const buildDrillPdf = () => {
+    if (!selectedDrill) return null;
+    const doc = new jsPDF();
+    doc.setFontSize(16); doc.setTextColor(30, 41, 59);
+    doc.text(`Simulation Drill Evaluation Report — ${selectedDrill.name}`, 14, 16);
+    doc.setFontSize(9); doc.setTextColor(100);
+    doc.text(`Drill Duration: ${selectedDrill.durationSec}s | Peak Level: ${selectedDrill.peakLevelM.toFixed(2)}m (${selectedDrill.peakCategory})`, 14, 23);
+    doc.text(`Started: ${new Date(selectedDrill.startedAt).toLocaleString('en-PH')} | Logged Data Points: ${selectedDrill.pointsCount}`, 14, 28);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
+    autoTable(doc, {
+      startY: 39,
+      head: [['Elapsed (s)', 'Time of Day', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
+      body: (selectedDrill.points || []).map(p => [
+        `+${p.elapsedSec}s`,
+        p.timestamp || '—',
+        p.waterLevelM.toFixed(2),
+        `${p.waterLevelCm} cm`,
+        p.floodLevel,
+        p.phase || '—',
+        `${p.ratePerHour} m/hr`,
+      ]),
+      styles: { fontSize: 8, textColor: [30, 41, 59] },
+      headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
+      columnStyles: { 4: { fontStyle: 'bold' } },
+    });
+    return doc;
+  };
+
+  const handleDrillExport = () => {
+    const doc = buildDrillPdf();
+    if (!doc) return;
+    const filename = `simulation-drill-report-${selectedDrill.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.pdf`;
     const url = doc.output('bloburl');
     setPdfPreview({ url, filename });
   };
@@ -375,7 +421,7 @@ export default function Analytics() {
         </div>
 
         {dataSource === 'simulation' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-slate-500">Drill Session:</span>
             <select
               value={selectedDrillId}
@@ -392,6 +438,13 @@ export default function Analytics() {
               className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
               title="Refresh Drills">
               <RefreshCw size={14} />
+            </button>
+            <button
+              onClick={handleDrillExport}
+              disabled={!selectedDrill}
+              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold transition-all shadow-sm">
+              <FileDown size={13} />
+              Export Drill PDF
             </button>
           </div>
         )}
@@ -637,9 +690,179 @@ export default function Analytics() {
 
           <div>
             <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
-              Water Level & Flood Trends
+              24-Hour Real-Time River Trend
             </h2>
-            <WaterLevelChart data={hourly} title="24-Hour Water Level Trend (Hourly)" />
+            <WaterLevelChart data={hourly} title="24-Hour Water Level Trend (Hourly Sensor Feed)" />
+          </div>
+
+          {/* Water Level History with Filter & PDF Export */}
+          <div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Water Level History & Export Report
+              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                {['month','date','week'].map(t => (
+                  <button key={t}
+                    onClick={() => setWlFilter(f => ({ ...f, type: t }))}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+                      wlFilter.type === t 
+                        ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm' 
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
+                    }`}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+                {wlFilter.type === 'month' && (
+                  <>
+                    <select value={wlFilter.month} onChange={e => setWlFilter(f => ({ ...f, month: +e.target.value }))}
+                      className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                      {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <select value={wlFilter.year} onChange={e => setWlFilter(f => ({ ...f, year: +e.target.value }))}
+                      className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                      {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </>
+                )}
+                {wlFilter.type === 'date' && (
+                  <input type="date" value={wlFilter.date}
+                    onChange={e => setWlFilter(f => ({ ...f, date: e.target.value }))}
+                    className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                )}
+                {wlFilter.type === 'week' && (
+                  <input type="week" value={wlFilter.week}
+                    onChange={e => setWlFilter(f => ({ ...f, week: e.target.value }))}
+                    className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                )}
+                <select value={wlFilter.flood_level} onChange={e => setWlFilter(f => ({ ...f, flood_level: e.target.value }))}
+                  className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                  <option value="">All Levels</option>
+                  <option value="NORMAL">Normal</option>
+                  <option value="MONITOR">Monitor</option>
+                  <option value="ALERT">Alert</option>
+                  <option value="EVACUATION">Evacuation</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+                <button onClick={handleWlExport} disabled={wlLoading}
+                  className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 px-3.5 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <FileDown size={13} />
+                  {wlLoading ? 'Loading...' : 'Export PDF Report'}
+                </button>
+              </div>
+            </div>
+
+            <WaterLevelChart
+              data={processedWlHistory}
+              floodLevel={wlFilter.flood_level}
+              title={`Water Level History — ${wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`}
+            />
+
+            {/* Detailed Water Level Readings Table */}
+            <div className="mt-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Detailed Water Level Readings</h3>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                    {wlHistory.length} total readings recorded · Current weather: {weatherLabel}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-96">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                      {['Date', 'Time', 'Water Level', 'Status', 'Weather'].map(h => (
+                        <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                    {wlHistory.map(r => {
+                      const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
+                      const config = getFloodConfig(r.flood_level || r.status);
+                      const statusColor = STATUS_COLORS[r.flood_level || r.status] || '#64748b';
+                      return (
+                        <tr key={r.id || r.captured_at} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                          <td className="px-5 py-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            {dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </td>
+                          <td className="px-5 py-3 text-xs font-mono font-medium text-slate-600 dark:text-slate-400">
+                            {dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                          <td className="px-5 py-3 text-sm font-black" style={{ color: statusColor }}>
+                            {r.water_level_m != null ? `${parseFloat(r.water_level_m).toFixed(3)} m` : '—'}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                              style={{ backgroundColor: statusColor + '22', color: statusColor }}>
+                              {config.label}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
+                            {weatherLabel}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {wlHistory.length === 0 && !wlLoading && (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 text-sm font-semibold">
+                  <span className="text-3xl">🌊</span>
+                  <p>No water level readings found for this period</p>
+                </div>
+              )}
+              {wlLoading && (
+                <div className="flex items-center justify-center py-10">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* All Evacuee Data */}
+          <div>
+            <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">Evacuee Data (All Centers)</h2>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+              {allFamilies.length === 0 ? (
+                <div className="flex items-center justify-center py-12 text-slate-500 text-sm font-semibold">
+                  <Users size={28} className="mr-2 opacity-30" /> No evacuee records
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-80">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                        {['#','Head of Family','Age','Barangay','Members','Contact','Arrival Date','Center','Notes'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                      {allFamilies.map((f, i) => (
+                        <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                          <td className="px-4 py-3 text-slate-500 text-xs font-medium">{i + 1}</td>
+                          <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{f.head_name}</td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.age || '—'}</td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.barangay || '—'}</td>
+                          <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-bold">{f.members}</td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{f.contact || '—'}</td>
+                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap font-medium">
+                            {f.arrival_date ? new Date(f.arrival_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs font-semibold">{f.center_name || '—'}</td>
+                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[140px] truncate font-medium">{f.notes || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
           {byBarangay.length > 0 && (
@@ -681,6 +904,27 @@ export default function Analytics() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* PDF Preview Modal (Works for both Live River Data Reports & Simulation Drill Reports) */}
+      {pdfPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl w-full max-w-4xl flex flex-col shadow-2xl" style={{ height: '90vh' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <span className="text-sm font-bold text-slate-900 dark:text-white">PDF Preview — {pdfPreview.filename}</span>
+              <div className="flex items-center gap-2">
+                <a href={pdfPreview.url} download={pdfPreview.filename}
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <FileDown size={13} /> Download
+                </a>
+                <button onClick={() => setPdfPreview(null)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <iframe key={pdfPreview.url} src={pdfPreview.url} className="flex-1 w-full rounded-b-2xl" title="PDF Preview" />
+          </div>
         </div>
       )}
     </div>
