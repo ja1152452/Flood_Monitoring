@@ -24,11 +24,11 @@ export default function HomeScreen() {
   const isResponder = RESPONDER_ROLES.includes(user?.role);
 
   const { data: reading, refetch: r1 } = useQuery({
-    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 5000,
+    queryKey: ['latest-reading'], queryFn: getLatestReading, refetchInterval: 2000,
     enabled: !isResponder,
   });
   const { data: alerts = [], refetch: r2 } = useQuery({
-    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 5000,
+    queryKey: ['active-alerts'], queryFn: getActiveAlerts, refetchInterval: 2000,
     enabled: !isResponder,
   });
   const { data: rate } = useQuery({

@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import { 
   Camera, WifiOff, RefreshCw, Radio, Maximize2, Minimize2, 
   Play, Pause, RotateCcw, Sliders, Waves, Activity, 
-  Timer, Clock, CheckCircle2, ArrowRight, Layers, Link2, Edit3, X, Video
+  Timer, Clock, CheckCircle2, ArrowRight, Layers, Link2, Edit3, X, Video, Zap
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
@@ -50,6 +50,7 @@ export function LiveCameraFeed() {
     setMode,
     simWaterLevel,
     setSimWaterLevel,
+    instantJump,
     isSimRising,
     setIsSimRising,
     simRiseSpeed,
@@ -633,12 +634,12 @@ export function LiveCameraFeed() {
               {/* Row 3: Presets */}
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
                 <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
-                  <Sliders size={12} /> Presets:
+                  <Zap size={12} className="text-amber-400" /> Instant Jump:
                 </span>
                 {SIMULATION_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
-                    onClick={() => setSimWaterLevel(preset.meters)}
+                    onClick={() => instantJump(preset.meters)}
                     className={`flex-1 min-w-[100px] px-2.5 py-1.5 rounded-lg text-xs font-black border transition-all active:scale-95 ${preset.bgClass} ${
                       Math.abs(simWaterLevel - preset.meters) < 0.05 ? 'ring-2 ring-white/40 font-black scale-[1.02]' : ''
                     }`}
@@ -798,13 +799,22 @@ export function LiveCameraFeed() {
                     Full Lifecycle (Rise ➔ Peak ➔ Recede back to Start)
                   </label>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => instantJump(scenarioTargetMeters)}
+                      disabled={scenarioIsRunning}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-700 hover:bg-rose-600 text-white border border-rose-500 shadow-md active:scale-95 transition-all disabled:opacity-50"
+                      title="Immediately jump to target level without waiting for the timer">
+                      <Zap size={13} />
+                      JUMP TO TARGET ({scenarioTargetMeters}m)
+                    </button>
+
                     {!scenarioIsRunning ? (
                       <button
                         onClick={startScenario}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400 shadow-md active:scale-95 transition-all">
                         <Play size={13} />
-                        {scenarioPhase === 'completed' ? 'RE-RUN SCENARIO' : 'START SCENARIO'}
+                        {scenarioPhase === 'completed' ? 'RE-RUN TIMER' : 'START TIMER'}
                       </button>
                     ) : (
                       <button

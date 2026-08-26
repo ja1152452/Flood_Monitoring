@@ -3,10 +3,12 @@ import api from '../api/axios';
 import { classifySimulatedLevel } from '../utils/waterSimulationUtils';
 import { startDrillRecording, recordDrillPoint, finishDrillRecording } from '../utils/simulationRecorder';
 
-let syncTimeout = null;
-const syncToBackend = (state) => {
-  if (syncTimeout) clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(async () => {
+let lastSyncTime = 0;
+let pendingSyncTimeout = null;
+
+const syncToBackend = (state, force = false) => {
+  const now = Date.now();
+  const send = async () => {
     try {
       const isSim = state.mode === 'simulation';
       const classification = classifySimulatedLevel(state.simWaterLevel);
@@ -21,10 +23,24 @@ const syncToBackend = (state) => {
         is_rising: isRising,
         rate_per_hour: isRising ? parseFloat((state.simRiseSpeed * 3600).toFixed(2)) : 0.0,
       });
+      lastSyncTime = Date.now();
     } catch {
       // Best effort backend sync
     }
-  }, 100);
+  };
+
+  if (force || now - lastSyncTime >= 400) {
+    if (pendingSyncTimeout) {
+      clearTimeout(pendingSyncTimeout);
+      pendingSyncTimeout = null;
+    }
+    send();
+  } else if (!pendingSyncTimeout) {
+    pendingSyncTimeout = setTimeout(() => {
+      pendingSyncTimeout = null;
+      send();
+    }, 400);
+  }
 };
 
 export const useSimulationStore = create((set, get) => ({
@@ -51,7 +67,7 @@ export const useSimulationStore = create((set, get) => ({
       set({ isSimRising: false, scenarioIsRunning: false, scenarioPhase: 'idle' });
       finishDrillRecording();
     }
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   setSimWaterLevel: (val) => {
@@ -59,7 +75,18 @@ export const useSimulationStore = create((set, get) => ({
       const nextLevel = typeof val === 'function' ? val(s.simWaterLevel) : val;
       return { simWaterLevel: Math.round(nextLevel * 100) / 100 };
     });
-    syncToBackend(get());
+    syncToBackend(get(), false);
+  },
+
+  instantJump: (meters) => {
+    const rounded = Math.round(meters * 100) / 100;
+    set({
+      simWaterLevel: rounded,
+      isSimRising: false,
+      scenarioIsRunning: false,
+      scenarioPhase: 'completed',
+    });
+    syncToBackend(get(), true);
   },
 
   setIsSimRising: (isRising) => {
@@ -69,12 +96,12 @@ export const useSimulationStore = create((set, get) => ({
     } else {
       finishDrillRecording();
     }
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   setSimRiseSpeed: (speed) => {
     set({ simRiseSpeed: speed });
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   resetSimulation: () => {
@@ -87,7 +114,7 @@ export const useSimulationStore = create((set, get) => ({
       scenarioPhase: 'idle',
       lastRecordedSec: -1,
     });
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   // Scenario Actions
@@ -110,7 +137,7 @@ export const useSimulationStore = create((set, get) => ({
       simWaterLevel: preset.startM,
       lastRecordedSec: -1,
     });
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   startScenario: () => {
@@ -147,12 +174,12 @@ export const useSimulationStore = create((set, get) => ({
     } else {
       set({ scenarioIsRunning: true });
     }
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   pauseScenario: () => {
     set({ scenarioIsRunning: false });
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   resetScenario: () => {
@@ -165,7 +192,7 @@ export const useSimulationStore = create((set, get) => ({
       simWaterLevel: s.scenarioStartMeters,
       lastRecordedSec: -1,
     });
-    syncToBackend(get());
+    syncToBackend(get(), true);
   },
 
   tickScenario: (deltaSec) => {
@@ -248,6 +275,6 @@ export const useSimulationStore = create((set, get) => ({
       scenarioIsRunning: !isDone,
     });
 
-    syncToBackend(get());
+    syncToBackend(get(), false);
   },
 }));
