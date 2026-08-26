@@ -48,8 +48,7 @@ router.get('/responder-locations', authenticate, asyncHandler(async (req, res) =
      WHERE role::text = ANY($1::text[]) 
        AND is_active = TRUE
        AND last_lat IS NOT NULL 
-       AND last_lng IS NOT NULL
-       AND (last_location_at IS NULL OR last_location_at >= NOW() - INTERVAL '12 hours')`;
+       AND last_lng IS NOT NULL`;
   const params = [RESPONDER_ROLES];
 
   if (role) {
