@@ -26,6 +26,37 @@ import lumbanRoads from '../data/Road/Lumban Roads.geojson';
 const LUMBAN_CENTER = [14.291969, 121.460112];
 const DEFAULT_ZOOM = 13;
 
+// -------------------------------------------------------------
+// CONFIGURATIONS
+// -------------------------------------------------------------
+
+export const RISK_CONFIG = {
+  VERY_HIGH: {
+    color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib',
+    icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.',
+    bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',
+    text: 'text-red-800 dark:text-red-300',
+  },
+  HIGH: {
+    color: '#c2410c', fill: '#f97316', label: 'High Risk', tagalog: 'Mataas na Panganib',
+    icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',
+    bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800',
+    text: 'text-orange-800 dark:text-orange-300',
+  },
+  MODERATE: {
+    color: '#a16207', fill: '#eab308', label: 'Moderate Risk', tagalog: 'Katamtamang Panganib',
+    icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',
+    bg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800',
+    text: 'text-amber-800 dark:text-yellow-300',
+  },
+  LOW: {
+    color: '#15803d', fill: '#22c55e', label: 'Low Risk', tagalog: 'Mababang Panganib',
+    icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',
+    bg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800',
+    text: 'text-emerald-800 dark:text-green-300',
+  },
+};
+
 const createBarangayBeaconIcon = (area) => {
   const cfg = area ? (RISK_CONFIG[area.risk_level] || RISK_CONFIG.MODERATE) : RISK_CONFIG.MODERATE;
   const isHigh = area?.risk_level === 'VERY_HIGH' || area?.risk_level === 'HIGH';
@@ -56,37 +87,6 @@ const createBarangayBeaconIcon = (area) => {
     iconSize: [26, 26],
     iconAnchor: [13, 13],
   });
-};
-
-// -------------------------------------------------------------
-// CONFIGURATIONS
-// -------------------------------------------------------------
-
-export const RISK_CONFIG = {
-  VERY_HIGH: {
-    color: '#b91c1c', fill: '#ef4444', label: 'Very High Risk', tagalog: 'Napakataas na Panganib',
-    icon: '🔴', desc: 'Mataas na tsansa ng pagbaha. Maaring kailangang mag-evacuate.',
-    bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800',
-    text: 'text-red-800 dark:text-red-300',
-  },
-  HIGH: {
-    color: '#c2410c', fill: '#f97316', label: 'High Risk', tagalog: 'Mataas na Panganib',
-    icon: '🟠', desc: 'Prone sa pagbaha lalo na tuwing malakas ang ulan.',
-    bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800',
-    text: 'text-orange-800 dark:text-orange-300',
-  },
-  MODERATE: {
-    color: '#a16207', fill: '#eab308', label: 'Moderate Risk', tagalog: 'Katamtamang Panganib',
-    icon: '🟡', desc: 'May posibilidad ng pagbaha sa ilang lugar.',
-    bg: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800',
-    text: 'text-amber-800 dark:text-yellow-300',
-  },
-  LOW: {
-    color: '#15803d', fill: '#22c55e', label: 'Low Risk', tagalog: 'Mababang Panganib',
-    icon: '🟢', desc: 'Mababang panganib ng pagbaha sa lugar na ito.',
-    bg: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800',
-    text: 'text-emerald-800 dark:text-green-300',
-  },
 };
 
 export const FLOOD_HAZARD_CONFIG = {
@@ -327,6 +327,8 @@ export default function RiskMapPage() {
   const [basemap, setBasemap] = useState('dark');
 
   // DOM Ref for Map Container (Only the map element enters fullscreen)
+  const mapContainerRef = useRef(null);
+
   const toggleFullScreen = () => {
     const el = mapContainerRef.current;
     if (!el) return;

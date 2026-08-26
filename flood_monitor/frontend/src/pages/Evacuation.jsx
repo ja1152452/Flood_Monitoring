@@ -137,6 +137,7 @@ export default function Evacuation() {
   const [filterAgeMax, setFilterAgeMax] = useState('');
   const [mapBasemap, setMapBasemap] = useState('streets');
   const [isMapFullScreen, setIsMapFullScreen] = useState(false);
+  const mapContainerRef = useRef(null);
 
   const toggleFullScreen = () => {
     const el = mapContainerRef.current;
