@@ -929,6 +929,13 @@ export default function RiskMapPage() {
           <MapContainer
             center={LUMBAN_CENTER}
             zoom={DEFAULT_ZOOM}
+            minZoom={11}
+            maxZoom={19}
+            maxBounds={[
+              [14.12, 121.20],
+              [14.48, 121.72]
+            ]}
+            maxBoundsViscosity={0.75}
             style={{ height: '100%', width: '100%', background: '#09101d' }}
           >
             {/* Map Controller for programmatic movement & Fullscreen auto-resize */}
