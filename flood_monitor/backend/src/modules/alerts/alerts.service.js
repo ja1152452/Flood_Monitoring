@@ -2,7 +2,7 @@ import { query, withTransaction } from '../../config/db.js';
 import { writeAuditLog } from '../../middleware/audit.js';
 import { sendPushNotification } from '../../services/firebase.js';
 import { getIO } from '../../config/socket.js';
-import { isSimulationActive, getSimulationState } from '../../services/simulation.service.js';
+import { isSimulationActive, getSimulationState, setSimulationState } from '../../services/simulation.service.js';
 
 const SIREN_LEVELS = new Set(['MONITOR', 'ALERT', 'EVACUATION', 'CRITICAL']);
 const SMS_LEVELS = new Set(['EVACUATION', 'CRITICAL']);
@@ -305,6 +305,19 @@ export const getHistory = async (params) => {
 };
 
 export const toggleSiren = async (alertId, sirenActive) => {
+  if (typeof alertId === 'string' && alertId.startsWith('sim_alert_')) {
+    const io = getIO();
+    const updated = {
+      id: alertId,
+      siren_active: sirenActive,
+      is_active: true,
+      is_simulated: true,
+      updated_at: new Date().toISOString(),
+    };
+    if (io) io.emit('alert:updated', updated);
+    return updated;
+  }
+
   const { rows } = await query(
     `UPDATE flood_alerts
      SET siren_active = $2
@@ -369,6 +382,41 @@ export const triggerManualSiren = async (userId) => {
 };
 
 export const resolveAlert = async (alertId, userId, notes) => {
+  if (typeof alertId === 'string' && alertId.startsWith('sim_alert_')) {
+    // Reset simulation flood level to NORMAL
+    setSimulationState({
+      flood_level: 'NORMAL',
+      water_level_m: 2.00,
+      is_rising: false,
+      rate_per_hour: 0.0,
+    });
+
+    const resolved = {
+      id: alertId,
+      is_active: false,
+      siren_active: false,
+      is_simulated: true,
+      resolved_at: new Date().toISOString(),
+      resolved_by: userId,
+      notes: notes || 'Simulation alert resolved manually',
+    };
+
+    const io = getIO();
+    if (io) io.emit('alert:updated', resolved);
+
+    try {
+      await writeAuditLog({
+        action: 'SIMULATION_ALERT_RESOLVED',
+        entityType: 'flood_alerts',
+        entityId: alertId,
+        user_id: userId,
+        after: { level: 'NORMAL', notes },
+      });
+    } catch (_) {}
+
+    return resolved;
+  }
+
   const { rows } = await query(
     `UPDATE flood_alerts
      SET is_active = FALSE, resolved_at = NOW(),
