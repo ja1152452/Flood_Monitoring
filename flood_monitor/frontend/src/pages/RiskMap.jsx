@@ -169,6 +169,7 @@ export const BASEMAPS = {
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     labelsUrl: null,
     attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxNativeZoom: 19,
   },
   streets: {
     id: 'streets',
@@ -177,6 +178,7 @@ export const BASEMAPS = {
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     labelsUrl: null,
     attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxNativeZoom: 19,
   },
   satellite: {
     id: 'satellite',
@@ -185,6 +187,7 @@ export const BASEMAPS = {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     labelsUrl: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
     attribution: '&copy; Esri &copy; OpenStreetMap',
+    maxNativeZoom: 19,
   },
   topo: {
     id: 'topo',
@@ -193,6 +196,7 @@ export const BASEMAPS = {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     labelsUrl: null,
     attribution: '&copy; OpenTopoMap &copy; OpenStreetMap',
+    maxNativeZoom: 17,
   },
 };
 
@@ -932,9 +936,11 @@ export default function RiskMapPage() {
 
             {/* Active Base Tile Layer */}
             <TileLayer
+              key={basemap}
               url={BASEMAPS[basemap].url}
               attribution={BASEMAPS[basemap].attribution}
               maxZoom={19}
+              maxNativeZoom={BASEMAPS[basemap].maxNativeZoom || 19}
             />
 
             {/* 1. LUMBAN MUNICIPAL OUTER BORDER OVERLAY */}
