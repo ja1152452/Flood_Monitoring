@@ -929,6 +929,9 @@ export default function RiskMapPage() {
           <MapContainer
             center={LUMBAN_CENTER}
             zoom={DEFAULT_ZOOM}
+            minZoom={6}
+            maxZoom={19}
+            scrollWheelZoom={true}
             style={{ height: '100%', width: '100%', background: '#09101d' }}
           >
             {/* Map Controller for programmatic movement & Fullscreen auto-resize */}
