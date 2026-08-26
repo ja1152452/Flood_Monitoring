@@ -109,6 +109,11 @@ function createResponderIcon(role, name, isOnline) {
   });
 }
 
+function responderIcon(role, status, name) {
+  const isOnline = status !== 'OFF_DUTY';
+  return createResponderIcon(role, name, isOnline);
+}
+
 function createSOSIcon(status) {
   let color = '#ef4444'; // default red
   if (status === 'DISPATCHED') color = '#f59e0b'; // amber
@@ -142,6 +147,8 @@ function createSOSIcon(status) {
     iconAnchor: [24, 24],
   });
 }
+
+const getSosIcon = createSOSIcon;
 
 const CAMERA_ICON = L.divIcon({
   html: `<div style="
