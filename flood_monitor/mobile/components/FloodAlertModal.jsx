@@ -52,12 +52,19 @@ const formatDateTime = (dateStr) => {
 
 export function FloodAlertModal({ visible, level, alertData, centers = [], onDismiss }) {
   const cfg = LEVEL_CONFIG[level] || LEVEL_CONFIG.MONITOR;
+  const isManual = alertData?.trigger_type === 'MANUAL';
 
-  const predictiveText = alertData?.predictive_text || (
-    level === 'CRITICAL'
-      ? 'CRITICAL DANGER: Water level has reached Critical Level. Extreme hazard!'
-      : `Water level has reached ${cfg.label}. Please stay tuned for live monitoring updates.`
-  );
+  const displayTitle = isManual
+    ? '🚨 MDRRMO MANUAL EMERGENCY ALARM TRIGGERED'
+    : cfg.title;
+
+  const predictiveText = isManual
+    ? 'AN EMERGENCY SIREN ALARM HAS BEEN MANUALLY TRIGGERED BY MDRRMO. ALL CITIZENS AND RESPONDERS PLEASE PROCEED TO DESIGNATED HIGH GROUND OR EVACUATION CENTERS IMMEDIATELY.'
+    : (alertData?.predictive_text || (
+        level === 'CRITICAL'
+          ? 'CRITICAL DANGER: Water level has reached Critical Level. Extreme hazard!'
+          : `Water level has reached ${cfg.label}. Please stay tuned for live monitoring updates.`
+      ));
 
   useEffect(() => {
     if (visible) {
@@ -90,7 +97,7 @@ export function FloodAlertModal({ visible, level, alertData, centers = [], onDis
           </View>
 
           <Text style={[styles.title, { color: cfg.color }]}>
-            {cfg.title}
+            {displayTitle}
           </Text>
 
           <View style={styles.predictiveBox}>

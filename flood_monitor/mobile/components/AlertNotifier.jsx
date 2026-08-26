@@ -36,7 +36,8 @@ export function AlertNotifier() {
     }
 
     const alert = alerts[0];
-    const alertKey = `${alert.id}_${alert.flood_level}`;
+    const isManual = alert.trigger_type === 'MANUAL';
+    const alertKey = `${alert.id}_${alert.flood_level}_${alert.triggered_at || ''}`;
 
     // If this specific alert + level combination hasn't been dismissed by the user in this session, show popup
     if (!dismissedKeysRef.current.has(alertKey)) {
@@ -60,17 +61,21 @@ export function AlertNotifier() {
       if (!notifiedKeysRef.current.has(alertKey)) {
         notifiedKeysRef.current.add(alertKey);
         const cfg = LEVEL_CONFIG[alert.flood_level] || LEVEL_CONFIG.MONITOR;
-        sendLocalNotification(
-          cfg.title,
-          `${cfg.action}\n\nWater level is at ${cfg.label}.`
-        );
+        const notifTitle = isManual
+          ? '🚨 MDRRMO MANUAL EMERGENCY ALARM TRIGGERED'
+          : cfg.title;
+        const notifBody = isManual
+          ? 'EMERGENCY: A manual siren alarm has been triggered by MDRRMO! Please evacuate or proceed to safe ground immediately.'
+          : `${cfg.action}\n\nWater level is at ${cfg.label}.`;
+
+        sendLocalNotification(notifTitle, notifBody);
       }
     }
   }, [alerts]);
 
   const handleDismiss = () => {
     if (currentAlert) {
-      const alertKey = `${currentAlert.id}_${currentAlert.flood_level}`;
+      const alertKey = `${currentAlert.id}_${currentAlert.flood_level}_${currentAlert.triggered_at || ''}`;
       dismissedKeysRef.current.add(alertKey);
     }
     setCurrentAlert(null);

@@ -204,9 +204,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Siren Alert Banner: triggers automatically for active live alerts OR in simulation mode when reaching warning/critical thresholds */}
-      {((activeAlert && !isSimulation) || (isSimulation && shouldSiren(level))) && (
-        <SirenAlert level={isSimulation ? level : activeAlert.flood_level} isSimulated={isSimulation} />
+      {/* Siren Alert Banner: triggers automatically for active live/manual alerts OR in simulation mode when reaching warning/critical thresholds */}
+      {(activeAlert || (isSimulation && shouldSiren(level))) && (
+        <SirenAlert level={activeAlert ? activeAlert.flood_level : level} isSimulated={!activeAlert && isSimulation} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
