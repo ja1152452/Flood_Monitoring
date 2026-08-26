@@ -1106,7 +1106,7 @@ export default function RiskMapPage() {
 
             {/* Labels Base Tile Layer (Overlay on top of polygons) */}
             {BASEMAPS[basemap].labelsUrl && (
-              <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
+              <TileLayer key={`labels-${basemap}`} url={BASEMAPS[basemap].labelsUrl} maxZoom={19} maxNativeZoom={19} />
             )}
 
             {/* 5. LIVE METEOROLOGICAL RAIN RADAR (RainViewer API) */}
