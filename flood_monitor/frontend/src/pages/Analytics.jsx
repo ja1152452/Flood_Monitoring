@@ -169,8 +169,14 @@ export default function Analytics() {
   });
 
   const wlParams = useMemo(() => {
+    if (wlFilter.type === 'all') {
+      return {
+        limit: 50000,
+        flood_level: wlFilter.flood_level || undefined,
+      };
+    }
     if (wlFilter.type === 'date') {
-      return { date: wlFilter.date, limit: 5000 };
+      return { date: wlFilter.date, limit: 5000, flood_level: wlFilter.flood_level || undefined };
     }
     if (wlFilter.type === 'week') {
       const { start, end } = getWeekRange(wlFilter.week);
@@ -178,6 +184,7 @@ export default function Analytics() {
         from:  `${start.toISOString().slice(0,10)}T00:00:00+08:00`,
         to:    `${end.toISOString().slice(0,10)}T23:59:59+08:00`,
         limit: 5000,
+        flood_level: wlFilter.flood_level || undefined,
       };
     }
     const y = wlFilter.year;
@@ -187,6 +194,7 @@ export default function Analytics() {
       from:  `${y}-${m}-01T00:00:00+08:00`,
       to:    `${y}-${m}-${String(lastDay).padStart(2,'0')}T23:59:59+08:00`,
       limit: 5000,
+      flood_level: wlFilter.flood_level || undefined,
     };
   }, [wlFilter]);
 
@@ -236,7 +244,8 @@ export default function Analytics() {
     doc.setFontSize(16); doc.setTextColor(30, 41, 59);
     doc.text('Water Level History & Flood Monitoring Report', 14, 16);
     doc.setFontSize(9); doc.setTextColor(100);
-    const label = wlFilter.type === 'date' ? wlFilter.date
+    const label = wlFilter.type === 'all' ? 'All-Time Historical Database Records'
+      : wlFilter.type === 'date' ? wlFilter.date
       : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
       : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
     doc.text(`Period: ${label}`, 14, 23);
@@ -245,7 +254,7 @@ export default function Analytics() {
     autoTable(doc, {
       startY: 39,
       head: [['Date', 'Time', 'Water Level (m)', 'Status', 'Weather']],
-      body: rows.map(r => {
+      body: rows.slice(0, 3000).map(r => {
         const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
         return [
           dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -264,7 +273,8 @@ export default function Analytics() {
 
   const handleWlExport = () => {
     const doc = buildWlPdf();
-    const label = wlFilter.type === 'date' ? wlFilter.date
+    const label = wlFilter.type === 'all' ? 'all-time'
+      : wlFilter.type === 'date' ? wlFilter.date
       : wlFilter.type === 'week' ? wlFilter.week
       : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2,'0')}`;
     const filename = `water-level-history-${label}.pdf`;
@@ -702,15 +712,20 @@ export default function Analytics() {
                 Water Level History & Export Report
               </h2>
               <div className="flex items-center gap-2 flex-wrap">
-                {['month','date','week'].map(t => (
-                  <button key={t}
-                    onClick={() => setWlFilter(f => ({ ...f, type: t }))}
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: 'month', label: 'Month' },
+                  { id: 'date', label: 'Date' },
+                  { id: 'week', label: 'Week' },
+                ].map(t => (
+                  <button key={t.id}
+                    onClick={() => setWlFilter(f => ({ ...f, type: t.id }))}
                     className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                      wlFilter.type === t 
+                      wlFilter.type === t.id 
                         ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm' 
                         : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
                     }`}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                    {t.label}
                   </button>
                 ))}
                 {wlFilter.type === 'month' && (
@@ -755,7 +770,7 @@ export default function Analytics() {
             <WaterLevelChart
               data={processedWlHistory}
               floodLevel={wlFilter.flood_level}
-              title={`Water Level History — ${wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`}
+              title={`Water Level History — ${wlFilter.type === 'all' ? 'All-Time Historical Records' : wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`}
             />
 
             {/* Detailed Water Level Readings Table */}
