@@ -1116,6 +1116,8 @@ export default function RiskMapPage() {
                 url={radarTileUrl}
                 opacity={radarOpacity}
                 zIndex={450}
+                maxZoom={19}
+                maxNativeZoom={18}
               />
             )}
 
