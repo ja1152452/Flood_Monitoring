@@ -2,6 +2,7 @@ import { query, withTransaction } from '../../config/db.js';
 import { writeAuditLog } from '../../middleware/audit.js';
 import { sendPushNotification } from '../../services/firebase.js';
 import { getIO } from '../../config/socket.js';
+import { isSimulationActive, getSimulationState } from '../../services/simulation.service.js';
 
 const SIREN_LEVELS = new Set(['MONITOR', 'ALERT', 'EVACUATION', 'CRITICAL']);
 const SMS_LEVELS = new Set(['EVACUATION', 'CRITICAL']);
@@ -206,6 +207,39 @@ export const evaluateAndDispatch = async (reading, client) => {
 };
 
 export const getActive = async () => {
+  if (isSimulationActive()) {
+    const sim = getSimulationState();
+    const level = sim.flood_level || 'NORMAL';
+    if (level !== 'NORMAL') {
+      const isSiren = SIREN_LEVELS.has(level);
+      const waterM = parseFloat(sim.water_level_m || 2.0).toFixed(2);
+      const ratePerHour = sim.rate_per_hour || (sim.is_rising ? 0.45 : 0.0);
+
+      const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
+      const predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
+
+      return [{
+        id: `sim_alert_${level.toLowerCase()}`,
+        camera_id: 'sim-camera',
+        location_name: 'Lumban River Bridge (Simulation)',
+        lat: 14.2985,
+        lng: 121.4589,
+        barangay_name: 'Primera Parang',
+        risk_level: level === 'CRITICAL' || level === 'EVACUATION' ? 'HIGH' : 'MODERATE',
+        current_water_level_m: waterM,
+        flood_level: level,
+        siren_active: isSiren,
+        is_active: true,
+        is_simulated: true,
+        triggered_at: sim.updated_at || new Date().toISOString(),
+        rate_per_hour: ratePerHour,
+        rise_start_at: sim.updated_at || new Date().toISOString(),
+        ...predictive,
+      }];
+    }
+    return [];
+  }
+
   const { rows } = await query(
     `SELECT a.*, c.location_name, c.lat, c.lng,
             b.name AS barangay_name, b.risk_level,

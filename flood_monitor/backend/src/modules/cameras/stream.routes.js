@@ -8,6 +8,9 @@ import { writeAuditLog } from '../../middleware/audit.js';
 import { getStreamStatus, startHLS, stopHLS } from '../../services/stream/hls.service.js';
 import { getSimulationState, setSimulationState, resetSimulationState } from '../../services/simulation.service.js';
 import { fileURLToPath } from 'url';
+import { getIO }         from '../../config/socket.js';
+import { query }         from '../../config/db.js';
+import { sendPushNotification } from '../../services/firebase.js';
 
 const getHlsDir = () => {
   const envDir = process.env.HLS_OUTPUT_DIR;
@@ -71,12 +74,79 @@ router.post('/simulation', asyncHandler(async (req, res) => {
     });
   }
 
+  // Emit Real-time Socket & Push notification events when simulation flood level changes
+  if (updated.active && previousState.flood_level !== updated.flood_level) {
+    try {
+      const io = getIO();
+      if (io) {
+        if (updated.flood_level !== 'NORMAL') {
+          io.emit('alert:created', {
+            id: `sim_alert_${updated.flood_level.toLowerCase()}`,
+            camera_id: 'sim-camera',
+            flood_level: updated.flood_level,
+            siren_active: ['MONITOR', 'ALERT', 'EVACUATION', 'CRITICAL'].includes(updated.flood_level),
+            is_active: true,
+            is_simulated: true,
+            triggered_at: updated.updated_at,
+          });
+        } else {
+          io.emit('alert:updated', {
+            id: `sim_alert_${previousState.flood_level?.toLowerCase() || 'resolved'}`,
+            is_active: false,
+            is_simulated: true,
+            resolved_at: updated.updated_at,
+          });
+        }
+      }
+    } catch (_) {}
+
+    // Dispatch FCM Push Notification to registered mobile devices
+    if (updated.flood_level && updated.flood_level !== 'NORMAL') {
+      try {
+        const LEVEL_META = {
+          MONITOR:    { title: '📢 [SIMULATION] MDRRMO ADVISORY: Monitor Level Reached', action: 'Please stay alert, secure essential belongings, and monitor official MDRRMO announcements.' },
+          ALERT:      { title: '⚠️ [SIMULATION] MDRRMO WARNING: Alert Level Reached', action: 'Please prepare emergency kits, secure family members, and be ready to evacuate if instructed.' },
+          EVACUATION: { title: '🚨 [SIMULATION] MDRRMO EMERGENCY: Mandatory Evacuation Level', action: 'MANDATORY EVACUATION: Please evacuate immediately to your designated evacuation center.' },
+          CRITICAL:   { title: '🆘 [SIMULATION] MDRRMO CRITICAL DANGER: Critical Flood Level', action: 'CRITICAL DANGER: Evacuate NOW to high ground or designated centers! Call SOS if trapped.' },
+        };
+        const meta = LEVEL_META[updated.flood_level];
+        if (meta) {
+          const { rows: recipients } = await query(
+            `SELECT id, role, fcm_token FROM users WHERE is_active = TRUE AND fcm_token IS NOT NULL`
+          );
+          const pushBody = `Water level has reached ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m (${updated.flood_level}). ${meta.action}`;
+          for (const user of recipients) {
+            try {
+              await sendPushNotification(user.fcm_token, meta.title, pushBody);
+            } catch (_) {}
+          }
+        }
+      } catch (pushErr) {
+        console.warn('[Simulation Push Notification Error]:', pushErr.message);
+      }
+    }
+  }
+
   res.json({ success: true, data: updated });
 }));
 
 router.post('/simulation/reset', asyncHandler(async (req, res) => {
+  const previousState = getSimulationState();
   const reset = resetSimulationState();
   const userId = extractUserId(req);
+
+  try {
+    const io = getIO();
+    if (io && previousState.flood_level && previousState.flood_level !== 'NORMAL') {
+      io.emit('alert:updated', {
+        id: `sim_alert_${previousState.flood_level.toLowerCase()}`,
+        is_active: false,
+        is_simulated: true,
+        resolved_at: new Date().toISOString(),
+      });
+    }
+  } catch (_) {}
+
   await writeAuditLog({
     userId,
     action: 'SIMULATION_RESET',
