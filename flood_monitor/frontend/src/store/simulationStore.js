@@ -51,7 +51,7 @@ export const useSimulationStore = create((set, get) => ({
   simRiseSpeed: 0.08, // m/s
 
   // Scenario & Timer Sub-Mode
-  scenarioSubMode: 'manual', // 'manual' | 'scenario'
+  scenarioSubMode: 'scenario', // 'scenario'
   scenarioStartMeters: 2.00,
   scenarioTargetMeters: 5.50,
   scenarioDurationSec: 60,

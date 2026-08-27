@@ -512,9 +512,10 @@ export function LiveCameraFeed() {
       </div>
 
       {/* SIMULATION CONTROL PANEL (Shown when in SIMULATION MODE) */}
+      {/* SIMULATION CONTROL PANEL */}
       {mode === 'simulation' && (
         <div className="bg-slate-950/95 border-t border-blue-500/30 p-4 space-y-4 transition-all animate-fadeIn">
-          {/* Header Bar & Sub-Mode Switcher */}
+          {/* Header Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-2.5 w-2.5 relative">
@@ -522,139 +523,14 @@ export function LiveCameraFeed() {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
               </span>
               <span className="text-xs font-black tracking-wider uppercase text-blue-400">
-                Simulation Sandbox · Calibrated E-Staff Gauge
+                Simulation Sandbox · Calibrated E-Staff Gauge Drill
               </span>
-            </div>
-
-            {/* Sub-mode Tab Selector: Manual vs Automated Scenario & Timer */}
-            <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
-              <button
-                onClick={() => setScenarioSubMode('manual')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  scenarioSubMode === 'manual'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}>
-                <Sliders size={12} />
-                Manual Controls
-              </button>
-              <button
-                onClick={() => setScenarioSubMode('scenario')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  scenarioSubMode === 'scenario'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}>
-                <Timer size={12} />
-                Automated Scenario & Timer
-              </button>
             </div>
           </div>
 
-          {/* TAB 1: MANUAL CONTROLS */}
-          {scenarioSubMode === 'manual' && (
-            <div className="space-y-3.5">
-              {/* Row 1: Water Level Input & Action Buttons */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                {/* Direct Meters Input */}
-                <div className="md:col-span-4 flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 rounded-xl p-2 px-3">
-                  <span className="text-xs font-bold text-slate-300 whitespace-nowrap">
-                    Set Water Level:
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.00"
-                    max="7.00"
-                    value={simWaterLevel.toFixed(2)}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      if (!isNaN(val)) setSimWaterLevel(Math.max(0, Math.min(7.0, val)));
-                    }}
-                    className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-sm font-black text-amber-300 text-center focus:outline-none focus:border-blue-500"
-                  />
-                  <span className="text-xs font-extrabold text-slate-400">m</span>
-                </div>
-
-                {/* Action Buttons: START | PAUSE | RESET */}
-                <div className="md:col-span-8 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setIsSimRising(true)}
-                    disabled={isSimRising || simWaterLevel >= 7.0}
-                    className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all border ${
-                      isSimRising
-                        ? 'bg-blue-600/30 text-blue-300 border-blue-500/40 cursor-not-allowed'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-md active:scale-95'
-                    }`}>
-                    <Play size={13} className={isSimRising ? 'animate-pulse' : ''} />
-                    START
-                  </button>
-
-                  <button
-                    onClick={() => setIsSimRising(false)}
-                    disabled={!isSimRising}
-                    className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all border ${
-                      !isSimRising
-                        ? 'bg-slate-800/40 text-slate-500 border-slate-700/40 cursor-not-allowed'
-                        : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-md active:scale-95'
-                    }`}>
-                    <Pause size={13} />
-                    PAUSE
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      resetSimulation();
-                    }}
-                    className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md active:scale-95 transition-all">
-                    <RotateCcw size={13} />
-                    RESET
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 2: Range Slider */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold text-slate-400">
-                  <span>0.00 m (Dry Bed)</span>
-                  <span className="text-blue-400 font-extrabold">Current: {simWaterLevel.toFixed(2)} m</span>
-                  <span>7.00 m (Max Flood)</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.00"
-                  max="7.00"
-                  step="0.05"
-                  value={simWaterLevel}
-                  onChange={(e) => setSimWaterLevel(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-              </div>
-
-              {/* Row 3: Presets */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
-                <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
-                  <Zap size={12} className="text-amber-400" /> Instant Jump:
-                </span>
-                {SIMULATION_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => instantJump(preset.meters)}
-                    className={`flex-1 min-w-[100px] px-2.5 py-1.5 rounded-lg text-xs font-black border transition-all active:scale-95 ${preset.bgClass} ${
-                      Math.abs(simWaterLevel - preset.meters) < 0.05 ? 'ring-2 ring-white/40 font-black scale-[1.02]' : ''
-                    }`}
-                    title={preset.desc}>
-                    [ {preset.label} ] ({preset.meters.toFixed(2)}m)
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: AUTOMATED SCENARIO & TIMER DRILL */}
-          {scenarioSubMode === 'scenario' && (
-            <div className="space-y-3.5">
-              {/* Start/End Configuration & Duration */}
+          {/* AUTOMATED SCENARIO & TIMER DRILL CONTROLS */}
+          <div className="space-y-3.5">
+            {/* Start/End Configuration & Duration */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                 {/* Start Meter */}
                 <div className="md:col-span-3 flex items-center gap-2">
@@ -809,7 +685,6 @@ export function LiveCameraFeed() {
                 </div>
               </div>
             </div>
-          )}
         </div>
       )}
 
