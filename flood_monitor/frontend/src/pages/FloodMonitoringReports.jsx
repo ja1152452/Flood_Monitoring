@@ -181,10 +181,16 @@ export default function FloodMonitoringReports() {
     doc.text(`Drill Duration: ${selectedDrill.durationSec} seconds (${selectedDrill.pointsCount} points logged)`, 14, 50);
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 55);
 
+    const sortedDrillPoints = [...(selectedDrill.points || [])].sort((a, b) => {
+      const tA = a.isoDateTime ? new Date(a.isoDateTime).getTime() : (a.elapsedSec ?? 0);
+      const tB = b.isoDateTime ? new Date(b.isoDateTime).getTime() : (b.elapsedSec ?? 0);
+      return tB - tA;
+    });
+
     autoTable(doc, {
       startY: 60,
       head: [['Date', 'Elapsed Time', 'Time of Day', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise']],
-      body: selectedDrill.points.map(p => {
+      body: sortedDrillPoints.map(p => {
         const pDate = p.date || drillDateStr;
         return [
           pDate,
@@ -213,8 +219,14 @@ export default function FloodMonitoringReports() {
       ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
       : new Date().toLocaleDateString('en-PH');
 
+    const sortedDrillPoints = [...(selectedDrill.points || [])].sort((a, b) => {
+      const tA = a.isoDateTime ? new Date(a.isoDateTime).getTime() : (a.elapsedSec ?? 0);
+      const tB = b.isoDateTime ? new Date(b.isoDateTime).getTime() : (b.elapsedSec ?? 0);
+      return tB - tA;
+    });
+
     const headers = ['Date', 'Elapsed_Seconds', 'Timestamp', 'Water_Level_Meters', 'Water_Level_CM', 'Flood_Status', 'Drill_Phase', 'Rate_M_Per_Hr'];
-    const rows = selectedDrill.points.map(p => [
+    const rows = sortedDrillPoints.map(p => [
       `"${p.date || defaultDateStr}"`,
       p.elapsedSec,
       `"${p.timestamp}"`,
@@ -496,7 +508,11 @@ export default function FloodMonitoringReports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                  {selectedDrill.points.map((p, i) => {
+                  {[...(selectedDrill.points || [])].sort((a, b) => {
+                    const tA = a.isoDateTime ? new Date(a.isoDateTime).getTime() : (a.elapsedSec ?? 0);
+                    const tB = b.isoDateTime ? new Date(b.isoDateTime).getTime() : (b.elapsedSec ?? 0);
+                    return tB - tA;
+                  }).map((p, i) => {
                     const cfg = getFloodConfig(p.floodLevel);
                     const defaultDateStr = selectedDrill.startedAt
                       ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })

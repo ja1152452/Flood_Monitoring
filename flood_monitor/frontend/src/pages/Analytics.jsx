@@ -414,8 +414,8 @@ export default function Analytics() {
       });
     }
 
-    // Sort chronologically
-    return list.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+    // Sort records from LATEST to OLDEST (Newest first)
+    return list.sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
   }, [allSimPoints, simWlFilter]);
 
   const totalSimTablePages = Math.ceil(filteredSimPoints.length / SIM_ROWS_PER_PAGE) || 1;
