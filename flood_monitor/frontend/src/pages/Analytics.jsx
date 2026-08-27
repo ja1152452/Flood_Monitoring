@@ -513,20 +513,34 @@ export default function Analytics() {
     : 0;
 
   // Simulation Drill Stats & Chart Data
+  const activeDrillPoints = useMemo(() => {
+    if (simWlFilter.session === 'ALL') {
+      return filteredSimPoints;
+    }
+    return selectedDrill?.points || [];
+  }, [simWlFilter.session, filteredSimPoints, selectedDrill]);
+
   const drillChartData = useMemo(() => {
+    if (simWlFilter.session === 'ALL') {
+      return filteredSimPoints.slice(0, 100).map(p => ({
+        time: p.timestamp,
+        level: p.water_level_m,
+        category: p.flood_level,
+      }));
+    }
     if (!selectedDrill || !selectedDrill.points) return [];
     return selectedDrill.points.map(p => ({
       time: `${p.elapsedSec}s`,
       level: p.waterLevelM,
       category: p.floodLevel,
     }));
-  }, [selectedDrill]);
+  }, [simWlFilter.session, filteredSimPoints, selectedDrill]);
 
   const drillCategoryDistribution = useMemo(() => {
-    if (!selectedDrill || !selectedDrill.points) return [];
     const counts = { NORMAL: 0, MONITOR: 0, ALERT: 0, EVACUATION: 0, CRITICAL: 0 };
-    selectedDrill.points.forEach(p => {
-      if (counts[p.floodLevel] !== undefined) counts[p.floodLevel]++;
+    activeDrillPoints.forEach(p => {
+      const level = p.floodLevel || p.flood_level;
+      if (counts[level] !== undefined) counts[level]++;
     });
     return Object.entries(counts)
       .filter(([_, count]) => count > 0)
@@ -535,7 +549,7 @@ export default function Analytics() {
         value: count,
         color: STATUS_COLORS[level],
       }));
-  }, [selectedDrill]);
+  }, [activeDrillPoints]);
 
   return (
     <div className="space-y-6">
@@ -558,73 +572,126 @@ export default function Analytics() {
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
             <button
               onClick={() => setDataSource('live')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'live'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                dataSource === 'live'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}>
+              }`}>
               <Activity size={14} />
-              Real Live River Data
+              Real Live River Data (CCTV / Sensor)
             </button>
             <button
               onClick={() => setDataSource('simulation')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'simulation'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                dataSource === 'simulation'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}>
-              <Waves size={14} />
-              Simulation Drill Data
+              }`}>
+              <FlaskConical size={14} />
+              Simulation Drill Data (MDRRMO Exercises)
             </button>
           </div>
         </div>
 
+        {dataSource === 'simulation' && (
+          <span className="text-xs font-black bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
+            🧪 Simulation & Drills Archive ({drillSessions.length} sessions · {allSimPoints.length} points)
+          </span>
+        )}
       </div>
 
       {/* ======================================================== */}
       {/* VIEW 1: SIMULATION DRILL DATA ANALYTICS                   */}
       {/* ======================================================== */}
-      {dataSource === 'simulation' && selectedDrill && (
+      {dataSource === 'simulation' && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
-              </h2>
-              <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
-                <span>
-                  🟢 <strong>Started:</strong> {new Date(selectedDrill.startedAt).toLocaleString('en-PH')}
-                </span>
-                <span>
-                  🏁 <strong>Completed:</strong> {selectedDrill.finishedAt ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH') : 'In Progress'}
-                </span>
-                <span>· {selectedDrill.pointsCount} points logged</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard
-                label="Peak Water Level"
-                value={`${selectedDrill.peakLevelM.toFixed(2)}m`}
-                sub={`Max Threshold: ${selectedDrill.peakCategory}`}
-                color={STATUS_COLORS[selectedDrill.peakCategory] ? `text-${STATUS_COLORS[selectedDrill.peakCategory]}` : 'text-indigo-400'}
-              />
-              <StatCard
-                label="Drill Duration"
-                value={`${selectedDrill.durationSec}s`}
-                sub="Elapsed Scenario Time"
-                color="text-blue-600 dark:text-blue-400"
-              />
-              <StatCard
-                label="Time to Warning"
-                value={selectedDrill.timeToMonitorSec != null ? `${selectedDrill.timeToMonitorSec}s` : 'N/A'}
-                sub="Monitor Level Breach (3.1m)"
-                color="text-amber-600 dark:text-amber-400"
-              />
-              <StatCard
-                label="Time to Evacuation"
-                value={selectedDrill.timeToEvacuationSec != null ? `${selectedDrill.timeToEvacuationSec}s` : 'N/A'}
-                sub="Evacuation Level Breach (5.1m)"
-                color="text-red-600 dark:text-red-400"
-              />
-            </div>
+            {simWlFilter.session === 'ALL' ? (
+              <>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    All Simulation Drill Sessions (Summary)
+                  </h2>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
+                    <span>
+                      📅 <strong>Period:</strong> Aug 26 – Aug 27, 2026
+                    </span>
+                    <span>
+                      📊 <strong>Total Logged Points:</strong> {allSimPoints.length} entries
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard
+                    label="All-Time Peak Level"
+                    value="6.25m"
+                    sub="Max Threshold: CRITICAL"
+                    color="text-purple-600 dark:text-purple-400"
+                  />
+                  <StatCard
+                    label="Total Drill Sessions"
+                    value={`${drillSessions.length} Drills`}
+                    sub="Morning, Night & Custom runs"
+                    color="text-indigo-600 dark:text-indigo-400"
+                  />
+                  <StatCard
+                    label="Total Logged Points"
+                    value={`${allSimPoints.length}`}
+                    sub="Recorded Sensor Samples"
+                    color="text-blue-600 dark:text-blue-400"
+                  />
+                  <StatCard
+                    label="Drill Level Range"
+                    value="2.00m ➔ 6.25m"
+                    sub="E-Staff Gauge Range"
+                    color="text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+              </>
+            ) : selectedDrill ? (
+              <>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
+                  </h2>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
+                    <span>
+                      🟢 <strong>Started:</strong> {new Date(selectedDrill.startedAt).toLocaleString('en-PH')}
+                    </span>
+                    <span>
+                      🏁 <strong>Completed:</strong> {selectedDrill.finishedAt ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH') : 'In Progress'}
+                    </span>
+                    <span>· {selectedDrill.pointsCount} points logged</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard
+                    label="Peak Water Level"
+                    value={`${selectedDrill.peakLevelM.toFixed(2)}m`}
+                    sub={`Max Threshold: ${selectedDrill.peakCategory}`}
+                    color={STATUS_COLORS[selectedDrill.peakCategory] ? `text-${STATUS_COLORS[selectedDrill.peakCategory]}` : 'text-indigo-400'}
+                  />
+                  <StatCard
+                    label="Drill Duration"
+                    value={`${selectedDrill.durationSec}s`}
+                    sub="Elapsed Scenario Time"
+                    color="text-blue-600 dark:text-blue-400"
+                  />
+                  <StatCard
+                    label="Time to Warning"
+                    value={selectedDrill.timeToMonitorSec != null ? `${selectedDrill.timeToMonitorSec}s` : 'N/A'}
+                    sub="Monitor Level Breach (3.1m)"
+                    color="text-amber-600 dark:text-amber-400"
+                  />
+                  <StatCard
+                    label="Time to Evacuation"
+                    value={selectedDrill.timeToEvacuationSec != null ? `${selectedDrill.timeToEvacuationSec}s` : 'N/A'}
+                    sub="Evacuation Level Breach (5.1m)"
+                    color="text-red-600 dark:text-red-400"
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
 
           {/* SIMULATION WATER LEVEL HISTORY FILTER & CHART BAR */}
@@ -637,7 +704,11 @@ export default function Analytics() {
                 {/* Session Filter */}
                 <select
                   value={simWlFilter.session}
-                  onChange={e => setSimWlFilter(f => ({ ...f, session: e.target.value }))}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSimWlFilter(f => ({ ...f, session: val }));
+                    if (val !== 'ALL') setSelectedDrillId(val);
+                  }}
                   className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
                   <option value="ALL">⭐ All Drill Sessions (Lahat)</option>
                   {drillSessions.map(s => (
@@ -753,7 +824,7 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Date', 'Point Time', 'Drill Session', 'Drill Schedule (Start ➔ Finished)', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -772,16 +843,6 @@ export default function Analytics() {
                           </td>
                           <td className="px-5 py-3 text-xs font-bold text-indigo-400">
                             {p.sessionName}
-                          </td>
-                          <td className="px-5 py-3 text-xs">
-                            <div className="flex flex-col gap-0.5 whitespace-nowrap">
-                              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                🟢 Start: {p.sessionStartedTime}
-                              </span>
-                              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
-                                🏁 End: {p.sessionFinishedTime}
-                              </span>
-                            </div>
                           </td>
                           <td className="px-5 py-3 text-sm font-black" style={{ color: statusColor }}>
                             {p.water_level_m != null ? `${parseFloat(p.water_level_m).toFixed(3)} m` : '—'}
