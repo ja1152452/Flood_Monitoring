@@ -29,10 +29,14 @@ const DEFAULT_DRILL_SESSIONS = [
       const progress = sec / 60;
       const level = 2.00 + (5.50 - 2.00) * progress;
       const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
-      const timeStr = new Date(Date.now() - 3600000 * 2 + sec * 1000).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const pointDate = new Date(Date.now() - 3600000 * 2 + sec * 1000);
+      const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = pointDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
       return {
         elapsedSec: sec,
+        date: dateStr,
         timestamp: timeStr,
+        isoDateTime: pointDate.toISOString(),
         waterLevelM: parseFloat(level.toFixed(2)),
         waterLevelCm: Math.round(level * 100),
         floodLevel: category,
@@ -73,10 +77,14 @@ const DEFAULT_DRILL_SESSIONS = [
         phase = 'receding';
       }
       const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
-      const timeStr = new Date(Date.now() - 3600000 * 5 + sec * 1000).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const pointDate = new Date(Date.now() - 3600000 * 5 + sec * 1000);
+      const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = pointDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
       return {
         elapsedSec: sec,
+        date: dateStr,
         timestamp: timeStr,
+        isoDateTime: pointDate.toISOString(),
         waterLevelM: parseFloat(level.toFixed(2)),
         waterLevelCm: Math.round(level * 100),
         floodLevel: category,
@@ -163,9 +171,12 @@ export const recordDrillPoint = (point) => {
   if (m >= 5.1 && activeRecording.timeToEvacuationSec === null) activeRecording.timeToEvacuationSec = elapsed;
   if (m >= 6.1 && activeRecording.timeToCriticalSec === null) activeRecording.timeToCriticalSec = elapsed;
 
+  const nowObj = new Date();
   activeRecording.points.push({
     elapsedSec: elapsed,
-    timestamp: point.timestamp || new Date().toLocaleTimeString('en-PH'),
+    date: point.date || nowObj.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }),
+    timestamp: point.timestamp || nowObj.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    isoDateTime: nowObj.toISOString(),
     waterLevelM: m,
     waterLevelCm: Math.round(m * 100),
     floodLevel: cat,

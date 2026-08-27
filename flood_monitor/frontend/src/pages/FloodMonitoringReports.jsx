@@ -27,13 +27,13 @@ export default function FloodMonitoringReports() {
 
   // Simulation Drill Sessions
   const [drillSessions, setDrillSessions] = useState(() => getStoredDrillSessions());
-  const [selectedDrillId, setSelectedDrillId] = useState(() => drillSessions[0]?.id || '');
+  const [selectedDrillId, setSelectedDrillId] = useState(() => drillSessions[0]?.id || 'ALL_SESSIONS');
 
   const refreshDrills = () => {
     const updated = getStoredDrillSessions();
     setDrillSessions(updated);
-    if (!updated.some(s => s.id === selectedDrillId)) {
-      setSelectedDrillId(updated[0]?.id || '');
+    if (selectedDrillId !== 'ALL_SESSIONS' && !updated.some(s => s.id === selectedDrillId)) {
+      setSelectedDrillId(updated[0]?.id || 'ALL_SESSIONS');
     }
   };
 
@@ -42,11 +42,40 @@ export default function FloodMonitoringReports() {
   }, [reportSource]);
 
   const selectedDrill = useMemo(() => {
+    if (selectedDrillId === 'ALL_SESSIONS') {
+      const allPoints = drillSessions.flatMap(s => {
+        const sessionDate = new Date(s.startedAt || Date.now());
+        const sessionDateStr = sessionDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+        return (s.points || []).map(p => ({
+          ...p,
+          sessionName: s.name,
+          date: p.date || sessionDateStr,
+        }));
+      });
+
+      const maxPeak = drillSessions.reduce((max, s) => Math.max(max, s.peakLevelM || 0), 2.0);
+      const peakCat = maxPeak >= 6.1 ? 'CRITICAL' : maxPeak >= 5.1 ? 'EVACUATION' : maxPeak >= 4.1 ? 'ALERT' : maxPeak >= 3.1 ? 'MONITOR' : 'NORMAL';
+
+      return {
+        id: 'ALL_SESSIONS',
+        name: 'All Combined Drill Sessions (Lahat ng Drill Runs)',
+        scenarioType: 'combined_history',
+        startedAt: drillSessions[drillSessions.length - 1]?.startedAt || new Date().toISOString(),
+        finishedAt: drillSessions[0]?.finishedAt || new Date().toISOString(),
+        durationSec: drillSessions.reduce((sum, s) => sum + (s.durationSec || 0), 0),
+        startLevelM: 2.00,
+        targetLevelM: maxPeak,
+        peakLevelM: maxPeak,
+        peakCategory: peakCat,
+        pointsCount: allPoints.length,
+        points: allPoints,
+      };
+    }
     return drillSessions.find(s => s.id === selectedDrillId) || drillSessions[0] || null;
   }, [drillSessions, selectedDrillId]);
 
   const [filter, setFilter] = useState({
-    type:  'date',
+    type:  'all',
     date:  now.toISOString().slice(0, 10),
     month: now.getMonth(),
     year:  now.getFullYear(),
@@ -60,6 +89,9 @@ export default function FloodMonitoringReports() {
   });
 
   const params = useMemo(() => {
+    if (filter.type === 'all') {
+      return { limit: 50000 };
+    }
     if (filter.type === 'date') {
       return { date: filter.date, limit: 50000 };
     }
@@ -90,15 +122,18 @@ export default function FloodMonitoringReports() {
     doc.text('Flood Monitoring Report', 14, 16);
     doc.setFontSize(9);
     doc.setTextColor(100);
-    const periodLabel = filter.type === 'date'
-      ? filter.date
-      : `${MONTHS[filter.month]} ${filter.year}`;
+    const periodLabel = filter.type === 'all'
+      ? 'All Historical Records (Lahat ng Data)'
+      : filter.type === 'date'
+        ? filter.date
+        : `${MONTHS[filter.month]} ${filter.year}`;
     doc.text(`Period: ${periodLabel}`, 14, 23);
     doc.text(`Weather: ${weatherLabel}`, 14, 28);
-    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
+    doc.text(`Total Records: ${readings.length}`, 14, 33);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 38);
 
     autoTable(doc, {
-      startY: 39,
+      startY: 44,
       head: [['Date', 'Time', 'Water Level (m)', 'Status', 'Weather']],
       body: readings.map(r => {
         const dt = new Date(r.captured_at);
@@ -115,7 +150,7 @@ export default function FloodMonitoringReports() {
       columnStyles: { 3: { fontStyle: 'bold' } },
     });
 
-    const filename = `flood-monitoring-report-${filter.type === 'date' ? filter.date : `${filter.year}-${String(filter.month+1).padStart(2,'0')}`}.pdf`;
+    const filename = `flood-monitoring-report-${filter.type === 'all' ? 'all-records' : filter.type === 'date' ? filter.date : `${filter.year}-${String(filter.month+1).padStart(2,'0')}`}.pdf`;
     setPdfPreview({ url: doc.output('bloburl'), filename });
   };
 
@@ -133,29 +168,38 @@ export default function FloodMonitoringReports() {
     doc.setTextColor(220, 38, 38);
     doc.text('[ FOR TRAINING, DRILLS & READINESS TESTING ONLY ]', 14, 23);
 
+    const drillDateStr = selectedDrill.startedAt
+      ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+      : new Date().toLocaleDateString('en-PH');
+
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105);
     doc.text(`Drill Session: ${selectedDrill.name}`, 14, 30);
-    doc.text(`Scenario Type: ${selectedDrill.scenarioType.toUpperCase()}`, 14, 35);
-    doc.text(`Peak Water Level Reached: ${selectedDrill.peakLevelM.toFixed(2)}m (${selectedDrill.peakCategory})`, 14, 40);
-    doc.text(`Drill Duration: ${selectedDrill.durationSec} seconds (${selectedDrill.pointsCount} points logged)`, 14, 45);
-    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 50);
+    doc.text(`Drill Date: ${drillDateStr}`, 14, 35);
+    doc.text(`Scenario Type: ${String(selectedDrill.scenarioType).toUpperCase()}`, 14, 40);
+    doc.text(`Peak Water Level Reached: ${selectedDrill.peakLevelM.toFixed(2)}m (${selectedDrill.peakCategory})`, 14, 45);
+    doc.text(`Drill Duration: ${selectedDrill.durationSec} seconds (${selectedDrill.pointsCount} points logged)`, 14, 50);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 55);
 
     autoTable(doc, {
-      startY: 55,
-      head: [['Elapsed Time', 'Timestamp', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise']],
-      body: selectedDrill.points.map(p => [
-        `+${p.elapsedSec}s`,
-        p.timestamp,
-        `${p.waterLevelM.toFixed(2)}m`,
-        `${p.waterLevelCm} cm`,
-        p.floodLevel,
-        p.phase.toUpperCase(),
-        `${p.ratePerHour} m/hr`,
-      ]),
+      startY: 60,
+      head: [['Date', 'Elapsed Time', 'Time of Day', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise']],
+      body: selectedDrill.points.map(p => {
+        const pDate = p.date || drillDateStr;
+        return [
+          pDate,
+          `+${p.elapsedSec}s`,
+          p.timestamp,
+          `${p.waterLevelM.toFixed(2)}m`,
+          `${p.waterLevelCm} cm`,
+          p.floodLevel,
+          p.phase ? p.phase.toUpperCase() : 'N/A',
+          `${p.ratePerHour} m/hr`,
+        ];
+      }),
       styles:     { fontSize: 8, textColor: [30, 41, 59] },
       headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
-      columnStyles: { 4: { fontStyle: 'bold' } },
+      columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
     });
 
     const filename = `simulation-drill-report-${selectedDrill.id}.pdf`;
@@ -165,8 +209,13 @@ export default function FloodMonitoringReports() {
   // --- Simulation Drill CSV Generator ---
   const handleDrillExportCsv = () => {
     if (!selectedDrill || !selectedDrill.points) return;
-    const headers = ['Elapsed_Seconds', 'Timestamp', 'Water_Level_Meters', 'Water_Level_CM', 'Flood_Status', 'Drill_Phase', 'Rate_M_Per_Hr'];
+    const defaultDateStr = selectedDrill.startedAt
+      ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+      : new Date().toLocaleDateString('en-PH');
+
+    const headers = ['Date', 'Elapsed_Seconds', 'Timestamp', 'Water_Level_Meters', 'Water_Level_CM', 'Flood_Status', 'Drill_Phase', 'Rate_M_Per_Hr'];
     const rows = selectedDrill.points.map(p => [
+      `"${p.date || defaultDateStr}"`,
       p.elapsedSec,
       `"${p.timestamp}"`,
       p.waterLevelM,
@@ -196,7 +245,7 @@ export default function FloodMonitoringReports() {
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {reportSource === 'live'
-              ? `${readings.length} live records · Weather: ${weatherLabel}`
+              ? `${readings.length} live records loaded · Weather: ${weatherLabel}`
               : `Drill Archive · ${selectedDrill?.pointsCount || 0} drill data points recorded`}
           </p>
         </div>
@@ -233,18 +282,28 @@ export default function FloodMonitoringReports() {
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              {['date', 'month'].map(t => (
+              {[
+                { id: 'all', label: 'All Records (Lahat)' },
+                { id: 'date', label: 'Date View' },
+                { id: 'month', label: 'Month View' },
+              ].map(t => (
                 <button
-                  key={t}
-                  onClick={() => setFilter(f => ({ ...f, type: t }))}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                    filter.type === t
+                  key={t.id}
+                  onClick={() => setFilter(f => ({ ...f, type: t.id }))}
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-colors ${
+                    filter.type === t.id
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300'
                   }`}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)} View
+                  {t.label}
                 </button>
               ))}
+
+              {filter.type === 'all' && (
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                  Showing ALL {readings.length} historical logs
+                </span>
+              )}
 
               {filter.type === 'date' && (
                 <input
@@ -348,17 +407,28 @@ export default function FloodMonitoringReports() {
       {reportSource === 'simulation' && selectedDrill && (
         <div className="space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-black uppercase text-slate-500">Drill Session:</span>
               <select
                 value={selectedDrillId}
                 onChange={(e) => setSelectedDrillId(e.target.value)}
                 className="text-xs font-extrabold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-                {drillSessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.durationSec}s · {s.peakCategory})
-                  </option>
-                ))}
+                <option value="ALL_SESSIONS">
+                  ⭐ All Drill Sessions (Lahat ng Drill Runs Combined - {drillSessions.length} sessions)
+                </option>
+                {drillSessions.map((s) => {
+                  const dateStr = s.startedAt
+                    ? new Date(s.startedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '';
+                  const timeStr = s.startedAt
+                    ? new Date(s.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — {dateStr} {timeStr} ({s.durationSec}s · {s.peakCategory})
+                    </option>
+                  );
+                })}
               </select>
               <button
                 onClick={refreshDrills}
@@ -385,10 +455,18 @@ export default function FloodMonitoringReports() {
           </div>
 
           {/* Drill Summary Card */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
             <div>
               <span className="text-slate-500 font-semibold block">Drill Name:</span>
-              <span className="font-extrabold text-indigo-300 text-sm">{selectedDrill.name}</span>
+              <span className="font-extrabold text-indigo-300 text-sm truncate block">{selectedDrill.name}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-semibold block">Date Conducted:</span>
+              <span className="font-extrabold text-amber-300 text-sm">
+                {selectedDrill.startedAt
+                  ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : new Date().toLocaleDateString('en-PH')}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 font-semibold block">Peak Level Reached:</span>
@@ -410,7 +488,7 @@ export default function FloodMonitoringReports() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                    {['Elapsed (s)', 'Time of Day', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                    {['Date', 'Elapsed (s)', 'Time of Day', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise'].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                         {h}
                       </th>
@@ -420,10 +498,16 @@ export default function FloodMonitoringReports() {
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                   {selectedDrill.points.map((p, i) => {
                     const cfg = getFloodConfig(p.floodLevel);
+                    const defaultDateStr = selectedDrill.startedAt
+                      ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : new Date().toLocaleDateString('en-PH');
+                    const rowDate = p.date || defaultDateStr;
+
                     return (
                       <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                        <td className="px-5 py-2.5 font-bold text-slate-900 dark:text-white">+{p.elapsedSec}s</td>
-                        <td className="px-5 py-2.5 text-xs text-slate-500">{p.timestamp}</td>
+                        <td className="px-5 py-2.5 font-bold text-slate-900 dark:text-white text-xs">{rowDate}</td>
+                        <td className="px-5 py-2.5 font-semibold text-slate-500 dark:text-slate-400 text-xs">+{p.elapsedSec}s</td>
+                        <td className="px-5 py-2.5 text-xs text-slate-500 font-mono">{p.timestamp}</td>
                         <td className="px-5 py-2.5 font-black text-indigo-400">{p.waterLevelM.toFixed(2)}m</td>
                         <td className="px-5 py-2.5 text-slate-600 dark:text-slate-300 text-xs font-semibold">{p.waterLevelCm} cm</td>
                         <td className="px-5 py-2.5">
@@ -435,7 +519,7 @@ export default function FloodMonitoringReports() {
                             {cfg.label}
                           </span>
                         </td>
-                        <td className="px-5 py-2.5 text-xs font-bold uppercase text-slate-500">{p.phase}</td>
+                        <td className="px-5 py-2.5 text-xs font-bold uppercase text-slate-500">{p.phase || 'N/A'}</td>
                         <td className="px-5 py-2.5 text-xs font-bold text-slate-400">{p.ratePerHour} m/hr</td>
                       </tr>
                     );
