@@ -6,8 +6,104 @@
 
 const STORAGE_KEY = 'flood_simulation_drill_sessions_v1';
 
-// Sample pre-loaded drill sessions for immediate testing in Analytics & Reports
+// Standard pre-loaded drill sessions (including Morning 9:00 AM & Night sessions)
 const DEFAULT_DRILL_SESSIONS = [
+  {
+    id: 'drill-morning-9am-aug27-2026',
+    name: 'Morning Flash Flood Drill (2.0m ➔ 6.25m)',
+    scenarioType: 'severe_flood',
+    startedAt: '2026-08-27T09:00:00+08:00',
+    finishedAt: '2026-08-27T09:30:00+08:00',
+    durationSec: 60,
+    startLevelM: 2.00,
+    targetLevelM: 6.25,
+    peakLevelM: 6.25,
+    peakCategory: 'CRITICAL',
+    pointsCount: 31,
+    timeToMonitorSec: 8,
+    timeToAlertSec: 16,
+    timeToEvacuationSec: 24,
+    timeToCriticalSec: 28,
+    points: Array.from({ length: 31 }).map((_, i) => {
+      const sec = i * 2;
+      const progress = sec / 60;
+      let level = 2.00;
+      let phase = 'rising';
+      if (progress < 0.45) {
+        level = 2.00 + (6.25 - 2.00) * (progress / 0.45);
+        phase = 'rising';
+      } else if (progress < 0.55) {
+        level = 6.25;
+        phase = 'peak';
+      } else {
+        level = 6.25 - (6.25 - 2.00) * ((progress - 0.55) / 0.45);
+        phase = 'receding';
+      }
+      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const pointDate = new Date(new Date('2026-08-27T09:00:00+08:00').getTime() + i * 60 * 1000);
+      const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = 'Aug 27, 2026';
+      return {
+        elapsedSec: sec,
+        date: dateStr,
+        timestamp: timeStr,
+        isoDateTime: pointDate.toISOString(),
+        waterLevelM: parseFloat(level.toFixed(3)),
+        waterLevelCm: Math.round(level * 100),
+        floodLevel: category,
+        ratePerHour: phase === 'rising' ? 260.0 : phase === 'receding' ? -260.0 : 0.0,
+        phase: phase,
+      };
+    }),
+  },
+  {
+    id: 'drill-night-930pm-aug26-2026',
+    name: 'Night Evacuation Drill (2.0m ➔ 5.85m)',
+    scenarioType: 'severe_flood',
+    startedAt: '2026-08-26T21:30:00+08:00',
+    finishedAt: '2026-08-26T22:00:00+08:00',
+    durationSec: 60,
+    startLevelM: 2.00,
+    targetLevelM: 5.85,
+    peakLevelM: 5.85,
+    peakCategory: 'EVACUATION',
+    pointsCount: 31,
+    timeToMonitorSec: 12,
+    timeToAlertSec: 24,
+    timeToEvacuationSec: 42,
+    timeToCriticalSec: null,
+    points: Array.from({ length: 31 }).map((_, i) => {
+      const sec = i * 2;
+      const progress = sec / 60;
+      let level = 2.00;
+      let phase = 'rising';
+      if (progress < 0.45) {
+        level = 2.00 + (5.85 - 2.00) * (progress / 0.45);
+        phase = 'rising';
+      } else if (progress < 0.55) {
+        level = 5.85;
+        phase = 'peak';
+      } else {
+        level = 5.85 - (5.85 - 2.00) * ((progress - 0.55) / 0.45);
+        phase = 'receding';
+      }
+      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const pointDate = new Date(new Date('2026-08-26T21:30:00+08:00').getTime() + i * 60 * 1000);
+      const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = 'Aug 26, 2026';
+      return {
+        elapsedSec: sec,
+        date: dateStr,
+        timestamp: timeStr,
+        isoDateTime: pointDate.toISOString(),
+        waterLevelM: parseFloat(level.toFixed(3)),
+        waterLevelCm: Math.round(level * 100),
+        floodLevel: category,
+        ratePerHour: phase === 'rising' ? 220.0 : phase === 'receding' ? -220.0 : 0.0,
+        phase: phase,
+      };
+    }),
+  },
   {
     id: 'drill-flash-flood-2026',
     name: 'Flash Flood Readiness Drill (2.0m ➔ 5.5m)',
@@ -45,65 +141,35 @@ const DEFAULT_DRILL_SESSIONS = [
       };
     }),
   },
-  {
-    id: 'drill-full-cycle-2026',
-    name: 'Full Flood Inundation & Receding Cycle',
-    scenarioType: 'full_cycle',
-    startedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-    finishedAt: new Date(Date.now() - 3600000 * 5 + 60000).toISOString(),
-    durationSec: 60,
-    startLevelM: 2.00,
-    targetLevelM: 6.20,
-    peakLevelM: 6.20,
-    peakCategory: 'CRITICAL',
-    pointsCount: 31,
-    timeToMonitorSec: 8,
-    timeToAlertSec: 16,
-    timeToEvacuationSec: 24,
-    timeToCriticalSec: 28,
-    points: Array.from({ length: 31 }).map((_, i) => {
-      const sec = i * 2;
-      const progress = sec / 60;
-      let level = 2.00;
-      let phase = 'rising';
-      if (progress < 0.45) {
-        level = 2.00 + (6.20 - 2.00) * (progress / 0.45);
-        phase = 'rising';
-      } else if (progress < 0.55) {
-        level = 6.20;
-        phase = 'peak';
-      } else {
-        level = 6.20 - (6.20 - 2.00) * ((progress - 0.55) / 0.45);
-        phase = 'receding';
-      }
-      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
-      const pointDate = new Date(Date.now() - 3600000 * 5 + sec * 1000);
-      const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const dateStr = pointDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-      return {
-        elapsedSec: sec,
-        date: dateStr,
-        timestamp: timeStr,
-        isoDateTime: pointDate.toISOString(),
-        waterLevelM: parseFloat(level.toFixed(2)),
-        waterLevelCm: Math.round(level * 100),
-        floodLevel: category,
-        ratePerHour: phase === 'rising' ? 250.0 : phase === 'receding' ? -250.0 : 0.0,
-        phase: phase,
-      };
-    }),
-  },
 ];
 
 export const getStoredDrillSessions = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DRILL_SESSIONS));
-      return DEFAULT_DRILL_SESSIONS;
+    let parsed = [];
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {}
     }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_DRILL_SESSIONS;
+    if (!Array.isArray(parsed)) parsed = [];
+
+    // Ensure standard drill sessions (especially 9:00 AM Morning Drill) are always present
+    const merged = [...parsed];
+    for (const def of DEFAULT_DRILL_SESSIONS) {
+      if (!merged.some((s) => s.id === def.id || s.name === def.name)) {
+        merged.push(def);
+      }
+    }
+
+    // Sort by startedAt descending
+    merged.sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch {}
+
+    return merged.length > 0 ? merged : DEFAULT_DRILL_SESSIONS;
   } catch {
     return DEFAULT_DRILL_SESSIONS;
   }
