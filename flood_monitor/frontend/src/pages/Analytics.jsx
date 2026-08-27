@@ -8,7 +8,7 @@ import { getWeather } from '../api/weather';
 import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
-import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight, FlaskConical } from 'lucide-react';
+import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getStoredDrillSessions, deleteDrillSession } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -362,9 +362,6 @@ export default function Analytics() {
     return drillSessions.flatMap(s => {
       const sessionDate = new Date(s.startedAt || Date.now());
       const sessionDateStr = sessionDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-      const startTimeStr = s.startedAt ? new Date(s.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
-      const endTimeStr = s.finishedAt ? new Date(s.finishedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
-
       return (s.points || []).map((p, idx) => {
         const pointIso = p.isoDateTime || new Date(sessionDate.getTime() + (p.elapsedSec || idx * 2) * 1000).toISOString();
         const ptDate = new Date(pointIso);
@@ -372,9 +369,6 @@ export default function Analytics() {
           id: `${s.id}-${idx}`,
           sessionId: s.id,
           sessionName: s.name,
-          sessionStartedTime: startTimeStr,
-          sessionFinishedTime: endTimeStr,
-          sessionDuration: s.durationSec ? `${s.durationSec}s` : '60s',
           captured_at: pointIso,
           date: p.date || sessionDateStr,
           timestamp: p.timestamp || ptDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -445,22 +439,20 @@ export default function Analytics() {
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
     autoTable(doc, {
       startY: 39,
-      head: [['Date', 'Point Time', 'Drill Session', 'Drill Started', 'Drill Completed', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
+      head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
       body: filteredSimPoints.slice(0, 3000).map(p => [
         p.date,
         p.timestamp,
         p.sessionName,
-        p.sessionStartedTime,
-        p.sessionFinishedTime,
         p.water_level_m.toFixed(2),
         `${p.water_level_cm} cm`,
         p.flood_level,
         p.phase || '—',
         `${p.rate_per_hour} m/hr`,
       ]),
-      styles: { fontSize: 7, textColor: [30, 41, 59] },
+      styles: { fontSize: 8, textColor: [30, 41, 59] },
       headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
-      columnStyles: { 0: { fontStyle: 'bold' }, 7: { fontStyle: 'bold' } },
+      columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
     });
     const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.date || simWlFilter.week || 'records'}.pdf`;
     const url = doc.output('bloburl');
@@ -513,34 +505,20 @@ export default function Analytics() {
     : 0;
 
   // Simulation Drill Stats & Chart Data
-  const activeDrillPoints = useMemo(() => {
-    if (simWlFilter.session === 'ALL') {
-      return filteredSimPoints;
-    }
-    return selectedDrill?.points || [];
-  }, [simWlFilter.session, filteredSimPoints, selectedDrill]);
-
   const drillChartData = useMemo(() => {
-    if (simWlFilter.session === 'ALL') {
-      return filteredSimPoints.slice(0, 100).map(p => ({
-        time: p.timestamp,
-        level: p.water_level_m,
-        category: p.flood_level,
-      }));
-    }
     if (!selectedDrill || !selectedDrill.points) return [];
     return selectedDrill.points.map(p => ({
       time: `${p.elapsedSec}s`,
       level: p.waterLevelM,
       category: p.floodLevel,
     }));
-  }, [simWlFilter.session, filteredSimPoints, selectedDrill]);
+  }, [selectedDrill]);
 
   const drillCategoryDistribution = useMemo(() => {
+    if (!selectedDrill || !selectedDrill.points) return [];
     const counts = { NORMAL: 0, MONITOR: 0, ALERT: 0, EVACUATION: 0, CRITICAL: 0 };
-    activeDrillPoints.forEach(p => {
-      const level = p.floodLevel || p.flood_level;
-      if (counts[level] !== undefined) counts[level]++;
+    selectedDrill.points.forEach(p => {
+      if (counts[p.floodLevel] !== undefined) counts[p.floodLevel]++;
     });
     return Object.entries(counts)
       .filter(([_, count]) => count > 0)
@@ -549,7 +527,7 @@ export default function Analytics() {
         value: count,
         color: STATUS_COLORS[level],
       }));
-  }, [activeDrillPoints]);
+  }, [selectedDrill]);
 
   return (
     <div className="space-y-6">
@@ -572,126 +550,67 @@ export default function Analytics() {
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
             <button
               onClick={() => setDataSource('live')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                dataSource === 'live'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'live'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}>
+                }`}>
               <Activity size={14} />
-              Real Live River Data (CCTV / Sensor)
+              Real Live River Data
             </button>
             <button
               onClick={() => setDataSource('simulation')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                dataSource === 'simulation'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${dataSource === 'simulation'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}>
-              <FlaskConical size={14} />
-              Simulation Drill Data (MDRRMO Exercises)
+                }`}>
+              <Waves size={14} />
+              Simulation Drill Data
             </button>
           </div>
         </div>
 
-        {dataSource === 'simulation' && (
-          <span className="text-xs font-black bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
-            🧪 Simulation & Drills Archive ({drillSessions.length} sessions · {allSimPoints.length} points)
-          </span>
-        )}
       </div>
 
       {/* ======================================================== */}
       {/* VIEW 1: SIMULATION DRILL DATA ANALYTICS                   */}
       {/* ======================================================== */}
-      {dataSource === 'simulation' && (
+      {dataSource === 'simulation' && selectedDrill && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            {simWlFilter.session === 'ALL' ? (
-              <>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    All Simulation Drill Sessions (Summary)
-                  </h2>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
-                    <span>
-                      📅 <strong>Period:</strong> Aug 26 – Aug 27, 2026
-                    </span>
-                    <span>
-                      📊 <strong>Total Logged Points:</strong> {allSimPoints.length} entries
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard
-                    label="All-Time Peak Level"
-                    value="6.25m"
-                    sub="Max Threshold: CRITICAL"
-                    color="text-purple-600 dark:text-purple-400"
-                  />
-                  <StatCard
-                    label="Total Drill Sessions"
-                    value={`${drillSessions.length} Drills`}
-                    sub="Morning, Night & Custom runs"
-                    color="text-indigo-600 dark:text-indigo-400"
-                  />
-                  <StatCard
-                    label="Total Logged Points"
-                    value={`${allSimPoints.length}`}
-                    sub="Recorded Sensor Samples"
-                    color="text-blue-600 dark:text-blue-400"
-                  />
-                  <StatCard
-                    label="Drill Level Range"
-                    value="2.00m ➔ 6.25m"
-                    sub="E-Staff Gauge Range"
-                    color="text-emerald-600 dark:text-emerald-400"
-                  />
-                </div>
-              </>
-            ) : selectedDrill ? (
-              <>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
-                  </h2>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
-                    <span>
-                      🟢 <strong>Started:</strong> {new Date(selectedDrill.startedAt).toLocaleString('en-PH')}
-                    </span>
-                    <span>
-                      🏁 <strong>Completed:</strong> {selectedDrill.finishedAt ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH') : 'In Progress'}
-                    </span>
-                    <span>· {selectedDrill.pointsCount} points logged</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard
-                    label="Peak Water Level"
-                    value={`${selectedDrill.peakLevelM.toFixed(2)}m`}
-                    sub={`Max Threshold: ${selectedDrill.peakCategory}`}
-                    color={STATUS_COLORS[selectedDrill.peakCategory] ? `text-${STATUS_COLORS[selectedDrill.peakCategory]}` : 'text-indigo-400'}
-                  />
-                  <StatCard
-                    label="Drill Duration"
-                    value={`${selectedDrill.durationSec}s`}
-                    sub="Elapsed Scenario Time"
-                    color="text-blue-600 dark:text-blue-400"
-                  />
-                  <StatCard
-                    label="Time to Warning"
-                    value={selectedDrill.timeToMonitorSec != null ? `${selectedDrill.timeToMonitorSec}s` : 'N/A'}
-                    sub="Monitor Level Breach (3.1m)"
-                    color="text-amber-600 dark:text-amber-400"
-                  />
-                  <StatCard
-                    label="Time to Evacuation"
-                    value={selectedDrill.timeToEvacuationSec != null ? `${selectedDrill.timeToEvacuationSec}s` : 'N/A'}
-                    sub="Evacuation Level Breach (5.1m)"
-                    color="text-red-600 dark:text-red-400"
-                  />
-                </div>
-              </>
-            ) : null}
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
+              </h2>
+              <span className="text-xs text-slate-500 font-medium">
+                Started: {new Date(selectedDrill.startedAt).toLocaleString('en-PH')} · {selectedDrill.pointsCount} points logged
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Peak Water Level"
+                value={`${selectedDrill.peakLevelM.toFixed(2)}m`}
+                sub={`Max Threshold: ${selectedDrill.peakCategory}`}
+                color={STATUS_COLORS[selectedDrill.peakCategory] ? `text-${STATUS_COLORS[selectedDrill.peakCategory]}` : 'text-indigo-400'}
+              />
+              <StatCard
+                label="Drill Duration"
+                value={`${selectedDrill.durationSec}s`}
+                sub="Elapsed Scenario Time"
+                color="text-blue-600 dark:text-blue-400"
+              />
+              <StatCard
+                label="Time to Warning"
+                value={selectedDrill.timeToMonitorSec != null ? `${selectedDrill.timeToMonitorSec}s` : 'N/A'}
+                sub="Monitor Level Breach (3.1m)"
+                color="text-amber-600 dark:text-amber-400"
+              />
+              <StatCard
+                label="Time to Evacuation"
+                value={selectedDrill.timeToEvacuationSec != null ? `${selectedDrill.timeToEvacuationSec}s` : 'N/A'}
+                sub="Evacuation Level Breach (5.1m)"
+                color="text-red-600 dark:text-red-400"
+              />
+            </div>
           </div>
 
           {/* SIMULATION WATER LEVEL HISTORY FILTER & CHART BAR */}
@@ -704,11 +623,7 @@ export default function Analytics() {
                 {/* Session Filter */}
                 <select
                   value={simWlFilter.session}
-                  onChange={e => {
-                    const val = e.target.value;
-                    setSimWlFilter(f => ({ ...f, session: val }));
-                    if (val !== 'ALL') setSelectedDrillId(val);
-                  }}
+                  onChange={e => setSimWlFilter(f => ({ ...f, session: e.target.value }))}
                   className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
                   <option value="ALL">⭐ All Drill Sessions (Lahat)</option>
                   {drillSessions.map(s => (

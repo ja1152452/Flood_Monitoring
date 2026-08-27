@@ -467,25 +467,17 @@ export default function FloodMonitoringReports() {
           </div>
 
           {/* Drill Summary Card */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
             <div>
               <span className="text-slate-500 font-semibold block">Drill Name:</span>
               <span className="font-extrabold text-indigo-300 text-sm truncate block">{selectedDrill.name}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-semibold block">🟢 Started At:</span>
-              <span className="font-extrabold text-emerald-400 text-sm">
+              <span className="text-slate-500 font-semibold block">Date Conducted:</span>
+              <span className="font-extrabold text-amber-300 text-sm">
                 {selectedDrill.startedAt
-                  ? new Date(selectedDrill.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                  : '—'}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 font-semibold block">🏁 Completed At:</span>
-              <span className="font-extrabold text-purple-400 text-sm">
-                {selectedDrill.finishedAt
-                  ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                  : 'In Progress'}
+                  ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : new Date().toLocaleDateString('en-PH')}
               </span>
             </div>
             <div>
