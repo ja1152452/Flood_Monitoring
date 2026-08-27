@@ -569,37 +569,6 @@ export default function Analytics() {
           </div>
         </div>
 
-        {dataSource === 'simulation' && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500">Active Drill Session:</span>
-            <select
-              value={selectedDrillId}
-              onChange={(e) => {
-                setSelectedDrillId(e.target.value);
-                setSimWlFilter(f => ({ ...f, session: e.target.value }));
-              }}
-              className="text-xs font-extrabold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-              {drillSessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.durationSec}s)
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={refreshDrills}
-              className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-              title="Refresh Drills">
-              <RefreshCw size={14} />
-            </button>
-            <button
-              onClick={handleDrillExport}
-              disabled={!selectedDrill}
-              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-bold transition-all shadow-sm">
-              <FileDown size={13} />
-              Export Drill PDF
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ======================================================== */}

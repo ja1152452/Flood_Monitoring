@@ -654,32 +654,6 @@ export function LiveCameraFeed() {
           {/* TAB 2: AUTOMATED SCENARIO & TIMER DRILL */}
           {scenarioSubMode === 'scenario' && (
             <div className="space-y-3.5">
-              {/* Presets Row */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                  <Layers size={13} className="text-indigo-400" />
-                  Quick Scenario Drill Presets:
-                </span>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                  {SCENARIO_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => applyScenarioPreset(preset)}
-                      className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/70 hover:border-indigo-500/70 text-left transition-all group">
-                      <div className="text-[11px] font-black text-white group-hover:text-indigo-300 flex items-center justify-between">
-                        {preset.label}
-                        <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 rounded font-semibold text-slate-400">
-                          {preset.durationSec}s
-                        </span>
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 mt-1">
-                        {preset.startM}m ➔ {preset.targetM}m
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Start/End Configuration & Duration */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-900/80 p-3 rounded-xl border border-slate-800">
                 {/* Start Meter */}
