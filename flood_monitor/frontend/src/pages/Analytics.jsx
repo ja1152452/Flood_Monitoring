@@ -340,6 +340,125 @@ export default function Analytics() {
     setPdfPreview({ url, filename });
   };
 
+  // Simulation Drill Filter & Data Points Processing
+  const [simWlFilter, setSimWlFilter] = useState({
+    session: 'ALL',
+    type: 'all',
+    month: now.getMonth(),
+    year: now.getFullYear(),
+    date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    week: `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0')}`,
+    flood_level: '',
+  });
+
+  const [simTablePage, setSimTablePage] = useState(1);
+  const SIM_ROWS_PER_PAGE = 50;
+
+  useEffect(() => {
+    setSimTablePage(1);
+  }, [simWlFilter]);
+
+  const allSimPoints = useMemo(() => {
+    return drillSessions.flatMap(s => {
+      const sessionDate = new Date(s.startedAt || Date.now());
+      const sessionDateStr = sessionDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+      return (s.points || []).map((p, idx) => {
+        const pointIso = p.isoDateTime || new Date(sessionDate.getTime() + (p.elapsedSec || idx * 2) * 1000).toISOString();
+        const ptDate = new Date(pointIso);
+        return {
+          id: `${s.id}-${idx}`,
+          sessionId: s.id,
+          sessionName: s.name,
+          captured_at: pointIso,
+          date: p.date || sessionDateStr,
+          timestamp: p.timestamp || ptDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          water_level_m: p.waterLevelM != null ? p.waterLevelM : parseFloat(p.water_level_m || 2.0),
+          water_level_cm: p.waterLevelCm != null ? p.waterLevelCm : Math.round((p.waterLevelM || 2.0) * 100),
+          flood_level: p.floodLevel || p.flood_level || 'NORMAL',
+          phase: p.phase || 'rising',
+          rate_per_hour: p.ratePerHour != null ? p.ratePerHour : 0,
+          elapsedSec: p.elapsedSec || idx * 2,
+        };
+      });
+    });
+  }, [drillSessions]);
+
+  const filteredSimPoints = useMemo(() => {
+    let list = allSimPoints;
+
+    // 1. Filter by session
+    if (simWlFilter.session && simWlFilter.session !== 'ALL') {
+      list = list.filter(p => p.sessionId === simWlFilter.session);
+    }
+
+    // 2. Filter by flood_level
+    if (simWlFilter.flood_level) {
+      list = list.filter(p => p.flood_level === simWlFilter.flood_level);
+    }
+
+    // 3. Filter by time range
+    if (simWlFilter.type === 'date') {
+      list = list.filter(p => p.captured_at.slice(0, 10) === simWlFilter.date);
+    } else if (simWlFilter.type === 'month') {
+      list = list.filter(p => {
+        const d = new Date(p.captured_at);
+        return d.getMonth() === simWlFilter.month && d.getFullYear() === simWlFilter.year;
+      });
+    } else if (simWlFilter.type === 'week') {
+      const { start, end } = getWeekRange(simWlFilter.week);
+      const startMs = start.getTime();
+      const endMs = end.getTime() + 86400000;
+      list = list.filter(p => {
+        const ms = new Date(p.captured_at).getTime();
+        return ms >= startMs && ms <= endMs;
+      });
+    }
+
+    // Sort chronologically
+    return list.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+  }, [allSimPoints, simWlFilter]);
+
+  const totalSimTablePages = Math.ceil(filteredSimPoints.length / SIM_ROWS_PER_PAGE) || 1;
+  const paginatedSimPoints = useMemo(() => {
+    const start = (simTablePage - 1) * SIM_ROWS_PER_PAGE;
+    return filteredSimPoints.slice(start, start + SIM_ROWS_PER_PAGE);
+  }, [filteredSimPoints, simTablePage]);
+
+  const handleFilteredSimExport = () => {
+    if (!filteredSimPoints.length) return;
+    const doc = new jsPDF();
+    doc.setFontSize(16); doc.setTextColor(79, 70, 229);
+    doc.text('MDRRMO Flood Simulation Drill Evaluation Report', 14, 16);
+    doc.setFontSize(9); doc.setTextColor(100);
+    const label = simWlFilter.type === 'all' ? 'All-Time Simulation Drill Records'
+      : simWlFilter.type === 'date' ? simWlFilter.date
+        : simWlFilter.type === 'week' ? `Week ${simWlFilter.week}`
+          : `${MONTHS[simWlFilter.month]} ${simWlFilter.year}`;
+    doc.text(`Period: ${label} | Level Filter: ${simWlFilter.flood_level || 'All Levels'}`, 14, 23);
+    doc.text(`Total Logged Points: ${filteredSimPoints.length} entries`, 14, 28);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
+    autoTable(doc, {
+      startY: 39,
+      head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
+      body: filteredSimPoints.slice(0, 3000).map(p => [
+        p.date,
+        p.timestamp,
+        p.sessionName,
+        p.water_level_m.toFixed(2),
+        `${p.water_level_cm} cm`,
+        p.flood_level,
+        p.phase || '—',
+        `${p.rate_per_hour} m/hr`,
+      ]),
+      styles: { fontSize: 8, textColor: [30, 41, 59] },
+      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+      columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
+    });
+    const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.date || simWlFilter.week || 'records'}.pdf`;
+    const url = doc.output('bloburl');
+    setPdfPreview({ url, filename });
+  };
+
   const byBarangay = stats?.by_barangay || [];
   const byRole = stats?.by_role || [];
   const sosStat = stats?.sos_stats || {};
@@ -452,10 +571,13 @@ export default function Analytics() {
 
         {dataSource === 'simulation' && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500">Drill Session:</span>
+            <span className="text-xs font-bold text-slate-500">Active Drill Session:</span>
             <select
               value={selectedDrillId}
-              onChange={(e) => setSelectedDrillId(e.target.value)}
+              onChange={(e) => {
+                setSelectedDrillId(e.target.value);
+                setSimWlFilter(f => ({ ...f, session: e.target.value }));
+              }}
               className="text-xs font-extrabold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
               {drillSessions.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -486,7 +608,7 @@ export default function Analytics() {
       {dataSource === 'simulation' && selectedDrill && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
               </h2>
@@ -522,11 +644,217 @@ export default function Analytics() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* SIMULATION WATER LEVEL HISTORY FILTER & CHART BAR */}
+          <div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Simulated Water Level History & Export Report
+              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Session Filter */}
+                <select
+                  value={simWlFilter.session}
+                  onChange={e => setSimWlFilter(f => ({ ...f, session: e.target.value }))}
+                  className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                  <option value="ALL">⭐ All Drill Sessions (Lahat)</option>
+                  {drillSessions.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: 'month', label: 'Month' },
+                  { id: 'date', label: 'Date' },
+                  { id: 'week', label: 'Week' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSimWlFilter(f => ({ ...f, type: t.id }))}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-colors ${
+                      simWlFilter.type === t.id
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm'
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
+
+                {simWlFilter.type === 'month' && (
+                  <>
+                    <select
+                      value={simWlFilter.month}
+                      onChange={e => setSimWlFilter(f => ({ ...f, month: +e.target.value }))}
+                      className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                      {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <select
+                      value={simWlFilter.year}
+                      onChange={e => setSimWlFilter(f => ({ ...f, year: +e.target.value }))}
+                      className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                      {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </>
+                )}
+
+                {simWlFilter.type === 'date' && (
+                  <input
+                    type="date"
+                    value={simWlFilter.date}
+                    onChange={e => setSimWlFilter(f => ({ ...f, date: e.target.value }))}
+                    className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                  />
+                )}
+
+                {simWlFilter.type === 'week' && (
+                  <input
+                    type="week"
+                    value={simWlFilter.week}
+                    onChange={e => setSimWlFilter(f => ({ ...f, week: e.target.value }))}
+                    className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                  />
+                )}
+
+                <select
+                  value={simWlFilter.flood_level}
+                  onChange={e => setSimWlFilter(f => ({ ...f, flood_level: e.target.value }))}
+                  className="bg-white border border-slate-300 text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                  <option value="">All Levels</option>
+                  <option value="NORMAL">Normal</option>
+                  <option value="MONITOR">Monitor</option>
+                  <option value="ALERT">Alert</option>
+                  <option value="EVACUATION">Evacuation</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+
+                <button
+                  onClick={handleFilteredSimExport}
+                  disabled={filteredSimPoints.length === 0}
+                  className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 px-3.5 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <FileDown size={13} />
+                  Export PDF Report
+                </button>
+              </div>
+            </div>
+
+            <WaterLevelChart
+              data={filteredSimPoints}
+              floodLevel={simWlFilter.flood_level}
+              title={`SIMULATED WATER LEVEL HISTORY — ${
+                simWlFilter.type === 'all'
+                  ? 'ALL-TIME HISTORICAL SIMULATION DRILL RECORDS'
+                  : simWlFilter.type === 'date'
+                    ? `DATE: ${simWlFilter.date}`
+                    : simWlFilter.type === 'week'
+                      ? `WEEK: ${simWlFilter.week}`
+                      : `${MONTHS[simWlFilter.month]} ${simWlFilter.year}`
+              }`}
+            />
+
+            {/* Detailed Simulated Water Level Readings Table */}
+            <div className="mt-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Detailed Simulated Drill Readings
+                  </h3>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                    {filteredSimPoints.length} total drill points logged
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-[32rem]">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                        <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                    {paginatedSimPoints.map(p => {
+                      const config = getFloodConfig(p.flood_level);
+                      const statusColor = STATUS_COLORS[p.flood_level] || '#64748b';
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                          <td className="px-5 py-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            {p.date}
+                          </td>
+                          <td className="px-5 py-3 text-xs font-mono font-medium text-slate-600 dark:text-slate-400">
+                            {p.timestamp}
+                          </td>
+                          <td className="px-5 py-3 text-xs font-bold text-indigo-400">
+                            {p.sessionName}
+                          </td>
+                          <td className="px-5 py-3 text-sm font-black" style={{ color: statusColor }}>
+                            {p.water_level_m != null ? `${parseFloat(p.water_level_m).toFixed(3)} m` : '—'}
+                          </td>
+                          <td className="px-5 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            {p.water_level_cm} cm
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                              style={{ backgroundColor: statusColor + '22', color: statusColor }}>
+                              {config.label}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
+                            {p.phase || 'N/A'}
+                          </td>
+                          <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
+                            {p.rate_per_hour} m/hr
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredSimPoints.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 text-sm font-semibold">
+                  <span className="text-3xl">🌊</span>
+                  <p>No simulated drill points found for this filter</p>
+                </div>
+              )}
+
+              {/* Table Pagination Bar */}
+              {filteredSimPoints.length > SIM_ROWS_PER_PAGE && (
+                <div className="px-5 py-3.5 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2 bg-slate-50 dark:bg-slate-900/50">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    Showing <span className="font-bold text-slate-900 dark:text-white">{(simTablePage - 1) * SIM_ROWS_PER_PAGE + 1}</span> to <span className="font-bold text-slate-900 dark:text-white">{Math.min(simTablePage * SIM_ROWS_PER_PAGE, filteredSimPoints.length)}</span> of <span className="font-bold text-indigo-600 dark:text-indigo-400">{filteredSimPoints.length.toLocaleString()}</span> entries
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSimTablePage(p => Math.max(1, p - 1))}
+                      disabled={simTablePage === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <span className="text-xs font-bold px-2 text-slate-700 dark:text-slate-300">
+                      Page {simTablePage} of {totalSimTablePages}
+                    </span>
+                    <button
+                      onClick={() => setSimTablePage(p => Math.min(totalSimTablePages, p + 1))}
+                      disabled={simTablePage >= totalSimTablePages}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm">
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Chart 1: Water Level Progression Line Chart */}
-            <div className="lg:col-span-2">
-              <ChartCard title="Simulated Water Level Progression" sub="Water height (meters) vs scenario timeline">
-                <ResponsiveContainer width="100%" height={280}>
+            <div className="lg:col-span-1">
+              <ChartCard title="Selected Scenario Progression" sub="Water height (meters) vs scenario timeline">
+                <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={drillChartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 11 }} />
@@ -545,7 +873,7 @@ export default function Analytics() {
             {/* Chart 2: Category Distribution Pie Chart */}
             <div className="lg:col-span-1">
               <ChartCard title="Time Spent per Severity Tier" sub="Proportion of drill duration per threshold">
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={drillCategoryDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} dataKey="value">
                       {drillCategoryDistribution.map((entry) => (
@@ -557,54 +885,6 @@ export default function Analytics() {
                   </PieChart>
                 </ResponsiveContainer>
               </ChartCard>
-            </div>
-          </div>
-
-          {/* Drill Data Point Records Table */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Drill Session Log Records ({selectedDrill.points.length} entries)
-              </h2>
-            </div>
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto max-h-72">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Elapsed (s)', 'Time of Day', 'Water Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise'].map(h => (
-                        <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                    {selectedDrill.points.map((p, i) => {
-                      const cfg = getFloodConfig(p.floodLevel);
-                      return (
-                        <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-5 py-2.5 font-bold text-slate-900 dark:text-white">+{p.elapsedSec}s</td>
-                          <td className="px-5 py-2.5 text-xs text-slate-500">{p.timestamp}</td>
-                          <td className="px-5 py-2.5 font-black text-indigo-400">{p.waterLevelM.toFixed(2)}m</td>
-                          <td className="px-5 py-2.5 text-slate-600 dark:text-slate-300 text-xs font-semibold">{p.waterLevelCm} cm</td>
-                          <td className="px-5 py-2.5">
-                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: cfg.color + '22',
-                                color: cfg.color,
-                              }}>
-                              {cfg.label}
-                            </span>
-                          </td>
-                          <td className="px-5 py-2.5 text-xs font-bold uppercase text-slate-500">{p.phase}</td>
-                          <td className="px-5 py-2.5 text-xs font-bold text-slate-400">{p.ratePerHour} m/hr</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
