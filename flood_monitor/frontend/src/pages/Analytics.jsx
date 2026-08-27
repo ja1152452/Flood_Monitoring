@@ -362,6 +362,9 @@ export default function Analytics() {
     return drillSessions.flatMap(s => {
       const sessionDate = new Date(s.startedAt || Date.now());
       const sessionDateStr = sessionDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+      const startTimeStr = s.startedAt ? new Date(s.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+      const endTimeStr = s.finishedAt ? new Date(s.finishedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+
       return (s.points || []).map((p, idx) => {
         const pointIso = p.isoDateTime || new Date(sessionDate.getTime() + (p.elapsedSec || idx * 2) * 1000).toISOString();
         const ptDate = new Date(pointIso);
@@ -369,6 +372,9 @@ export default function Analytics() {
           id: `${s.id}-${idx}`,
           sessionId: s.id,
           sessionName: s.name,
+          sessionStartedTime: startTimeStr,
+          sessionFinishedTime: endTimeStr,
+          sessionDuration: s.durationSec ? `${s.durationSec}s` : '60s',
           captured_at: pointIso,
           date: p.date || sessionDateStr,
           timestamp: p.timestamp || ptDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -439,20 +445,22 @@ export default function Analytics() {
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
     autoTable(doc, {
       startY: 39,
-      head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
+      head: [['Date', 'Point Time', 'Drill Session', 'Drill Started', 'Drill Completed', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
       body: filteredSimPoints.slice(0, 3000).map(p => [
         p.date,
         p.timestamp,
         p.sessionName,
+        p.sessionStartedTime,
+        p.sessionFinishedTime,
         p.water_level_m.toFixed(2),
         `${p.water_level_cm} cm`,
         p.flood_level,
         p.phase || '—',
         `${p.rate_per_hour} m/hr`,
       ]),
-      styles: { fontSize: 8, textColor: [30, 41, 59] },
+      styles: { fontSize: 7, textColor: [30, 41, 59] },
       headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
-      columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
+      columnStyles: { 0: { fontStyle: 'bold' }, 7: { fontStyle: 'bold' } },
     });
     const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.date || simWlFilter.week || 'records'}.pdf`;
     const url = doc.output('bloburl');
@@ -581,9 +589,15 @@ export default function Analytics() {
               <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
               </h2>
-              <span className="text-xs text-slate-500 font-medium">
-                Started: {new Date(selectedDrill.startedAt).toLocaleString('en-PH')} · {selectedDrill.pointsCount} points logged
-              </span>
+              <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
+                <span>
+                  🟢 <strong>Started:</strong> {new Date(selectedDrill.startedAt).toLocaleString('en-PH')}
+                </span>
+                <span>
+                  🏁 <strong>Completed:</strong> {selectedDrill.finishedAt ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH') : 'In Progress'}
+                </span>
+                <span>· {selectedDrill.pointsCount} points logged</span>
+              </div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
@@ -739,7 +753,7 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                      {['Date', 'Point Time', 'Drill Session', 'Drill Schedule (Start ➔ Finished)', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -758,6 +772,16 @@ export default function Analytics() {
                           </td>
                           <td className="px-5 py-3 text-xs font-bold text-indigo-400">
                             {p.sessionName}
+                          </td>
+                          <td className="px-5 py-3 text-xs">
+                            <div className="flex flex-col gap-0.5 whitespace-nowrap">
+                              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                🟢 Start: {p.sessionStartedTime}
+                              </span>
+                              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                                🏁 End: {p.sessionFinishedTime}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-5 py-3 text-sm font-black" style={{ color: statusColor }}>
                             {p.water_level_m != null ? `${parseFloat(p.water_level_m).toFixed(3)} m` : '—'}

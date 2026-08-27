@@ -467,17 +467,25 @@ export default function FloodMonitoringReports() {
           </div>
 
           {/* Drill Summary Card */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 bg-indigo-950/20 border border-indigo-500/30 p-4 rounded-2xl text-xs">
             <div>
               <span className="text-slate-500 font-semibold block">Drill Name:</span>
               <span className="font-extrabold text-indigo-300 text-sm truncate block">{selectedDrill.name}</span>
             </div>
             <div>
-              <span className="text-slate-500 font-semibold block">Date Conducted:</span>
-              <span className="font-extrabold text-amber-300 text-sm">
+              <span className="text-slate-500 font-semibold block">🟢 Started At:</span>
+              <span className="font-extrabold text-emerald-400 text-sm">
                 {selectedDrill.startedAt
-                  ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
-                  : new Date().toLocaleDateString('en-PH')}
+                  ? new Date(selectedDrill.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  : '—'}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-semibold block">🏁 Completed At:</span>
+              <span className="font-extrabold text-purple-400 text-sm">
+                {selectedDrill.finishedAt
+                  ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  : 'In Progress'}
               </span>
             </div>
             <div>
@@ -500,7 +508,7 @@ export default function FloodMonitoringReports() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                    {['Date', 'Elapsed (s)', 'Time of Day', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                    {['Date', 'Elapsed (s)', 'Time of Day', 'Drill Started', 'Drill Completed', 'Simulated Level (m)', 'Level (cm)', 'Flood Status', 'Drill Phase', 'Rate of Rise'].map(h => (
                       <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                         {h}
                       </th>
@@ -517,6 +525,12 @@ export default function FloodMonitoringReports() {
                     const defaultDateStr = selectedDrill.startedAt
                       ? new Date(selectedDrill.startedAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
                       : new Date().toLocaleDateString('en-PH');
+                    const startTimeStr = selectedDrill.startedAt
+                      ? new Date(selectedDrill.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                      : '—';
+                    const endTimeStr = selectedDrill.finishedAt
+                      ? new Date(selectedDrill.finishedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                      : '—';
                     const rowDate = p.date || defaultDateStr;
 
                     return (
@@ -524,6 +538,8 @@ export default function FloodMonitoringReports() {
                         <td className="px-5 py-2.5 font-bold text-slate-900 dark:text-white text-xs">{rowDate}</td>
                         <td className="px-5 py-2.5 font-semibold text-slate-500 dark:text-slate-400 text-xs">+{p.elapsedSec}s</td>
                         <td className="px-5 py-2.5 text-xs text-slate-500 font-mono">{p.timestamp}</td>
+                        <td className="px-5 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{startTimeStr}</td>
+                        <td className="px-5 py-2.5 text-xs font-bold text-purple-600 dark:text-purple-400 whitespace-nowrap">{endTimeStr}</td>
                         <td className="px-5 py-2.5 font-black text-indigo-400">{p.waterLevelM.toFixed(2)}m</td>
                         <td className="px-5 py-2.5 text-slate-600 dark:text-slate-300 text-xs font-semibold">{p.waterLevelCm} cm</td>
                         <td className="px-5 py-2.5">
