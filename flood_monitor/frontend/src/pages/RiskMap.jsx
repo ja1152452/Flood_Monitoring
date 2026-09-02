@@ -278,14 +278,10 @@ export default function RiskMapPage() {
   const [showWindyModal, setShowWindyModal] = useState(false);
   const [isWindyFullScreen, setIsWindyFullScreen] = useState(false);
   const [windyOverlay, setWindyOverlay] = useState('wind');
-  const [showWindyBorder, setShowWindyBorder] = useState(true);
-  const [windyZoom, setWindyZoom] = useState(8.0);
   const windyContainerRef = React.useRef(null);
 
   const [showRainRadarModal, setShowRainRadarModal] = useState(false);
   const [isRainRadarFullScreen, setIsRainRadarFullScreen] = useState(false);
-  const [showRainRadarBorder, setShowRainRadarBorder] = useState(true);
-  const [rainRadarZoom, setRainRadarZoom] = useState(8.5);
   const rainRadarContainerRef = React.useRef(null);
 
   // Layer Visibility Toggles (Risk & Hazard Map Layers)
@@ -388,7 +384,6 @@ export default function RiskMapPage() {
     setIsWindyFullScreen(f => {
       const next = !f;
       if (next) {
-        setWindyZoom(8.0);
         if (windyContainerRef.current?.requestFullscreen) {
           windyContainerRef.current.requestFullscreen().catch(() => {});
         }
@@ -396,7 +391,6 @@ export default function RiskMapPage() {
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
         }
-        setWindyZoom(9.5);
       }
       return next;
     });
@@ -1765,43 +1759,6 @@ export default function RiskMapPage() {
                   {ov.label}
                 </button>
               ))}
-
-              <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
-
-              {/* Lumban Border Toggle */}
-              <button
-                onClick={() => setShowWindyBorder(b => !b)}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border flex items-center gap-1.5 ${
-                  showWindyBorder
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                }`}
-              >
-                <Shield size={13} />
-                <span>Lumban Border: {showWindyBorder ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {/* Border Scale Finetuner Controls */}
-              {showWindyBorder && (
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-0.5 rounded-lg text-xs font-bold">
-                  <span className="text-slate-500 text-[11px]">Border Scale:</span>
-                  <button
-                    onClick={() => setWindyZoom(z => Math.max(6, +(z - 0.5).toFixed(1)))}
-                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
-                    title="Decrease border overlay scale"
-                  >
-                    -
-                  </button>
-                  <span className="font-mono text-blue-600 dark:text-blue-400 min-w-[28px] text-center">{windyZoom}</span>
-                  <button
-                    onClick={() => setWindyZoom(z => Math.min(14, +(z + 0.5).toFixed(1)))}
-                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
-                    title="Increase border overlay scale"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1811,14 +1768,6 @@ export default function RiskMapPage() {
               isWindyFullScreen ? 'h-[calc(100vh-140px)] min-h-[500px]' : 'h-[520px]'
             }`}
           >
-            {/* SVG OVERLAY OF LUMBAN MUNICIPAL BORDER */}
-            {showWindyBorder && (
-              <LumbanWindySvgOverlay
-                zoom={windyZoom}
-                containerRef={windyContainerRef}
-              />
-            )}
-
             <iframe
               key={`${windyOverlay}-${isWindyFullScreen}`}
               title="Windy.com Live Wind Stream Map"
@@ -1831,9 +1780,6 @@ export default function RiskMapPage() {
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 shrink-0 pt-1">
             <span className="flex items-center gap-2">
               <span>📍 Centered on <b>Lumban, Laguna (14.2919° N, 121.4601° E)</b></span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                <Shield size={11} /> Lumban GIS Border Overlay Active
-              </span>
             </span>
             <span className="text-[11px]">Powered by Windy.com ECMWF Global Numerical Model</span>
           </div>
@@ -1873,42 +1819,6 @@ export default function RiskMapPage() {
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Live Doppler Radar Player & Animation:</span>
               <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {/* Lumban Border Toggle */}
-              <button
-                onClick={() => setShowRainRadarBorder(b => !b)}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border flex items-center gap-1.5 ${
-                  showRainRadarBorder
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                }`}
-              >
-                <Shield size={13} />
-                <span>Lumban Border: {showRainRadarBorder ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {/* Border Scale Finetuner Controls */}
-              {showRainRadarBorder && (
-                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-0.5 rounded-lg text-xs font-bold">
-                  <span className="text-slate-500 text-[11px]">Border Scale:</span>
-                  <button
-                    onClick={() => setRainRadarZoom(z => Math.max(6, +(z - 0.5).toFixed(1)))}
-                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
-                    title="Decrease border overlay scale"
-                  >
-                    -
-                  </button>
-                  <span className="font-mono text-blue-600 dark:text-blue-400 min-w-[28px] text-center">{rainRadarZoom}</span>
-                  <button
-                    onClick={() => setRainRadarZoom(z => Math.min(14, +(z + 0.5).toFixed(1)))}
-                    className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200"
-                    title="Increase border overlay scale"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           <div
@@ -1917,14 +1827,6 @@ export default function RiskMapPage() {
               isRainRadarFullScreen ? 'h-[calc(100vh-140px)] min-h-[500px]' : 'h-[520px]'
             }`}
           >
-            {/* LUMBAN SVG BORDER OVERLAY */}
-            {showRainRadarBorder && (
-              <LumbanWindySvgOverlay
-                zoom={rainRadarZoom}
-                containerRef={rainRadarContainerRef}
-              />
-            )}
-
             <iframe
               key={isRainRadarFullScreen}
               title="RainViewer Doppler Weather Radar Player"
@@ -1937,9 +1839,6 @@ export default function RiskMapPage() {
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 shrink-0 pt-1">
             <span className="flex items-center gap-2">
               <span>📍 Centered on <b>Lumban, Laguna (14.2919° N, 121.4601° E)</b></span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                <Shield size={11} /> Lumban GIS Border Overlay Active
-              </span>
             </span>
             <span className="text-[11px]">Powered by RainViewer Doppler Weather Radar API</span>
           </div>
@@ -2027,86 +1926,4 @@ function FormFields({ form, setForm }) {
   );
 }
 
-// -------------------------------------------------------------
-// LUMBAN SVG BORDER OVERLAY FOR WINDY IFRAME
-// -------------------------------------------------------------
-function LumbanWindySvgOverlay({ zoom = 12, containerRef }) {
-  const [dims, setDims] = useState({ w: 1000, h: 520 });
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const updateSize = () => {
-      if (containerRef.current) {
-        setDims({
-          w: containerRef.current.clientWidth || 1000,
-          h: containerRef.current.clientHeight || 520,
-        });
-      }
-    };
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [containerRef]);
-
-  const centerLat = 14.291969;
-  const centerLon = 121.460112;
-
-  const svgPaths = useMemo(() => {
-    if (!lumbanBorder?.features) return [];
-    const scale = (256 * Math.pow(2, zoom)) / 360;
-    const centerLatRad = (centerLat * Math.PI) / 180;
-    const yCenter = Math.log(Math.tan(Math.PI / 4 + centerLatRad / 2));
-    const containerWidth = dims.w;
-    const containerHeight = dims.h;
-
-    return lumbanBorder.features.map(feature => {
-      const geomType = feature.geometry.type;
-      const polygons = geomType === 'Polygon'
-        ? [feature.geometry.coordinates]
-        : geomType === 'MultiPolygon'
-        ? feature.geometry.coordinates
-        : [];
-
-      return polygons.map(polygon => {
-        const outerRing = polygon[0];
-        if (!outerRing || !outerRing.length) return '';
-        const points = outerRing.map(([lon, lat]) => {
-          const x = (lon - centerLon) * scale + containerWidth / 2;
-          const latRad = (lat * Math.PI) / 180;
-          const yVal = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-          const y = containerHeight / 2 - (yVal - yCenter) * ((256 * Math.pow(2, zoom)) / (2 * Math.PI));
-          return `${x.toFixed(1)},${y.toFixed(1)}`;
-        });
-        return `M ${points.join(' L ')} Z`;
-      }).join(' ');
-    });
-  }, [zoom, dims.w, dims.h]);
-
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none z-10"
-      viewBox={`0 0 ${dims.w} ${dims.h}`}
-    >
-      <defs>
-        <filter id="windyGlow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      {svgPaths.map((d, i) => (
-        <g key={i}>
-          {/* Semi-transparent cyan fill highlight over Lumban */}
-          <path d={d} fill="#06b6d4" fillOpacity="0.15" />
-          {/* Outer glowing border stroke */}
-          <path d={d} fill="none" stroke="#00f0ff" strokeWidth="4" strokeDasharray="8 5" filter="url(#windyGlow)" />
-          {/* Inner blue dashed border line */}
-          <path d={d} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeDasharray="8 5" />
-        </g>
-      ))}
-    </svg>
-  );
-}
