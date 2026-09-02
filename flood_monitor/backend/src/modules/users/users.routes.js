@@ -110,6 +110,7 @@ const createSchema = Joi.object({
     'string.pattern.base': 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g. 09171234567)',
   }),
   evacuation_center_id: Joi.string().allow('', null).optional(),
+  created_at: Joi.date().optional().allow('', null),
 });
 
 const updateSchema = Joi.object({
@@ -124,6 +125,7 @@ const updateSchema = Joi.object({
   is_active: Joi.boolean().optional(),
   password: Joi.string().min(8).optional(),
   evacuation_center_id: Joi.string().allow('', null).optional(),
+  created_at: Joi.date().optional().allow('', null),
 }).min(1);
 
 router.get('/', asyncHandler(async (req, res) => {
@@ -243,7 +245,7 @@ router.get('/stats', asyncHandler(async (_req, res) => {
 }));
 
 router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
-  const { email, password, full_name, role, barangay, phone_number, evacuation_center_id } = req.body;
+  const { email, password, full_name, role, barangay, phone_number, evacuation_center_id, created_at } = req.body;
 
   // Only Super Admins can create Administrator accounts
   if ((role === 'ADMIN' || role === 'SUPER_ADMIN') && req.user.role !== 'SUPER_ADMIN') {
@@ -269,18 +271,26 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
 
   const centerId = (role === 'MSWDO' && evacuation_center_id?.trim()) ? evacuation_center_id : null;
 
+  let customCreatedAt = null;
+  if (created_at) {
+    const d = new Date(created_at);
+    if (!isNaN(d.getTime())) {
+      customCreatedAt = d.toISOString();
+    }
+  }
+
   try {
     const { rows } = await query(
-      `INSERT INTO users (email, password_hash, full_name, role, barangay_id, phone_number, evacuation_center_id)
-       VALUES ($1,$2,$3,$4::user_role,$5,$6,$7)
+      `INSERT INTO users (email, password_hash, full_name, role, barangay_id, phone_number, evacuation_center_id, created_at)
+       VALUES ($1,$2,$3,$4::user_role,$5,$6,$7, COALESCE($8::timestamptz, NOW()))
        RETURNING id, email, full_name, role, is_active, created_at, barangay_id`,
-      [email.toLowerCase(), hash, full_name, role, barangayId, phone_number || null, centerId]
+      [email.toLowerCase(), hash, full_name, role, barangayId, phone_number || null, centerId, customCreatedAt]
     );
 
     await writeAuditLog({
       userId: req.user.id, action: 'USER_CREATED',
       entityType: 'users', entityId: rows[0].id,
-      after: { email, role, barangay, evacuation_center_id: centerId },
+      after: { email, role, barangay, evacuation_center_id: centerId, created_at: rows[0].created_at },
     });
 
     res.status(201).json({ success: true, data: rows[0] });
@@ -342,7 +352,7 @@ router.delete('/:id/permanent', asyncHandler(async (req, res) => {
 }));
 
 router.patch('/:id', validate(updateSchema), asyncHandler(async (req, res) => {
-  const { password, barangay, evacuation_center_id, ...rest } = req.body;
+  const { password, barangay, evacuation_center_id, created_at, ...rest } = req.body;
 
   if (req.params.id === req.user.id && rest.role) {
     throw ApiError.forbidden('Cannot change your own role');
@@ -383,6 +393,15 @@ router.patch('/:id', validate(updateSchema), asyncHandler(async (req, res) => {
     updates.evacuation_center_id = evacuation_center_id || null;
   }
 
+  if (created_at !== undefined) {
+    if (created_at) {
+      const d = new Date(created_at);
+      if (!isNaN(d.getTime())) {
+        updates.created_at = d.toISOString();
+      }
+    }
+  }
+
   const fields = Object.keys(updates);
   if (!fields.length) throw ApiError.badRequest('Nothing to update');
 
@@ -391,7 +410,7 @@ router.patch('/:id', validate(updateSchema), asyncHandler(async (req, res) => {
 
   const { rows } = await query(
     `UPDATE users SET ${set}, updated_at = NOW()
-     WHERE id = $1 RETURNING id, email, full_name, role, is_active`,
+     WHERE id = $1 RETURNING id, email, full_name, role, is_active, created_at`,
     [req.params.id, ...values]
   );
   if (!rows.length) throw ApiError.notFound('User not found');
