@@ -324,7 +324,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
           <TileLayer url={BASEMAPS[basemap].labelsUrl} maxZoom={19} />
         )}
 
-        {/* Live Rain Radar Overlay */}
+        {/* Live Rain Radar Overlay (RainViewer API - capped at zoom 7 on free tier) */}
         {showRainRadar && radarTileUrl && (
           <TileLayer
             key={`rescue-radar-${radarTimestamp}`}
@@ -332,7 +332,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
             opacity={0.75}
             zIndex={500}
             maxZoom={19}
-            maxNativeZoom={16}
+            maxNativeZoom={7}
           />
         )}
 

@@ -1241,7 +1241,7 @@ export default function RiskMapPage() {
               <TileLayer key={`labels-${basemap}`} url={BASEMAPS[basemap].labelsUrl} maxZoom={19} maxNativeZoom={19} />
             )}
 
-            {/* 5. LIVE METEOROLOGICAL RAIN RADAR (RainViewer API) */}
+            {/* 5. LIVE METEOROLOGICAL RAIN RADAR (RainViewer API - capped at zoom 7 on free tier) */}
             {layerVisibility.rainRadar && radarTileUrl && (
               <TileLayer
                 key={`radar-${radarTimestamp}-${radarOpacity}`}
@@ -1249,7 +1249,7 @@ export default function RiskMapPage() {
                 opacity={radarOpacity}
                 zIndex={500}
                 maxZoom={19}
-                maxNativeZoom={16}
+                maxNativeZoom={7}
               />
             )}
 
