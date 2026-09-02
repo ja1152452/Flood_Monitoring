@@ -5,10 +5,12 @@ export const BACKGROUND_ALERT_TASK = 'BACKGROUND_ALERT_TASK';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge:  true,
-    priority:        Notifications.AndroidNotificationPriority.MAX,
+    shouldShowAlert:  true,
+    shouldShowBanner: true,
+    shouldShowList:   true,
+    shouldPlaySound:  true,
+    shouldSetBadge:   true,
+    priority:         Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -50,7 +52,7 @@ export async function getFCMToken() {
     if (tokenObj?.data) return tokenObj.data;
 
     // 2. Fallback to Expo push token if device token is unavailable
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId || '6c905b88-3b68-40b9-9859-2114fc1340af';
     const expoTokenObj = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined).catch(() => null);
     return expoTokenObj?.data || null;
   } catch (e) {
@@ -61,15 +63,20 @@ export async function getFCMToken() {
 
 export async function sendLocalNotification(title, body) {
   try {
-    const { status } = await Notifications.getPermissionsAsync();
+    let { status } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'denied' }));
+    if (status !== 'granted') {
+      const res = await Notifications.requestPermissionsAsync().catch(() => ({ status: 'denied' }));
+      status = res?.status;
+    }
     if (status !== 'granted') return;
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound:    true,
-        priority: Notifications.AndroidNotificationPriority.MAX,
-        android: { channelId: 'flood-alerts' },
+        sound:     true,
+        priority:  Notifications.AndroidNotificationPriority.MAX,
+        channelId: 'flood-alerts',
+        android:   { channelId: 'flood-alerts' },
       },
       trigger: null,
     });

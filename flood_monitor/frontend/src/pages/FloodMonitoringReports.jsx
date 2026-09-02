@@ -54,7 +54,7 @@ export default function FloodMonitoringReports() {
       });
 
       const maxPeak = drillSessions.reduce((max, s) => Math.max(max, s.peakLevelM || 0), 2.0);
-      const peakCat = maxPeak >= 6.1 ? 'CRITICAL' : maxPeak >= 5.1 ? 'EVACUATION' : maxPeak >= 4.1 ? 'ALERT' : maxPeak >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const peakCat = maxPeak >= 6.0 ? 'CRITICAL' : maxPeak >= 5.0 ? 'EVACUATION' : maxPeak >= 4.0 ? 'ALERT' : maxPeak >= 3.1 ? 'MONITOR' : 'NORMAL';
 
       return {
         id: 'ALL_SESSIONS',

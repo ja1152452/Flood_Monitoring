@@ -37,7 +37,7 @@ export function AlertNotifier() {
 
     const alert = alerts[0];
     const isManual = alert.trigger_type === 'MANUAL';
-    const alertKey = `${alert.id}_${alert.flood_level}_${alert.triggered_at || ''}`;
+    const alertKey = `${alert.id}_${alert.flood_level}`;
 
     // If this specific alert + level combination hasn't been dismissed by the user in this session, show popup
     if (!dismissedKeysRef.current.has(alertKey)) {
@@ -75,7 +75,7 @@ export function AlertNotifier() {
 
   const handleDismiss = () => {
     if (currentAlert) {
-      const alertKey = `${currentAlert.id}_${currentAlert.flood_level}_${currentAlert.triggered_at || ''}`;
+      const alertKey = `${currentAlert.id}_${currentAlert.flood_level}`;
       dismissedKeysRef.current.add(alertKey);
     }
     setCurrentAlert(null);

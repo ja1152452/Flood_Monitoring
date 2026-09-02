@@ -367,14 +367,6 @@ export const refresh = async (token) => {
 export const updateFcmToken = async (userId, fcmToken) => {
   const tokenVal = (typeof fcmToken === 'string' && fcmToken.trim()) ? fcmToken.trim() : null;
 
-  if (tokenVal) {
-    // Dissociate this device token from any other account so push notifications only go to the active account on this device
-    await query(
-      'UPDATE users SET fcm_token = NULL WHERE fcm_token = $1 AND id != $2',
-      [tokenVal, userId]
-    );
-  }
-
   await query(
     'UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2',
     [tokenVal, userId]

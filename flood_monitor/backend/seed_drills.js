@@ -22,7 +22,7 @@ async function seed() {
         trend = 'RECEDING';
       }
       lvl = parseFloat(lvl.toFixed(3));
-      const floodLvl = lvl >= 6.1 ? 'CRITICAL' : lvl >= 5.1 ? 'EVACUATION' : lvl >= 4.1 ? 'ALERT' : lvl >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const floodLvl = lvl >= 6.0 ? 'CRITICAL' : lvl >= 5.0 ? 'EVACUATION' : lvl >= 4.0 ? 'ALERT' : lvl >= 3.1 ? 'MONITOR' : 'NORMAL';
       readings.push([camId, lvl, floodLvl, trend, dt.toISOString(), dt.toISOString()]);
     }
 
@@ -43,7 +43,7 @@ async function seed() {
         trend = 'RECEDING';
       }
       lvl = parseFloat(lvl.toFixed(3));
-      const floodLvl = lvl >= 6.1 ? 'CRITICAL' : lvl >= 5.1 ? 'EVACUATION' : lvl >= 4.1 ? 'ALERT' : lvl >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const floodLvl = lvl >= 6.0 ? 'CRITICAL' : lvl >= 5.0 ? 'EVACUATION' : lvl >= 4.0 ? 'ALERT' : lvl >= 3.1 ? 'MONITOR' : 'NORMAL';
       readings.push([camId, lvl, floodLvl, trend, dt.toISOString(), dt.toISOString()]);
     }
 

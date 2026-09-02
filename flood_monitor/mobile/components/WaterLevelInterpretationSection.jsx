@@ -3,11 +3,11 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const MDRRMO_THRESHOLDS = [
-  { level: 'NORMAL',     range: '2.0 – 3.0 m', label: 'Normal',     color: '#16a34a' },
-  { level: 'MONITOR',    range: '3.1 – 4.0 m', label: 'Monitor',    color: '#d97706' },
-  { level: 'ALERT',      range: '4.1 – 5.0 m', label: 'Alert',      color: '#ea580c' },
-  { level: 'EVACUATION', range: '5.1 – 6.0 m', label: 'Evacuation', color: '#dc2626' },
-  { level: 'CRITICAL',   range: '6.1 – 7.0 m', label: 'Critical',   color: '#7c3aed' },
+  { level: 'NORMAL',     range: '< 3.1 m',      label: 'Normal',     color: '#16a34a' },
+  { level: 'MONITOR',    range: '3.1 – 3.9 m',  label: 'Monitor',    color: '#d97706' },
+  { level: 'ALERT',      range: '4.0 – 4.9 m',  label: 'Alert',      color: '#ea580c' },
+  { level: 'EVACUATION', range: '5.0 – 5.9 m',  label: 'Evacuation', color: '#dc2626' },
+  { level: 'CRITICAL',   range: '≥ 6.0 m',      label: 'Critical',   color: '#7c3aed' },
 ];
 
 export function WaterLevelInterpretationSection({ trendData }) {

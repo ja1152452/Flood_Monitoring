@@ -51,7 +51,8 @@ const formatDateTime = (dateStr) => {
 };
 
 export function FloodAlertModal({ visible, level, alertData, centers = [], onDismiss }) {
-  const cfg = LEVEL_CONFIG[level] || LEVEL_CONFIG.MONITOR;
+  const normLevel = (level || '').toUpperCase();
+  const cfg = LEVEL_CONFIG[normLevel] || LEVEL_CONFIG.MONITOR;
   const isManual = alertData?.trigger_type === 'MANUAL';
 
   const displayTitle = isManual

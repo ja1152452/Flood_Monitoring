@@ -39,7 +39,7 @@ const DEFAULT_DRILL_SESSIONS = [
         level = 6.25 - (6.25 - 2.00) * ((progress - 0.55) / 0.45);
         phase = 'receding';
       }
-      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const category = level >= 6.0 ? 'CRITICAL' : level >= 5.0 ? 'EVACUATION' : level >= 4.0 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
       const pointDate = new Date(new Date('2026-08-27T09:00:00+08:00').getTime() + i * 60 * 1000);
       const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const dateStr = 'Aug 27, 2026';
@@ -87,7 +87,7 @@ const DEFAULT_DRILL_SESSIONS = [
         level = 5.85 - (5.85 - 2.00) * ((progress - 0.55) / 0.45);
         phase = 'receding';
       }
-      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const category = level >= 6.0 ? 'CRITICAL' : level >= 5.0 ? 'EVACUATION' : level >= 4.0 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
       const pointDate = new Date(new Date('2026-08-26T21:30:00+08:00').getTime() + i * 60 * 1000);
       const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const dateStr = 'Aug 26, 2026';
@@ -124,7 +124,7 @@ const DEFAULT_DRILL_SESSIONS = [
       const sec = i * 2;
       const progress = sec / 60;
       const level = 2.00 + (5.50 - 2.00) * progress;
-      const category = level >= 6.1 ? 'CRITICAL' : level >= 5.1 ? 'EVACUATION' : level >= 4.1 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
+      const category = level >= 6.0 ? 'CRITICAL' : level >= 5.0 ? 'EVACUATION' : level >= 4.0 ? 'ALERT' : level >= 3.1 ? 'MONITOR' : 'NORMAL';
       const pointDate = new Date(Date.now() - 3600000 * 2 + sec * 1000);
       const timeStr = pointDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const dateStr = pointDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -233,9 +233,9 @@ export const recordDrillPoint = (point) => {
   }
 
   if (m >= 3.1 && activeRecording.timeToMonitorSec === null) activeRecording.timeToMonitorSec = elapsed;
-  if (m >= 4.1 && activeRecording.timeToAlertSec === null) activeRecording.timeToAlertSec = elapsed;
-  if (m >= 5.1 && activeRecording.timeToEvacuationSec === null) activeRecording.timeToEvacuationSec = elapsed;
-  if (m >= 6.1 && activeRecording.timeToCriticalSec === null) activeRecording.timeToCriticalSec = elapsed;
+  if (m >= 4.0 && activeRecording.timeToAlertSec === null) activeRecording.timeToAlertSec = elapsed;
+  if (m >= 5.0 && activeRecording.timeToEvacuationSec === null) activeRecording.timeToEvacuationSec = elapsed;
+  if (m >= 6.0 && activeRecording.timeToCriticalSec === null) activeRecording.timeToCriticalSec = elapsed;
 
   const nowObj = new Date();
   activeRecording.points.push({

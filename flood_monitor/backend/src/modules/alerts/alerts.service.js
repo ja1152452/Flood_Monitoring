@@ -76,7 +76,7 @@ export const evaluateAndDispatch = async (reading, client) => {
   );
 
   // calculate real estimated hours to critical flood
-  const CRITICAL_LEVEL = 6.1;
+  const CRITICAL_LEVEL = 6.0;
   const currentLevel = parseFloat(reading.water_level_m);
   const { rows: trendRows } = await db.query(
     `SELECT water_level_m, captured_at
@@ -207,7 +207,43 @@ export const evaluateAndDispatch = async (reading, client) => {
 };
 
 export const getActive = async () => {
-  // 1. Fetch real active database alerts (Manual alarms or live sensor alerts)
+  // 1. If Simulation drill is currently active with an elevated level, return simulation alert immediately
+  if (isSimulationActive()) {
+    const sim = getSimulationState();
+    const level = sim.flood_level || 'NORMAL';
+    if (level !== 'NORMAL') {
+      const isSiren = SIREN_LEVELS.has(level);
+      const waterM = parseFloat(sim.water_level_m || 2.0).toFixed(2);
+      const ratePerHour = sim.rate_per_hour || (sim.is_rising ? 0.45 : 0.0);
+
+      let predictive = {};
+      try {
+        const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
+        predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
+      } catch (_) {}
+
+      return [{
+        id: `sim_alert_${level.toLowerCase()}`,
+        camera_id: 'sim-camera',
+        location_name: 'Lumban River Bridge (Simulation)',
+        lat: 14.2985,
+        lng: 121.4589,
+        barangay_name: 'Primera Parang',
+        risk_level: level === 'CRITICAL' || level === 'EVACUATION' ? 'HIGH' : 'MODERATE',
+        current_water_level_m: waterM,
+        flood_level: level,
+        siren_active: isSiren,
+        is_active: true,
+        is_simulated: true,
+        triggered_at: sim.updated_at || new Date().toISOString(),
+        rate_per_hour: ratePerHour,
+        rise_start_at: sim.updated_at || new Date().toISOString(),
+        ...predictive,
+      }];
+    }
+  }
+
+  // 2. Fetch real active database alerts (Manual alarms or live sensor alerts)
   const { rows } = await query(
     `SELECT a.*, c.location_name, c.lat, c.lng,
             b.name AS barangay_name, b.risk_level,
@@ -256,42 +292,6 @@ export const getActive = async () => {
       }
     } catch (_) {}
     return rows;
-  }
-
-  // 2. If no database alerts are active, check if Simulation mode has an active alert
-  if (isSimulationActive()) {
-    const sim = getSimulationState();
-    const level = sim.flood_level || 'NORMAL';
-    if (level !== 'NORMAL') {
-      const isSiren = SIREN_LEVELS.has(level);
-      const waterM = parseFloat(sim.water_level_m || 2.0).toFixed(2);
-      const ratePerHour = sim.rate_per_hour || (sim.is_rising ? 0.45 : 0.0);
-
-      let predictive = {};
-      try {
-        const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
-        predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
-      } catch (_) {}
-
-      return [{
-        id: `sim_alert_${level.toLowerCase()}`,
-        camera_id: 'sim-camera',
-        location_name: 'Lumban River Bridge (Simulation)',
-        lat: 14.2985,
-        lng: 121.4589,
-        barangay_name: 'Primera Parang',
-        risk_level: level === 'CRITICAL' || level === 'EVACUATION' ? 'HIGH' : 'MODERATE',
-        current_water_level_m: waterM,
-        flood_level: level,
-        siren_active: isSiren,
-        is_active: true,
-        is_simulated: true,
-        triggered_at: sim.updated_at || new Date().toISOString(),
-        rate_per_hour: ratePerHour,
-        rise_start_at: sim.updated_at || new Date().toISOString(),
-        ...predictive,
-      }];
-    }
   }
 
   return [];

@@ -8,9 +8,9 @@ import { useThemeStore } from '../../store/themeStore';
 
 const THRESHOLD_LINES = [
   { y: 3.1, label: 'Monitor (3.1m)',    color: '#D97706' },
-  { y: 4.1, label: 'Alert (4.1m)',      color: '#EA580C' },
-  { y: 5.1, label: 'Evacuation (5.1m)', color: '#DC2626' },
-  { y: 6.1, label: 'Critical (6.1m)',   color: '#7C3AED' },
+  { y: 4.0, label: 'Alert (4.0m)',      color: '#EA580C' },
+  { y: 5.0, label: 'Evacuation (5.0m)', color: '#DC2626' },
+  { y: 6.0, label: 'Critical (6.0m)',   color: '#7C3AED' },
 ];
 
 const LEVEL_COLORS = {

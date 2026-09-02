@@ -607,7 +607,7 @@ export default function Analytics() {
               <StatCard
                 label="Time to Evacuation"
                 value={selectedDrill.timeToEvacuationSec != null ? `${selectedDrill.timeToEvacuationSec}s` : 'N/A'}
-                sub="Evacuation Level Breach (5.1m)"
+                sub="Evacuation Level Breach (5.0m)"
                 color="text-red-600 dark:text-red-400"
               />
             </div>
@@ -830,9 +830,9 @@ export default function Analytics() {
                     <YAxis domain={[0, 7.0]} tick={{ fill: '#94a3b8', fontSize: 11 }} />
                     <Tooltip {...TOOLTIP_STYLE} />
                     <ReferenceLine y={3.1} stroke="#d97706" strokeDasharray="4 4" label={{ value: 'Monitor (3.1m)', fill: '#d97706', fontSize: 10 }} />
-                    <ReferenceLine y={4.1} stroke="#ea580c" strokeDasharray="4 4" label={{ value: 'Alert (4.1m)', fill: '#ea580c', fontSize: 10 }} />
-                    <ReferenceLine y={5.1} stroke="#dc2626" strokeDasharray="4 4" label={{ value: 'Evacuation (5.1m)', fill: '#dc2626', fontSize: 10 }} />
-                    <ReferenceLine y={6.1} stroke="#7e22ce" strokeDasharray="4 4" label={{ value: 'Critical (6.1m)', fill: '#7e22ce', fontSize: 10 }} />
+                    <ReferenceLine y={4.0} stroke="#ea580c" strokeDasharray="4 4" label={{ value: 'Alert (4.0m)', fill: '#ea580c', fontSize: 10 }} />
+                    <ReferenceLine y={5.0} stroke="#dc2626" strokeDasharray="4 4" label={{ value: 'Evacuation (5.0m)', fill: '#dc2626', fontSize: 10 }} />
+                    <ReferenceLine y={6.0} stroke="#7e22ce" strokeDasharray="4 4" label={{ value: 'Critical (6.0m)', fill: '#7e22ce', fontSize: 10 }} />
                     <Line type="monotone" dataKey="level" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', r: 3 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>

@@ -251,7 +251,7 @@ export default function Dashboard() {
             <div className="mt-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
               <span className="font-semibold text-slate-600 dark:text-slate-400">MDRRMO Threshold:</span>
               <span className="font-extrabold text-slate-900 dark:text-white">
-                {level === 'NORMAL' ? '2.0m – 3.0m' : level === 'MONITOR' ? '3.1m – 4.0m' : level === 'ALERT' ? '4.1m – 5.0m' : level === 'EVACUATION' ? '5.1m – 6.0m' : '6.1m – 7.0m'}
+                {level === 'NORMAL' ? '< 3.1m' : level === 'MONITOR' ? '3.1m – 3.9m' : level === 'ALERT' ? '4.0m – 4.9m' : level === 'EVACUATION' ? '5.0m – 5.9m' : '≥ 6.0m'}
               </span>
             </div>
 

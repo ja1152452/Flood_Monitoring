@@ -6,6 +6,8 @@ import { startDrillRecording, recordDrillPoint, finishDrillRecording } from '../
 let lastSyncTime = 0;
 let pendingSyncTimeout = null;
 
+const RAILWAY_SIM_URL = 'https://flood-monitoring.up.railway.app/api/v1/stream/simulation';
+
 const syncToBackend = (state, force = false) => {
   const now = Date.now();
   const send = async () => {
@@ -16,13 +18,26 @@ const syncToBackend = (state, force = false) => {
         ? state.scenarioPhase === 'rising' 
         : state.isSimRising;
 
-      await api.post('/stream/simulation', {
+      const payload = {
         active: isSim,
         water_level_m: state.simWaterLevel,
         flood_level: classification.level,
         is_rising: isRising,
         rate_per_hour: isRising ? parseFloat((state.simRiseSpeed * 3600).toFixed(2)) : 0.0,
-      });
+      };
+
+      // 1. Primary sync to local backend
+      await api.post('/stream/simulation', payload).catch(() => {});
+
+      // 2. Also dual-sync to Railway so all mobile app users receive the simulation immediately
+      if (typeof window !== 'undefined' && !window.location.hostname.includes('railway.app')) {
+        fetch(RAILWAY_SIM_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      }
+
       lastSyncTime = Date.now();
     } catch {
       // Best effort backend sync

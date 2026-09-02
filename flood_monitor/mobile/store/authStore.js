@@ -53,12 +53,10 @@ export const useAuthStore = create((set, get) => ({
   },
 
   logout: async () => {
-    const currentToken = get().token;
-    if (currentToken) {
-      try {
-        await api.patch('/auth/fcm-token', { fcm_token: null }).catch(() => {});
-      } catch (_) {}
-    }
+    // Keep device push token registered for emergency public broadcasts
+    try {
+      await api.post('/auth/logout').catch(() => {});
+    } catch (_) {}
     try {
       await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
     } catch (_) {}

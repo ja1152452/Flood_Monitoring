@@ -118,31 +118,43 @@ router.post('/simulation', asyncHandler(async (req, res) => {
         }
       }
     } catch (_) {}
-
-    // Dispatch FCM Push Notification to registered mobile devices
-    if (updated.flood_level && updated.flood_level !== 'NORMAL') {
-      try {
-        const LEVEL_META = {
-          MONITOR:    { title: '📢 [SIMULATION] MDRRMO ADVISORY: Monitor Level Reached', action: 'Please stay alert, secure essential belongings, and monitor official MDRRMO announcements.' },
-          ALERT:      { title: '⚠️ [SIMULATION] MDRRMO WARNING: Alert Level Reached', action: 'Please prepare emergency kits, secure family members, and be ready to evacuate if instructed.' },
-          EVACUATION: { title: '🚨 [SIMULATION] MDRRMO EMERGENCY: Mandatory Evacuation Level', action: 'MANDATORY EVACUATION: Please evacuate immediately to your designated evacuation center.' },
-          CRITICAL:   { title: '🆘 [SIMULATION] MDRRMO CRITICAL DANGER: Critical Flood Level', action: 'CRITICAL DANGER: Evacuate NOW to high ground or designated centers! Call SOS if trapped.' },
-        };
-        const meta = LEVEL_META[updated.flood_level];
-        if (meta) {
-          const { rows: recipients } = await query(
-            `SELECT id, role, fcm_token FROM users WHERE is_active = TRUE AND fcm_token IS NOT NULL`
-          );
-          const pushBody = `Water level has reached ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m (${updated.flood_level}). ${meta.action}`;
-          for (const user of recipients) {
-            try {
-              await sendPushNotification(user.fcm_token, meta.title, pushBody);
-            } catch (_) {}
-          }
-        }
-      } catch (pushErr) {
-        console.warn('[Simulation Push Notification Error]:', pushErr.message);
+  } else if (previousState.active && !updated.active) {
+    // When simulation is turned off completely
+    try {
+      const io = getIO();
+      if (io) {
+        io.emit('alert:updated', {
+          id: `sim_alert_${previousState.flood_level?.toLowerCase() || 'resolved'}`,
+          is_active: false,
+          is_simulated: true,
+          resolved_at: updated.updated_at,
+        });
       }
+    } catch (_) {}
+  }
+  // Dispatch FCM Push Notification to registered mobile devices
+  if (updated.active && updated.flood_level && updated.flood_level !== 'NORMAL' && previousState.flood_level !== updated.flood_level) {
+    try {
+      const LEVEL_META = {
+        MONITOR:    { title: '📢 [SIMULATION] MDRRMO ADVISORY: Monitor Level Reached', action: 'Please stay alert, secure essential belongings, and monitor official MDRRMO announcements.' },
+        ALERT:      { title: '⚠️ [SIMULATION] MDRRMO WARNING: Alert Level Reached', action: 'Please prepare emergency kits, secure family members, and be ready to evacuate if instructed.' },
+        EVACUATION: { title: '🚨 [SIMULATION] MDRRMO EMERGENCY: Mandatory Evacuation Level', action: 'MANDATORY EVACUATION: Please evacuate immediately to your designated evacuation center.' },
+        CRITICAL:   { title: '🆘 [SIMULATION] MDRRMO CRITICAL DANGER: Critical Flood Level', action: 'CRITICAL DANGER: Evacuate NOW to high ground or designated centers! Call SOS if trapped.' },
+      };
+      const meta = LEVEL_META[updated.flood_level];
+      if (meta) {
+        const { rows: recipients } = await query(
+          `SELECT id, role, fcm_token FROM users WHERE is_active = TRUE AND fcm_token IS NOT NULL`
+        );
+        const pushBody = `Water level has reached ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m (${updated.flood_level}). ${meta.action}`;
+        for (const user of recipients) {
+          try {
+            await sendPushNotification(user.fcm_token, meta.title, pushBody);
+          } catch (_) {}
+        }
+      }
+    } catch (pushErr) {
+      console.warn('[Simulation Push Notification Error]:', pushErr.message);
     }
   }
 

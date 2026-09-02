@@ -3,11 +3,11 @@ import { TrendingUp, TrendingDown, Minus, Clock, Gauge, ArrowRightLeft, ShieldAl
 import { getFloodConfig } from '../../utils/floodUtils';
 
 const MDRRMO_CLASSIFICATIONS = [
-  { level: 'NORMAL',     range: '2.0 – 3.0 m', label: 'Normal Level',     color: '#16a34a', bg: 'bg-green-100 dark:bg-green-950/60 border-green-300 dark:border-green-800/60 text-green-800 dark:text-green-300' },
-  { level: 'MONITOR',    range: '3.1 – 4.0 m', label: 'Monitor Level',    color: '#d97706', bg: 'bg-amber-100 dark:bg-yellow-950/60 border-amber-300 dark:border-yellow-800/60 text-amber-900 dark:text-yellow-300' },
-  { level: 'ALERT',      range: '4.1 – 5.0 m', label: 'Alert Level',      color: '#ea580c', bg: 'bg-orange-100 dark:bg-orange-950/60 border-orange-300 dark:border-orange-800/60 text-orange-900 dark:text-orange-300' },
-  { level: 'EVACUATION', range: '5.1 – 6.0 m', label: 'Evacuation Level', color: '#dc2626', bg: 'bg-red-100 dark:bg-red-950/60 border-red-300 dark:border-red-800/60 text-red-900 dark:text-red-300' },
-  { level: 'CRITICAL',   range: '6.1 – 7.0 m', label: 'Critical Level',   color: '#7c3aed', bg: 'bg-purple-100 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800/60 text-purple-900 dark:text-purple-300' },
+  { level: 'NORMAL',     range: '< 3.1 m',      label: 'Normal Level',     color: '#16a34a', bg: 'bg-green-100 dark:bg-green-950/60 border-green-300 dark:border-green-800/60 text-green-800 dark:text-green-300' },
+  { level: 'MONITOR',    range: '3.1 – 3.9 m',  label: 'Monitor Level',    color: '#d97706', bg: 'bg-amber-100 dark:bg-yellow-950/60 border-amber-300 dark:border-yellow-800/60 text-amber-900 dark:text-yellow-300' },
+  { level: 'ALERT',      range: '4.0 – 4.9 m',  label: 'Alert Level',      color: '#ea580c', bg: 'bg-orange-100 dark:bg-orange-950/60 border-orange-300 dark:border-orange-800/60 text-orange-900 dark:text-orange-300' },
+  { level: 'EVACUATION', range: '5.0 – 5.9 m',  label: 'Evacuation Level', color: '#dc2626', bg: 'bg-red-100 dark:bg-red-950/60 border-red-300 dark:border-red-800/60 text-red-900 dark:text-red-300' },
+  { level: 'CRITICAL',   range: '≥ 6.0 m',      label: 'Critical Level',   color: '#7c3aed', bg: 'bg-purple-100 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800/60 text-purple-900 dark:text-purple-300' },
 ];
 
 export function WaterLevelInterpretationCard({ trendData }) {
