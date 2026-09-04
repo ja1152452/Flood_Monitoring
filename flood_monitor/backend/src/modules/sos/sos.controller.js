@@ -40,11 +40,6 @@ export const resolveBackup = asyncHandler(async (req, res) => {
 });
 
 export const getMine = asyncHandler(async (req, res) => {
-  const { rows } = await import('../../config/db.js').then(m =>
-    m.query(
-      `SELECT * FROM sos_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [req.user.id]
-    )
-  );
-  res.json({ success: true, data: rows });
+  const data = await service.getMine(req.user.id);
+  res.json({ success: true, data });
 });

@@ -85,6 +85,9 @@ export const getPending = async (requestingUser) => {
                     'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
                     'status', d.status,
                     'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                    'last_lat', ru.last_lat,
+                    'last_lng', ru.last_lng,
+                    'last_location_at', ru.last_location_at,
                     'dispatched_at', d.dispatched_at
                   )
                 )
@@ -97,7 +100,11 @@ export const getPending = async (requestingUser) => {
 
                   SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at
                   FROM backup_requests br
-                  WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                  WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL 
+                    AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                    AND br.assigned_responder_id NOT IN (
+                      SELECT responder_id FROM sos_dispatches WHERE sos_id = s.id AND status != 'DECLINED'
+                    )
                 ) d
                 JOIN users ru ON ru.id = d.responder_id
               ), '[]'::json
@@ -140,6 +147,9 @@ export const getHistory = async (requestingUser) => {
                     'phone_number', ru.phone_number,
                     'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
                     'status', d.status,
+                    'last_lat', ru.last_lat,
+                    'last_lng', ru.last_lng,
+                    'last_location_at', ru.last_location_at,
                     'dispatched_at', d.dispatched_at,
                     'completed_at', d.completed_at
                   )
@@ -260,13 +270,66 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
       ).catch(() => {});
     }
 
-    // 5. Emit socket update
+    // 5. Query full SOS record with complete dispatched_responders roster
+    const { rows: fullSos } = await client.query(
+      `SELECT s.*,
+              u.full_name AS citizen_name,
+              u.phone_number AS citizen_phone,
+              b.name AS barangay_name,
+              b.risk_level,
+              COALESCE(
+                (
+                  SELECT json_agg(
+                    json_build_object(
+                      'id', d.id,
+                      'responder_id', d.responder_id,
+                      'full_name', ru.full_name,
+                      'role', ru.role,
+                      'phone_number', ru.phone_number,
+                      'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
+                      'status', d.status,
+                      'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                      'last_lat', ru.last_lat,
+                      'last_lng', ru.last_lng,
+                      'last_location_at', ru.last_location_at,
+                      'dispatched_at', d.dispatched_at
+                    )
+                  )
+                  FROM (
+                    SELECT d.id, d.responder_id, d.dispatch_type, d.status, d.dispatched_at
+                    FROM sos_dispatches d
+                    WHERE d.sos_id = s.id AND d.status != 'DECLINED'
+
+                    UNION
+
+                    SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at
+                    FROM backup_requests br
+                    WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL 
+                      AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                      AND br.assigned_responder_id NOT IN (
+                        SELECT responder_id FROM sos_dispatches WHERE sos_id = s.id AND status != 'DECLINED'
+                      )
+                  ) d
+                  JOIN users ru ON ru.id = d.responder_id
+                ), '[]'::json
+              ) AS dispatched_responders
+       FROM sos_requests s
+       LEFT JOIN users u ON u.id = s.user_id
+       LEFT JOIN barangays b ON b.id = s.barangay_id
+       WHERE s.id = $1`,
+      [sosId]
+    );
+
+    const fullSosRecord = fullSos[0] || updatedSOS[0];
+
+    // 6. Emit socket update
     const io = getIO();
     if (io) {
-      io.emit('sos:dispatched', { sos_id: sosId, assigned_responder_ids: ids, dispatch_type: typeLabel, sos: updatedSOS[0] });
+      io.emit('sos:dispatched', { sos_id: sosId, assigned_responder_ids: ids, dispatch_type: typeLabel, sos: fullSosRecord });
+      io.emit('sos:updated', fullSosRecord);
     }
 
-    return updatedSOS[0];
+    return fullSosRecord;
   });
 };
 
@@ -360,6 +423,9 @@ export const respondToSOS = async (rescueUser, sosId, targetState = 'EN_ROUTE') 
                       'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
                       'status', d.status,
                       'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                      'last_lat', ru.last_lat,
+                      'last_lng', ru.last_lng,
+                      'last_location_at', ru.last_location_at,
                       'dispatched_at', d.dispatched_at
                     )
                   )
@@ -372,7 +438,11 @@ export const respondToSOS = async (rescueUser, sosId, targetState = 'EN_ROUTE') 
 
                     SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at
                     FROM backup_requests br
-                    WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                    WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL 
+                      AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                      AND br.assigned_responder_id NOT IN (
+                        SELECT responder_id FROM sos_dispatches WHERE sos_id = s.id AND status != 'DECLINED'
+                      )
                   ) d
                   JOIN users ru ON ru.id = d.responder_id
                 ), '[]'::json
@@ -568,8 +638,8 @@ export const getMine = async (userId) => {
 
   for (let sos of rows) {
     const { rows: dispatches } = await query(
-      `SELECT d.id AS dispatch_id, d.responder_id, d.dispatch_type, d.status AS dispatch_status, d.dispatched_at,
-              u.id, u.full_name, u.role, u.phone_number, u.last_lat, u.last_lng, u.last_location_at, u.responder_status
+      `SELECT d.id AS dispatch_id, d.responder_id, d.dispatch_type, d.status, d.status AS dispatch_status, d.dispatched_at,
+              u.id, u.full_name, u.role, u.phone_number, u.last_lat, u.last_lng, u.last_location_at, u.responder_status, u.responder_status AS responder_duty_status
        FROM (
          SELECT id, responder_id, dispatch_type, status, dispatched_at, sos_id
          FROM sos_dispatches
@@ -579,7 +649,11 @@ export const getMine = async (userId) => {
 
          SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at, br.sos_id
          FROM backup_requests br
-         WHERE br.sos_id = $1 AND br.assigned_responder_id IS NOT NULL AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+         WHERE br.sos_id = $1 AND br.assigned_responder_id IS NOT NULL 
+           AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+           AND br.assigned_responder_id NOT IN (
+             SELECT responder_id FROM sos_dispatches WHERE sos_id = $1 AND status != 'DECLINED'
+           )
        ) d
        JOIN users u ON u.id = d.responder_id
        ORDER BY d.dispatched_at ASC`,
@@ -791,8 +865,63 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
       io.emit('backup:dispatched', {
         backup: updatedBackup[0],
         responder: { id: responder.id, full_name: responder.full_name, role: responder.role },
-        sos_id: backup.sos_id
+        sos_id: targetSosId || backup.sos_id
       });
+    }
+
+    if (targetSosId) {
+      const { rows: fullSos } = await client.query(
+        `SELECT s.*,
+                u.full_name AS citizen_name,
+                u.phone_number AS citizen_phone,
+                b.name AS barangay_name,
+                b.risk_level,
+                COALESCE(
+                  (
+                    SELECT json_agg(
+                      json_build_object(
+                        'id', d.id,
+                        'responder_id', d.responder_id,
+                        'full_name', ru.full_name,
+                        'role', ru.role,
+                        'phone_number', ru.phone_number,
+                        'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
+                        'status', d.status,
+                        'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                        'last_lat', ru.last_lat,
+                        'last_lng', ru.last_lng,
+                        'last_location_at', ru.last_location_at,
+                        'dispatched_at', d.dispatched_at
+                      )
+                    )
+                    FROM (
+                      SELECT d.id, d.responder_id, d.dispatch_type, d.status, d.dispatched_at
+                      FROM sos_dispatches d
+                      WHERE d.sos_id = s.id AND d.status != 'DECLINED'
+
+                      UNION
+
+                      SELECT br.id, br.assigned_responder_id AS responder_id, 'BACKUP' AS dispatch_type, br.status, br.created_at AS dispatched_at
+                      FROM backup_requests br
+                      WHERE br.sos_id = s.id AND br.assigned_responder_id IS NOT NULL 
+                        AND br.status IN ('DISPATCHED', 'ACCEPTED', 'RESOLVED')
+                        AND br.assigned_responder_id NOT IN (
+                          SELECT responder_id FROM sos_dispatches WHERE sos_id = s.id AND status != 'DECLINED'
+                        )
+                    ) d
+                    JOIN users ru ON ru.id = d.responder_id
+                  ), '[]'::json
+                ) AS dispatched_responders
+         FROM sos_requests s
+         LEFT JOIN users u ON u.id = s.user_id
+         LEFT JOIN barangays b ON b.id = s.barangay_id
+         WHERE s.id = $1`,
+        [targetSosId]
+      );
+
+      if (fullSos.length && io) {
+        io.emit('sos:updated', fullSos[0]);
+      }
     }
 
     return updatedBackup[0];

@@ -39,7 +39,7 @@ router.post('/location', authenticate, asyncHandler(async (req, res) => {
 
 // Admin gets all active responder locations & status — accessible by any authenticated user
 router.get('/responder-locations', authenticate, asyncHandler(async (req, res) => {
-  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE', 'ADMIN', 'SUPER_ADMIN'];
   const { role, status } = req.query;
 
   let queryText = `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,

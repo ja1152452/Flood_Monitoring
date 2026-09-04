@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Modal } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,7 +73,7 @@ export function FloodRiskMap({ height = 400, areas = [], userLocation = null }) 
     }
 
     var map = L.map('map',{zoomControl:false}).setView([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],12);
-    var streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:19});
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
     var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
     var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
     streetLayer.addTo(map);
@@ -118,8 +118,6 @@ export function FloodRiskMap({ height = 400, areas = [], userLocation = null }) 
         }).addTo(map);
       });
     };
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,opacity:0.6}).addTo(map);
 
     ${userMarkerJS}
 
@@ -267,125 +265,110 @@ const RESPONDER_ROLE_CFG = {
 export function SOSTrackingMap({ sosLocation = null, responders = [], assignedResponders = [], assignedRescueId = null, height = 320 }) {
   const [loading, setLoading] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const webViewRef = useRef(null);
+  const modalWebViewRef = useRef(null);
 
   const center = sosLocation
     ? { lat: sosLocation.lat, lng: sosLocation.lng }
     : LUMBAN_CENTER;
 
-  const sosMarkerJS = sosLocation
-    ? `
-      var sosIcon = L.divIcon({
-        html: '<div style="position:relative;width:48px;height:48px;"><div style="position:absolute;top:0;left:0;width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.3);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.5);animation:pulse 1.2s ease-out infinite 0.2s;"></div><div style="position:absolute;top:14px;left:14px;width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🆘</div></div>',
-        className:'custom-div-icon', iconSize:[48,48], iconAnchor:[24,24]
-      });
-      L.marker([${sosLocation.lat},${sosLocation.lng}], { icon: sosIcon, zIndexOffset: 800 })
-        .addTo(map)
-        .bindPopup('<div style="font-size:13px;font-weight:700;color:#dc2626">🆘 Your SOS Location</div>');
-    `
-    : '';
+  let safeAssignedResponders = assignedResponders;
+  if (typeof safeAssignedResponders === 'string') {
+    try {
+      safeAssignedResponders = JSON.parse(safeAssignedResponders);
+    } catch (e) {
+      safeAssignedResponders = [];
+    }
+  }
+  if (!Array.isArray(safeAssignedResponders)) safeAssignedResponders = [];
 
   const assignedIds = new Set();
-  if (Array.isArray(assignedResponders)) {
-    assignedResponders.forEach(dr => {
-      const rid = dr.responder_id || dr.id;
-      if (rid) assignedIds.add(String(rid));
-    });
-  }
-  if (assignedRescueId) assignedIds.add(String(assignedRescueId));
+  safeAssignedResponders.forEach(dr => {
+    if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+    const rid = dr.responder_id || dr.id;
+    if (rid) assignedIds.add(String(rid).toLowerCase());
+  });
+  if (assignedRescueId) assignedIds.add(String(assignedRescueId).toLowerCase());
 
   // Merge any assigned responders that already have coordinates into the candidate pool
-  const allResponders = [...(responders || [])];
-  if (Array.isArray(assignedResponders)) {
-    assignedResponders.forEach(ar => {
-      const arId = ar.responder_id || ar.id;
-      if (arId && !allResponders.some(r => String(r.id) === String(arId))) {
-        allResponders.push({
-          id: arId,
-          full_name: ar.full_name,
-          role: ar.role,
-          phone_number: ar.phone_number,
-          last_lat: ar.last_lat,
-          last_lng: ar.last_lng,
-          last_location_at: ar.last_location_at,
-          responder_status: ar.responder_status || ar.responder_duty_status || 'AVAILABLE',
-          dispatch_type: ar.dispatch_type
-        });
-      }
-    });
-  }
+  const respondersMap = new Map();
+  (responders || []).forEach(r => {
+    if (r && r.id) {
+      respondersMap.set(String(r.id).toLowerCase(), {
+        ...r,
+        last_lat: r.last_lat != null ? r.last_lat : r.latitude,
+        last_lng: r.last_lng != null ? r.last_lng : r.longitude,
+      });
+    }
+  });
 
-  // Filter responders to only active, valid, non-stale locations:
+  safeAssignedResponders.forEach(ar => {
+    const arId = String(ar.responder_id || ar.id || '').toLowerCase();
+    if (!arId) return;
+    const arLat = ar.last_lat != null ? ar.last_lat : ar.latitude;
+    const arLng = ar.last_lng != null ? ar.last_lng : ar.longitude;
+    const existing = respondersMap.get(arId);
+    if (existing) {
+      if ((existing.last_lat == null || existing.last_lng == null) && arLat != null && arLng != null) {
+        existing.last_lat = arLat;
+        existing.last_lng = arLng;
+      }
+      if (!existing.role && ar.role) existing.role = ar.role;
+      if (!existing.full_name && ar.full_name) existing.full_name = ar.full_name;
+      if (!existing.dispatch_type && ar.dispatch_type) existing.dispatch_type = ar.dispatch_type;
+    } else if (arLat != null && arLng != null) {
+      respondersMap.set(arId, {
+        id: ar.responder_id || ar.id,
+        full_name: ar.full_name,
+        role: ar.role,
+        phone_number: ar.phone_number,
+        last_lat: arLat,
+        last_lng: arLng,
+        last_location_at: ar.last_location_at,
+        responder_status: ar.responder_status || ar.responder_duty_status || 'AVAILABLE',
+        dispatch_type: ar.dispatch_type || 'PRIMARY'
+      });
+    }
+  });
+
+  const allResponders = Array.from(respondersMap.values());
+
+  // Filter responders to only active, valid locations:
   const validResponders = allResponders.filter(r => {
-    if (!r.last_lat || !r.last_lng) return false;
-    if (r.responder_status === 'OFF_DUTY' || r.responder_status === 'UNAVAILABLE') return false;
-    // If specific units have been assigned to this rescue, ONLY display assigned units
+    const lat = parseFloat(r.last_lat != null ? r.last_lat : r.latitude);
+    const lng = parseFloat(r.last_lng != null ? r.last_lng : r.longitude);
+    if (isNaN(lat) || isNaN(lng)) return false;
+
+    const rId = String(r.id).toLowerCase();
+    // If specific units have been assigned to this rescue, ALWAYS display assigned units:
     if (assignedIds.size > 0) {
-      return assignedIds.has(String(r.id));
+      return assignedIds.has(rId);
     }
-    // If no units assigned yet, only show online/active units that updated recently
-    if (r.last_location_at) {
-      const ageMs = Date.now() - new Date(r.last_location_at).getTime();
-      if (ageMs > 12 * 60 * 60 * 1000) return false;
-    }
+    // If no units assigned yet, only show online/active units:
+    if (r.responder_status === 'OFF_DUTY' || r.responder_status === 'UNAVAILABLE') return false;
     return true;
   });
 
-  const navigationLinesArr = [];
-  if (sosLocation && sosLocation.lat && sosLocation.lng && assignedIds.size > 0) {
-    validResponders.forEach(r => {
-      if (assignedIds.has(String(r.id))) {
-        const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id || dr.id) === String(r.id)) : null;
-        const isBackup = matchDr?.dispatch_type === 'BACKUP';
-        const lineCol = isBackup ? '#f59e0b' : '#dc2626';
-        const dashArr = isBackup ? '8, 8' : '10, 10';
-        navigationLinesArr.push(`
-          L.polyline([[${r.last_lat}, ${r.last_lng}], [${sosLocation.lat}, ${sosLocation.lng}]], {
-            color: '${lineCol}',
-            weight: 5,
-            opacity: 0.95,
-            dashArray: '${dashArr}',
-            lineCap: 'round'
-          }).addTo(map);
-        `);
-      }
+  const assignedIdsArr = useMemo(() => Array.from(assignedIds), [safeAssignedResponders, assignedRescueId]);
+
+  const updateDataPayload = useMemo(() => {
+    return JSON.stringify({
+      responders: validResponders,
+      sosLocation,
+      assignedIds: assignedIdsArr
     });
-  }
+  }, [validResponders, sosLocation, assignedIdsArr]);
 
-  const responderMarkersJS = validResponders.map(r => {
-    const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
-    const time = r.last_location_at ? new Date(r.last_location_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Live';
-    const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
-    const isAssigned = (Array.isArray(assignedResponders) && assignedResponders.some(dr => String(dr.responder_id || dr.id) === String(r.id))) || String(r.id) === String(assignedRescueId);
-    const matchDr = Array.isArray(assignedResponders) ? assignedResponders.find(dr => String(dr.responder_id || dr.id) === String(r.id)) : null;
-    const isBackup = matchDr?.dispatch_type === 'BACKUP';
-    const assignedBadge = isAssigned ? `<span style="background:${isBackup ? '#fef3c7' : '#fee2e2'};color:${isBackup ? '#b45309' : '#dc2626'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#fca5a5'}">🚨 ${isBackup ? 'BACKUP RESCUE' : 'PRIMARY RESCUE'}</span><br/>` : '';
-
-    return `
-      L.marker([${r.last_lat},${r.last_lng}],{
-        icon:L.divIcon({
-          html:'<div style="width:38px;height:38px;border-radius:50%;background:${cfg.color};border:3px solid white;box-shadow:0 0 0 3px ${cfg.color}55,0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;">${cfg.emoji}</div>',
-          className:'custom-div-icon',iconSize:[38,38],iconAnchor:[19,19]
-        }),zIndexOffset:${isAssigned ? 700 : 400}
-      }).addTo(map).bindPopup(
-        '<div style="min-width:160px;font-size:13px;line-height:1.6">'+
-        '<b style="color:${cfg.color};font-size:14px">${fullNameClean}</b><br/>'+
-        '${assignedBadge}'+
-        '<span style="background:${cfg.color}22;color:${cfg.color};padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid ${cfg.color}">${r.role}</span><br/>'+
-        '<span style="color:#64748b;font-size:11px">📍 Updated: ${time}</span>'+
-        '</div>'
-      );
-    `;
-  }).join('\n');
-
-  const boundsPoints = [];
-  if (sosLocation && sosLocation.lat && sosLocation.lng) boundsPoints.push([sosLocation.lat, sosLocation.lng]);
-  validResponders.forEach(r => { boundsPoints.push([r.last_lat, r.last_lng]); });
-
-  let fitBoundsJS = `map.setView([${center.lat},${center.lng}], 15);`;
-  if (boundsPoints.length > 1) {
-    const pointsJSON = JSON.stringify(boundsPoints);
-    fitBoundsJS = `var bounds = L.latLngBounds(${pointsJSON}); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });`;
-  }
+  // Dynamically update Leaflet markers and lines without reloading WebView
+  useEffect(() => {
+    if (!mapReady) return;
+    const jsCode = `if (typeof window.updateRescueData === 'function') { window.updateRescueData(${updateDataPayload}); } true;`;
+    webViewRef.current?.injectJavaScript(jsCode);
+    if (isFullScreen && modalWebViewRef.current) {
+      modalWebViewRef.current?.injectJavaScript(jsCode);
+    }
+  }, [updateDataPayload, mapReady, isFullScreen]);
 
   const html = `<!DOCTYPE html><html><head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
@@ -410,10 +393,178 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
       "⛰️ Topographic": topoLayer
     };
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
-    ${sosMarkerJS}
-    ${responderMarkersJS}
-    ${navigationLinesArr.join('\n')}
-    ${fitBoundsJS}
+
+    window.sosMarker = null;
+    window.responderMarkers = {};
+    window.navigationLines = [];
+    window.hasAutoFitted = false;
+
+    var ROLE_CFG = {
+      PNP: { color: '#1d4ed8', emoji: '👮' },
+      BFP: { color: '#ea580c', emoji: '🚒' },
+      COAST_GUARD: { color: '#0284c7', emoji: '⚓' },
+      RHU: { color: '#16a34a', emoji: '🏥' },
+      MDRRMO: { color: '#dc2626', emoji: '🚨' },
+      MDRRMO_RESPONDER: { color: '#dc2626', emoji: '🚨' },
+      BARANGAY_OFFICIAL: { color: '#7e22ce', emoji: '🏢' },
+      RESCUE: { color: '#0ea5e9', emoji: '⛑️' }
+    };
+
+    window.updateRescueData = function(data) {
+      try {
+        if (!data) return;
+        var sosLoc = data.sosLocation;
+        var rList = data.responders || [];
+        var assignedIds = data.assignedIds || [];
+
+        // 1. SOS Marker
+        if (sosLoc && sosLoc.lat && sosLoc.lng) {
+          if (!window.sosMarker) {
+            var sosIcon = L.divIcon({
+              html: '<div style="position:relative;width:48px;height:48px;"><div style="position:absolute;top:0;left:0;width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.3);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.5);animation:pulse 1.2s ease-out infinite 0.2s;"></div><div style="position:absolute;top:14px;left:14px;width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🆘</div></div>',
+              className: 'custom-div-icon',
+              iconSize: [48, 48],
+              iconAnchor: [24, 24]
+            });
+            window.sosMarker = L.marker([sosLoc.lat, sosLoc.lng], { icon: sosIcon, zIndexOffset: 800 })
+              .addTo(map)
+              .bindPopup('<div style="font-size:13px;font-weight:700;color:#dc2626">🆘 Your SOS Location</div>');
+          } else {
+            window.sosMarker.setLatLng([sosLoc.lat, sosLoc.lng]);
+          }
+        }
+
+        // 2. Remove old polylines
+        if (window.navigationLines && window.navigationLines.length > 0) {
+          window.navigationLines.forEach(function(l) { map.removeLayer(l); });
+        }
+        window.navigationLines = [];
+
+        var activeKeys = {};
+        var boundsPoints = [];
+        if (sosLoc && sosLoc.lat && sosLoc.lng) {
+          boundsPoints.push([sosLoc.lat, sosLoc.lng]);
+        }
+
+        rList.forEach(function(r) {
+          var rid = String(r.id).toLowerCase();
+          activeKeys[rid] = true;
+          var rLat = parseFloat(r.last_lat != null ? r.last_lat : r.latitude);
+          var rLng = parseFloat(r.last_lng != null ? r.last_lng : r.longitude);
+          if (isNaN(rLat) || isNaN(rLng)) return;
+
+          boundsPoints.push([rLat, rLng]);
+
+          var isAssigned = assignedIds.indexOf(rid) !== -1;
+          var isBackup = String(r.dispatch_type || '').toUpperCase() === 'BACKUP';
+          var cfg = ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
+          var badgeHtml = isAssigned
+            ? '<span style="background:' + (isBackup ? '#fef3c7' : '#fee2e2') + ';color:' + (isBackup ? '#b45309' : '#dc2626') + ';padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ' + (isBackup ? '#fcd34d' : '#fca5a5') + '">🚨 ' + (isBackup ? 'BACKUP RESCUE' : 'PRIMARY RESCUE') + '</span><br/>'
+            : '';
+          var fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
+          var popupContent = '<div style="min-width:160px;font-size:13px;line-height:1.6">' +
+            '<b style="color:' + cfg.color + ';font-size:14px">' + fullNameClean + '</b><br/>' +
+            badgeHtml +
+            '<span style="background:' + cfg.color + '22;color:' + cfg.color + ';padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid ' + cfg.color + '">' + (r.role || 'Rescue') + '</span><br/>' +
+            '<span style="color:#16a34a;font-size:11px;font-weight:700">📍 Live Rescue Tracking</span>' +
+            '</div>';
+
+          if (window.responderMarkers[rid]) {
+            window.responderMarkers[rid].setLatLng([rLat, rLng]);
+            window.responderMarkers[rid].setPopupContent(popupContent);
+          } else {
+            var marker = L.marker([rLat, rLng], {
+              icon: L.divIcon({
+                html: '<div style="width:38px;height:38px;border-radius:50%;background:' + cfg.color + ';border:3px solid white;box-shadow:0 0 0 3px ' + cfg.color + '55,0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;">' + cfg.emoji + '</div>',
+                className: 'custom-div-icon',
+                iconSize: [38, 38],
+                iconAnchor: [19, 19]
+              }),
+              zIndexOffset: isAssigned ? 700 : 400
+            }).addTo(map).bindPopup(popupContent);
+            window.responderMarkers[rid] = marker;
+          }
+
+          // Draw vector line from responder to SOS if assigned
+          if (sosLoc && sosLoc.lat && sosLoc.lng && isAssigned) {
+            var lineCol = isBackup ? '#f59e0b' : '#dc2626';
+            var dashArr = isBackup ? '8, 8' : '12, 12';
+            var weight = isBackup ? 4 : 5;
+            var poly = L.polyline([[rLat, rLng], [sosLoc.lat, sosLoc.lng]], {
+              color: lineCol,
+              weight: weight,
+              opacity: 0.95,
+              dashArray: dashArr,
+              lineCap: 'round'
+            }).addTo(map);
+            window.navigationLines.push(poly);
+          }
+        });
+
+        // Prune stale markers
+        Object.keys(window.responderMarkers).forEach(function(existingId) {
+          if (!activeKeys[existingId]) {
+            map.removeLayer(window.responderMarkers[existingId]);
+            delete window.responderMarkers[existingId];
+          }
+        });
+
+        window.latestBounds = boundsPoints;
+
+        // Auto-frame on initial load and when responders first appear:
+        if (!window.hasFramedResponders && boundsPoints.length > 1) {
+          map.fitBounds(L.latLngBounds(boundsPoints), { padding: [45, 45], maxZoom: 16 });
+          window.hasFramedResponders = true;
+        } else if (!window.hasAutoFitted && boundsPoints.length === 1) {
+          map.setView(boundsPoints[0], 15);
+          window.hasAutoFitted = true;
+        }
+      } catch (err) {
+        console.error("updateRescueData error:", err);
+      }
+    };
+
+    // Recenter button control
+    var RecenterControl = L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd: function() {
+        var btn = L.DomUtil.create('button', 'recenter-btn');
+        btn.innerHTML = '🎯';
+        btn.title = 'Re-center';
+        btn.style.width = '34px';
+        btn.style.height = '34px';
+        btn.style.background = '#ffffff';
+        btn.style.border = '2px solid rgba(0,0,0,0.2)';
+        btn.style.borderRadius = '6px';
+        btn.style.fontSize = '16px';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.cursor = 'pointer';
+        btn.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
+        btn.onclick = function(e) {
+          L.DomEvent.stopPropagation(e);
+          if (window.latestBounds && window.latestBounds.length > 1) {
+            map.fitBounds(L.latLngBounds(window.latestBounds), { padding: [45, 45], maxZoom: 16 });
+          } else if (window.latestBounds && window.latestBounds.length === 1) {
+            map.setView(window.latestBounds[0], 16);
+          }
+        };
+        return btn;
+      }
+    });
+    new RecenterControl().addTo(map);
+
+    // Initial render with embedded initial data
+    window.updateRescueData(${JSON.stringify({
+      responders: validResponders,
+      sosLocation,
+      assignedIds: assignedIdsArr
+    })});
+
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+    }
   </script></html>`;
 
   return (
@@ -424,9 +575,22 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
         </View>
       )}
       <WebView
+        ref={webViewRef}
         source={{ html }}
         style={{ flex: 1 }}
-        onLoad={() => setLoading(false)}
+        onLoad={() => {
+          setLoading(false);
+          setMapReady(true);
+        }}
+        onMessage={(event) => {
+          try {
+            const msg = JSON.parse(event.nativeEvent.data);
+            if (msg.type === 'MAP_READY') {
+              setMapReady(true);
+              setLoading(false);
+            }
+          } catch(e) {}
+        }}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}
@@ -450,7 +614,21 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
               <Ionicons name="close-circle" size={18} color="#ffffff" />
             </TouchableOpacity>
           </View>
-          <WebView source={{ html }} style={{ flex: 1 }} javaScriptEnabled domStorageEnabled />
+          <WebView
+            ref={modalWebViewRef}
+            source={{ html }}
+            style={{ flex: 1 }}
+            onLoad={() => {
+              if (modalWebViewRef.current) {
+                modalWebViewRef.current.injectJavaScript(
+                  `if (typeof window.updateRescueData === 'function') { window.updateRescueData(${updateDataPayload}); } true;`
+                );
+              }
+            }}
+            javaScriptEnabled
+            domStorageEnabled
+            originWhitelist={['*']}
+          />
         </View>
       </Modal>
     </View>
@@ -462,10 +640,63 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
   const [isFullScreen, setIsFullScreen] = useState(false);
   const myLoc = userLocation || (currentUser?.last_lat && currentUser?.last_lng ? { lat: currentUser.last_lat, lng: currentUser.last_lng } : null);
 
+  const currentUserId = String(currentUser?.id || '').toLowerCase();
+  const isMDRRMO = ['ADMIN', 'SUPER_ADMIN', 'MDRRMO'].includes(String(currentUser?.role || '').toUpperCase());
+
+  // Merge responder locations from responders prop and dispatched_responders in sosList
+  const respondersMap = new Map();
+  responders.forEach(r => {
+    if (r && r.id) {
+      respondersMap.set(String(r.id).toLowerCase(), { ...r });
+    }
+  });
+
+  sosList.forEach(s => {
+    let dResponders = s.dispatched_responders;
+    if (typeof dResponders === 'string') {
+      try { dResponders = JSON.parse(dResponders); } catch (e) { dResponders = []; }
+    }
+    if (Array.isArray(dResponders)) {
+      dResponders.forEach(dr => {
+        const id = String(dr.responder_id || dr.id || '').toLowerCase();
+        if (!id) return;
+        const existing = respondersMap.get(id);
+        if (existing) {
+          if ((!existing.last_lat || !existing.last_lng) && dr.last_lat && dr.last_lng) {
+            existing.last_lat = dr.last_lat;
+            existing.last_lng = dr.last_lng;
+          }
+          if (!existing.role && dr.role) existing.role = dr.role;
+          if (!existing.full_name && dr.full_name) existing.full_name = dr.full_name;
+          if (!existing.dispatch_type && dr.dispatch_type) existing.dispatch_type = dr.dispatch_type;
+        } else if (dr.last_lat && dr.last_lng) {
+          respondersMap.set(id, {
+            id: dr.responder_id || dr.id,
+            full_name: dr.full_name,
+            role: dr.role,
+            phone_number: dr.phone_number,
+            last_lat: dr.last_lat,
+            last_lng: dr.last_lng,
+            responder_status: dr.responder_duty_status || dr.status || 'AVAILABLE',
+            last_location_at: dr.last_location_at || dr.dispatched_at,
+            dispatch_type: dr.dispatch_type
+          });
+        }
+      });
+    }
+  });
+
+  const allResponders = Array.from(respondersMap.values());
+
   const activeAssignedSOS = sosList.find(s => {
-    if (!currentUser?.id) return false;
-    const isAssigned = s.assigned_rescue_id === currentUser.id || (s.dispatched_responders && s.dispatched_responders.some(dr => (dr.responder_id || dr.id) === currentUser.id));
-    return isAssigned && ['DISPATCHED', 'RESPONDING'].includes(s.status);
+    if (!currentUserId) return false;
+    let dResponders = s.dispatched_responders;
+    if (typeof dResponders === 'string') {
+      try { dResponders = JSON.parse(dResponders); } catch (e) { dResponders = []; }
+    }
+    const isExplicitlyAssigned = (Array.isArray(dResponders) && dResponders.some(dr => String(dr.responder_id || dr.id).toLowerCase() === currentUserId && dr.status !== 'DECLINED'))
+      || (!isMDRRMO && String(s.assigned_rescue_id).toLowerCase() === currentUserId);
+    return isExplicitlyAssigned && !['RESOLVED', 'CANCELLED'].includes(s.status);
   });
 
   const currentUserMarkerJS = myLoc
@@ -478,7 +709,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
       }).addTo(map).bindPopup(
         '<div style="min-width:160px;font-size:13px;line-height:1.6">'+
         '<b style="color:#2563eb">📍 YOUR LOCATION (You)</b><br/>'+
-        '<span style="font-weight:700;color:#0f172a">${currentUser?.full_name || 'Responder Unit'}</span><br/>'+
+        '<span style="font-weight:700;color:#0f172a">${(currentUser?.full_name || 'Responder Unit').replace(/'/g, "\\'")}</span><br/>'+
         '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700">${currentUser?.role || 'RESPONDER'}</span>'+
         '</div>'
       );
@@ -487,26 +718,61 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
 
   const navigationLinesArr = [];
   sosList.forEach(s => {
-    if (['DISPATCHED', 'RESPONDING'].includes(s.status) && s.lat && s.lng) {
-      if (s.dispatched_responders && s.dispatched_responders.length > 0) {
-        s.dispatched_responders.forEach(dr => {
-          let resLat = null, resLng = null, isMe = false;
-          const drId = dr.responder_id || dr.id;
-          if (currentUser && drId === currentUser.id && myLoc) { resLat = myLoc.lat; resLng = myLoc.lng; isMe = true; }
-          else {
-            const rObj = responders.find(r => r.id === drId);
-            if (rObj && rObj.last_lat && rObj.last_lng) { resLat = rObj.last_lat; resLng = rObj.last_lng; }
-            else if (dr.last_lat && dr.last_lng) { resLat = dr.last_lat; resLng = dr.last_lng; }
+    if (s.status === 'RESOLVED' || s.status === 'CANCELLED') return;
+    const sLat = Number(s.lat);
+    const sLng = Number(s.lng);
+    if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) return;
+
+    let dResponders = s.dispatched_responders;
+    if (typeof dResponders === 'string') {
+      try { dResponders = JSON.parse(dResponders); } catch (e) { dResponders = []; }
+    }
+
+    if (Array.isArray(dResponders) && dResponders.length > 0) {
+      dResponders.forEach(dr => {
+        if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+        const drId = String(dr.responder_id || dr.id || '').toLowerCase();
+        const isMe = currentUserId && drId === currentUserId;
+
+        let resLat = null, resLng = null;
+        if (isMe && myLoc && myLoc.lat && myLoc.lng) {
+          resLat = Number(myLoc.lat);
+          resLng = Number(myLoc.lng);
+        } else {
+          const rObj = respondersMap.get(drId);
+          if (rObj && rObj.last_lat && rObj.last_lng) {
+            resLat = Number(rObj.last_lat);
+            resLng = Number(rObj.last_lng);
+          } else if (dr.last_lat && dr.last_lng) {
+            resLat = Number(dr.last_lat);
+            resLng = Number(dr.last_lng);
           }
-          if (resLat && resLng) {
-            const isBackup = dr.dispatch_type === 'BACKUP';
-            const lineCol = isBackup ? '#f59e0b' : '#dc2626';
-            const dashArr = isBackup ? '8, 8' : '12, 12';
-            navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${s.lat}, ${s.lng}]], { color: '${lineCol}', weight: ${isMe ? 5 : 4}, opacity: 0.9, dashArray: '${dashArr}', lineCap: 'round' }).addTo(map);`);
-          }
-        });
-      } else if (myLoc && activeAssignedSOS && activeAssignedSOS.id === s.id) {
-        navigationLinesArr.push(`L.polyline([[${myLoc.lat}, ${myLoc.lng}], [${s.lat}, ${s.lng}]], { color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round' }).addTo(map);`);
+        }
+
+        if (resLat && resLng && !isNaN(resLat) && !isNaN(resLng) && resLat !== 0 && resLng !== 0) {
+          const isBackup = String(dr.dispatch_type).toUpperCase() === 'BACKUP';
+          const lineCol = isBackup ? '#f59e0b' : '#dc2626';
+          const dashArr = isBackup ? '8, 8' : '12, 12';
+          const weight = isBackup ? 4 : 5;
+          navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${sLat}, ${sLng}]], { color: '${lineCol}', weight: ${weight}, opacity: 0.95, dashArray: '${dashArr}', lineCap: 'round' }).addTo(map);`);
+        }
+      });
+    } else if (s.assigned_rescue_id && !isMDRRMO) {
+      const assignId = String(s.assigned_rescue_id).toLowerCase();
+      const isMe = currentUserId && assignId === currentUserId;
+      let resLat = null, resLng = null;
+      if (isMe && myLoc && myLoc.lat && myLoc.lng) {
+        resLat = Number(myLoc.lat);
+        resLng = Number(myLoc.lng);
+      } else {
+        const rObj = respondersMap.get(assignId);
+        if (rObj && rObj.last_lat && rObj.last_lng) {
+          resLat = Number(rObj.last_lat);
+          resLng = Number(rObj.last_lng);
+        }
+      }
+      if (resLat && resLng && !isNaN(resLat) && !isNaN(resLng) && resLat !== 0 && resLng !== 0) {
+        navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${sLat}, ${sLng}]], { color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round' }).addTo(map);`);
       }
     }
   });
@@ -532,16 +798,24 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
     `;
   }).join('\n');
 
-  const markersJS = responders.filter(r => r.last_lat && r.last_lng && r.responder_status !== 'OFF_DUTY' && (currentUser ? r.id !== currentUser.id : true)).map(r => {
+  const markersJS = allResponders.filter(r => {
+    if (!r.last_lat || !r.last_lng || r.responder_status === 'OFF_DUTY') return false;
+    if (currentUser && String(r.id).toLowerCase() === currentUserId && myLoc) return false;
+    return true;
+  }).map(r => {
     const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
     const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
     let dispatchBadge = '';
     for (const sosItem of sosList) {
-      if (sosItem.dispatched_responders) {
-        const matchDr = sosItem.dispatched_responders.find(dr => (dr.responder_id || dr.id) === r.id);
+      let dList = sosItem.dispatched_responders;
+      if (typeof dList === 'string') {
+        try { dList = JSON.parse(dList); } catch (e) { dList = []; }
+      }
+      if (Array.isArray(dList)) {
+        const matchDr = dList.find(dr => String(dr.responder_id || dr.id).toLowerCase() === String(r.id).toLowerCase());
         if (matchDr) {
-          const isBackup = matchDr.dispatch_type === 'BACKUP';
-          dispatchBadge = `<span style="background:${isBackup ? '#fef3c7' : '#dbeafe'};color:${isBackup ? '#b45309' : '#1d4ed8'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#93c5fd'}">🚨 ${matchDr.dispatch_type}</span><br/>`;
+          const isBackup = String(matchDr.dispatch_type).toUpperCase() === 'BACKUP';
+          dispatchBadge = `<span style="background:${isBackup ? '#fef3c7' : '#dbeafe'};color:${isBackup ? '#b45309' : '#1d4ed8'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#93c5fd'}">🚨 ${matchDr.dispatch_type || (isBackup ? 'BACKUP' : 'PRIMARY')}</span><br/>`;
           break;
         }
       }
@@ -559,7 +833,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
   const boundsPoints = [];
   if (myLoc) boundsPoints.push([myLoc.lat, myLoc.lng]);
   sosList.forEach(s => { if (s.lat && s.lng) boundsPoints.push([s.lat, s.lng]); });
-  responders.forEach(r => { if (r.last_lat && r.last_lng) boundsPoints.push([r.last_lat, r.last_lng]); });
+  allResponders.forEach(r => { if (r.last_lat && r.last_lng) boundsPoints.push([r.last_lat, r.last_lng]); });
   let fitBoundsJS = `map.setView([${myLoc?.lat || LUMBAN_CENTER.lat},${myLoc?.lng || LUMBAN_CENTER.lng}], 14);`;
   if (boundsPoints.length > 1) fitBoundsJS = `var bounds = L.latLngBounds(${JSON.stringify(boundsPoints)}); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });`;
 
@@ -681,23 +955,23 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
   `).join('\n');
 
   const userMarkerJS = userLocation
-    ? `L.marker([${ userLocation.lat }, ${ userLocation.lng }], {
+    ? `L.marker([${userLocation.lat}, ${userLocation.lng}], {
     icon: L.divIcon({
       html: '<div style="width:18px;height:18px;border-radius:50%;background:#7c3aed;border:3px solid white;box-shadow:0 0 0 5px rgba(124,58,237,0.3);"></div>',
       className: '', iconSize: [18, 18], iconAnchor: [9, 9]
     }), zIndexOffset: 500
-  }).addTo(map).bindPopup('<div style="font-size:13px"><b>🏛️ Your Location</b></div>'); `
+  }).addTo(map).bindPopup('<div style="font-size:13px"><b>🏛️ Your Location</b></div>');`
     : '';
 
-  const html = `< !DOCTYPE html > <html><head>
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-      <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        html,body,#map{height:100%;width:100%;background:#f2efe9;touch-action:none}
-        @keyframes pulse{0 % { transform: scale(1); opacity: 0.8 }100%{transform:scale(2.2);opacity:0}}
-      </style>
+  const html = `<!DOCTYPE html><html><head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#map{height:100%;width:100%;background:#f2efe9;touch-action:none}
+    @keyframes pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(2.2);opacity:0}}
+  </style>
   </head><body><div id="map"></div><script>
     var map=L.map('map',{zoomControl:true}).setView([${center.lat},${center.lng}],15);
     var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});

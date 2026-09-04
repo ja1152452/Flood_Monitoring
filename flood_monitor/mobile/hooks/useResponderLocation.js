@@ -3,8 +3,8 @@ import * as Location from 'expo-location';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/axios';
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
-const MIN_SEND_INTERVAL_MS = 3000; // throttle: don't send more than once every 3s
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE', 'ADMIN', 'SUPER_ADMIN'];
+const MIN_SEND_INTERVAL_MS = 2500; // throttle: don't send more than once every 2.5s
 
 export function useResponderLocation() {
   const { user, token } = useAuthStore();
@@ -12,7 +12,8 @@ export function useResponderLocation() {
   const lastSentAt = useRef(0);
 
   useEffect(() => {
-    if (!user?.id || !token || !RESPONDER_ROLES.includes(user.role)) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (!user?.id || !token || !RESPONDER_ROLES.includes(role)) return;
 
     let active = true;
 
@@ -23,14 +24,14 @@ export function useResponderLocation() {
         : (await Location.requestForegroundPermissionsAsync()).status === 'granted';
       if (!granted || !active) return;
 
-      // Acquire fresh, high-precision GPS position immediately as first fix
+      // Acquire fresh GPS position immediately as first fix
       try {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
         });
-        if (loc && active) {
-          // Reject inaccurate initial fixes (e.g. coarse cell tower > 50m error margin)
-          if (!loc.coords.accuracy || loc.coords.accuracy <= 50) {
+        if (loc && active && loc.coords) {
+          // Accept fixes with realistic mobile GPS accuracy (<= 150m)
+          if (!loc.coords.accuracy || loc.coords.accuracy <= 150) {
             api.post('/users/location', {
               lat: loc.coords.latitude,
               lng: loc.coords.longitude,
@@ -40,32 +41,36 @@ export function useResponderLocation() {
         }
       } catch (_) {}
 
-      // Watch position with highest hardware GPS satellite precision
-      const sub = await Location.watchPositionAsync(
-        {
-          accuracy:            Location.Accuracy.BestForNavigation,
-          timeInterval:        2000, // minimum ms between updates from OS
-          distanceInterval:    2,    // trigger update if moved 2 meters
-        },
-        (loc) => {
-          if (!active || !loc?.coords) return;
-          // Filter out low-quality/noisy fixes (error margin > 40m)
-          if (loc.coords.accuracy && loc.coords.accuracy > 40) return;
+      // Watch position with high hardware GPS precision
+      try {
+        const sub = await Location.watchPositionAsync(
+          {
+            accuracy:            Location.Accuracy.High,
+            timeInterval:        2000, // minimum ms between updates from OS
+            distanceInterval:    2,    // trigger update if moved 2 meters
+          },
+          (loc) => {
+            if (!active || !loc?.coords) return;
+            // Filter out coarse cell-tower fixes (> 150m error margin)
+            if (loc.coords.accuracy && loc.coords.accuracy > 150) return;
 
-          const now = Date.now();
-          if (now - lastSentAt.current < MIN_SEND_INTERVAL_MS) return; // throttle
-          lastSentAt.current = now;
-          api.post('/users/location', {
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-          }).catch(() => {});
+            const now = Date.now();
+            if (now - lastSentAt.current < MIN_SEND_INTERVAL_MS) return; // throttle
+            lastSentAt.current = now;
+            api.post('/users/location', {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+            }).catch(() => {});
+          }
+        );
+
+        if (!active) {
+          sub?.remove();
+        } else {
+          subRef.current = sub;
         }
-      );
-
-      if (!active) {
-        sub?.remove();
-      } else {
-        subRef.current = sub;
+      } catch (err) {
+        console.warn('watchPositionAsync error:', err);
       }
     };
 

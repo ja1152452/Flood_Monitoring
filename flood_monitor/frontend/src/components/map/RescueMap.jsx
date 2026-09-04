@@ -226,28 +226,93 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullScreen]);
 
-  // Compute vector lines for dispatched responders to SOS location
-  const vectorLines = [];
+  // Merge responder locations from responders prop and dispatched_responders in sosList
+  const respondersMap = new Map();
+  responders.forEach(r => {
+    if (r && r.id) {
+      respondersMap.set(String(r.id).toLowerCase(), { ...r });
+    }
+  });
+
   sosList.forEach(sos => {
-    if (['DISPATCHED', 'RESPONDING'].includes(sos.status) && sos.dispatched_responders) {
-      sos.dispatched_responders.forEach(dr => {
-        const responderId = dr.responder_id || dr.id;
-        const responder = responders.find(r => r.id === responderId) || (dr.last_lat && dr.last_lng ? dr : null);
-        if (responder && responder.last_lat && responder.last_lng) {
-          const isBackup = dr.dispatch_type === 'BACKUP';
-          vectorLines.push({
-            id: `${sos.id}-${responder.id}`,
-            positions: [
-              [responder.last_lat, responder.last_lng],
-              [sos.lat, sos.lng]
-            ],
-            color: isBackup ? '#f59e0b' : '#dc2626',
-            dashArray: isBackup ? '8 8' : '12 12',
-            weight: isBackup ? 4 : 5
+    let dResponders = sos.dispatched_responders;
+    if (typeof dResponders === 'string') {
+      try {
+        dResponders = JSON.parse(dResponders);
+      } catch (e) {
+        dResponders = [];
+      }
+    }
+    if (Array.isArray(dResponders)) {
+      dResponders.forEach(dr => {
+        const id = String(dr.responder_id || dr.id || '').toLowerCase();
+        if (!id) return;
+        const existing = respondersMap.get(id);
+        if (existing) {
+          if ((!existing.last_lat || !existing.last_lng) && dr.last_lat && dr.last_lng) {
+            existing.last_lat = dr.last_lat;
+            existing.last_lng = dr.last_lng;
+          }
+          if (!existing.role && dr.role) existing.role = dr.role;
+          if (!existing.full_name && dr.full_name) existing.full_name = dr.full_name;
+        } else if (dr.last_lat && dr.last_lng) {
+          respondersMap.set(id, {
+            id: dr.responder_id || dr.id,
+            full_name: dr.full_name,
+            role: dr.role,
+            phone_number: dr.phone_number,
+            last_lat: dr.last_lat,
+            last_lng: dr.last_lng,
+            responder_status: dr.responder_duty_status || dr.status || 'AVAILABLE',
+            last_location_at: dr.last_location_at || dr.dispatched_at
           });
         }
       });
     }
+  });
+
+  const allResponders = Array.from(respondersMap.values());
+
+  // Compute vector lines for all dispatched responders (both primary and backup) to SOS location
+  const vectorLines = [];
+  sosList.forEach(sos => {
+    if (sos.status === 'RESOLVED' || sos.status === 'CANCELLED') return;
+    let dResponders = sos.dispatched_responders;
+    if (typeof dResponders === 'string') {
+      try {
+        dResponders = JSON.parse(dResponders);
+      } catch (e) {
+        dResponders = [];
+      }
+    }
+    if (!Array.isArray(dResponders)) return;
+
+    const sLat = Number(sos.lat);
+    const sLng = Number(sos.lng);
+    if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) return;
+
+    dResponders.forEach((dr, idx) => {
+      if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+      const rId = String(dr.responder_id || dr.id || '').toLowerCase();
+      const responder = respondersMap.get(rId);
+
+      const rLat = Number(responder?.last_lat ?? dr.last_lat);
+      const rLng = Number(responder?.last_lng ?? dr.last_lng);
+
+      if (!isNaN(rLat) && !isNaN(rLng) && rLat !== 0 && rLng !== 0) {
+        const isBackup = String(dr.dispatch_type).toUpperCase() === 'BACKUP';
+        vectorLines.push({
+          id: `${sos.id}-${rId || idx}-${dr.dispatch_type || 'PRIMARY'}-${idx}`,
+          positions: [
+            [rLat, rLng],
+            [sLat, sLng]
+          ],
+          color: isBackup ? '#f59e0b' : '#dc2626',
+          dashArray: isBackup ? '8 8' : '12 12',
+          weight: isBackup ? 4 : 5
+        });
+      }
+    });
   });
 
   return (
@@ -454,7 +519,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
           </Marker>
         ))}
 
-        {responders.map(r => {
+        {allResponders.map(r => {
           const cfg = ROLE_CFG[r.role] || { color: '#64748b', label: r.role };
           if (!r.last_lat || !r.last_lng) return null;
 

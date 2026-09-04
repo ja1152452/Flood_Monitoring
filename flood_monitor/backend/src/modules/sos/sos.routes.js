@@ -29,7 +29,7 @@ router.post('/',
 );
 
 router.get('/mine',
-  authorize('CITIZEN'),
+  authorize('CITIZEN','RESCUE','RHU','PNP','BFP','COAST_GUARD','BARANGAY_OFFICIAL','ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER','MSWDO'),
   asyncHandler(async (req, res) => {
     const data = await service.getMine(req.user.id);
     res.json({ success: true, data });

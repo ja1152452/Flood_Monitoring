@@ -222,7 +222,7 @@ function CitizenSOSView({ qc, user }) {
   const { data: myRequests = [] } = useQuery({
     queryKey: ['my-sos'],
     queryFn: getMySOS,
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
 
   const activeRequest = myRequests.find(r =>
@@ -232,7 +232,7 @@ function CitizenSOSView({ qc, user }) {
   const { data: responders = [] } = useQuery({
     queryKey: ['responder-locations'],
     queryFn: getResponderLocations,
-    refetchInterval: 5000,
+    refetchInterval: 2500,
     enabled: !!activeRequest,
   });
 
@@ -385,103 +385,119 @@ function CitizenSOSView({ qc, user }) {
               </View>
             )}
 
-            {/* Assigned Responders Info Cards */}
-            {((activeRequest.dispatched_responders && activeRequest.dispatched_responders.length > 0) || activeRequest.assigned_responder_name) ? (
-              <View style={styles.assignedRespondersWrap}>
-                <Text style={styles.assignedRespondersTitle}>
-                  🛡️ Assigned Rescue Units ({activeRequest.dispatched_responders?.length || 1})
-                </Text>
-
-                {(activeRequest.dispatched_responders && activeRequest.dispatched_responders.length > 0
-                  ? activeRequest.dispatched_responders
-                  : [{
-                      id: 'single',
-                      full_name: activeRequest.assigned_responder_name,
-                      role: activeRequest.assigned_responder_role,
+            {/* Assigned Responders Info Cards & Live Tracking Map */}
+            {(() => {
+              const assignedList = (activeRequest.dispatched_responders && activeRequest.dispatched_responders.length > 0)
+                ? activeRequest.dispatched_responders
+                : (activeRequest.assigned_rescue_id || activeRequest.assigned_responder_name)
+                  ? [{
+                      id: activeRequest.assigned_rescue_id || 'primary_rescue',
+                      responder_id: activeRequest.assigned_rescue_id,
+                      full_name: activeRequest.assigned_responder_name || 'Assigned Rescue Unit',
+                      role: activeRequest.assigned_responder_role || 'RESCUE',
                       phone_number: activeRequest.assigned_responder_phone,
                       last_lat: activeRequest.assigned_responder_lat,
                       last_lng: activeRequest.assigned_responder_lng,
-                      responder_status: activeRequest.assigned_responder_status,
+                      responder_status: activeRequest.assigned_responder_status || 'AVAILABLE',
                       dispatch_type: 'PRIMARY',
                     }]
-                ).map((resp, idx) => {
-                  const eta = calculateEta(activeRequest.lat, activeRequest.lng, resp.last_lat, resp.last_lng);
-                  const isEnRoute = resp.responder_status === 'EN_ROUTE';
-                  const isOnScene = resp.responder_status === 'RESCUE_IN_PROGRESS';
+                  : [];
 
-                  return (
-                    <View key={resp.id || idx} style={styles.assignedResponderCard}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                          <View style={[styles.responderAvatar, { backgroundColor: resp.dispatch_type === 'BACKUP' ? '#fef3c7' : '#fee2e2' }]}>
-                            <Ionicons name={resp.dispatch_type === 'BACKUP' ? 'shield-half' : 'shield'} size={18} color={resp.dispatch_type === 'BACKUP' ? '#d97706' : '#dc2626'} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text style={styles.responderName}>{resp.full_name}</Text>
-                              {resp.dispatch_type === 'BACKUP' && (
-                                <Text style={{ fontSize: 10, fontWeight: '800', color: '#b45309', backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                                  BACKUP
-                                </Text>
+              return (
+                <>
+                  {assignedList.length > 0 && (
+                    <View style={styles.assignedRespondersWrap}>
+                      <Text style={styles.assignedRespondersTitle}>
+                        🛡️ Assigned Rescue Units ({assignedList.length})
+                      </Text>
+
+                      {assignedList.map((resp, idx) => {
+                        const rId = String(resp.responder_id || resp.id || '').toLowerCase();
+                        const liveR = (responders || []).find(r => String(r.id || '').toLowerCase() === rId);
+                        const curLat = liveR?.last_lat != null ? liveR.last_lat : resp.last_lat;
+                        const curLng = liveR?.last_lng != null ? liveR.last_lng : resp.last_lng;
+                        const curStatus = liveR?.responder_status || resp.responder_status;
+                        const eta = calculateEta(activeRequest.lat, activeRequest.lng, curLat, curLng);
+                        const isEnRoute = curStatus === 'EN_ROUTE';
+                        const isOnScene = curStatus === 'RESCUE_IN_PROGRESS';
+                        const isBackup = String(resp.dispatch_type || '').toUpperCase() === 'BACKUP';
+
+                        return (
+                          <View key={resp.id || idx} style={styles.assignedResponderCard}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                                <View style={[styles.responderAvatar, { backgroundColor: isBackup ? '#fef3c7' : '#fee2e2' }]}>
+                                  <Ionicons name={isBackup ? 'shield-half' : 'shield'} size={18} color={isBackup ? '#d97706' : '#dc2626'} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.responderName}>{resp.full_name || 'Rescue Team'}</Text>
+                                    {isBackup && (
+                                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#b45309', backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                                        BACKUP
+                                      </Text>
+                                    )}
+                                  </View>
+                                  <Text style={styles.responderRole}>
+                                    {resp.role || 'Rescue Team'} · Status: <Text style={{ fontWeight: '700', color: isOnScene ? '#16a34a' : (isEnRoute ? '#0284c7' : '#ea580c') }}>
+                                      {isOnScene ? 'On Scene 📍' : (isEnRoute ? 'On The Way 🚑' : 'Assigned 🛡️')}
+                                    </Text>
+                                  </Text>
+                                </View>
+                              </View>
+
+                              {resp.phone_number && (
+                                <TouchableOpacity
+                                  style={styles.callResponderBtn}
+                                  onPress={() => Linking.openURL(`tel:${resp.phone_number}`)}
+                                  activeOpacity={0.85}>
+                                  <Ionicons name="call" size={13} color="#fff" />
+                                  <Text style={styles.callResponderText}>Call Unit</Text>
+                                </TouchableOpacity>
                               )}
                             </View>
-                            <Text style={styles.responderRole}>
-                              {resp.role || 'Rescue Team'} · Status: <Text style={{ fontWeight: '700', color: isOnScene ? '#16a34a' : (isEnRoute ? '#0284c7' : '#ea580c') }}>
-                                {isOnScene ? 'On Scene 📍' : (isEnRoute ? 'On The Way 🚑' : 'Assigned 🛡️')}
-                              </Text>
-                            </Text>
+
+                            {/* Distance & Live ETA Calculation */}
+                            {curLat && curLng && eta ? (
+                              <View style={styles.etaRow}>
+                                <Ionicons name="speedometer-outline" size={14} color="#0284c7" />
+                                <Text style={styles.etaText}>
+                                  Live Distance: <Text style={{ fontWeight: '800', color: '#0f172a' }}>{eta.distKm} km</Text> · Est. Arrival: <Text style={{ fontWeight: '800', color: '#0284c7' }}>~{eta.timeMinutes} mins</Text>
+                                </Text>
+                              </View>
+                            ) : (
+                              <View style={styles.etaRow}>
+                                <Ionicons name="navigate-outline" size={14} color="#64748b" />
+                                <Text style={styles.etaText}>Unit assigned by MDRRMO command. Live GPS location tracking active.</Text>
+                              </View>
+                            )}
                           </View>
-                        </View>
-
-                        {resp.phone_number && (
-                          <TouchableOpacity
-                            style={styles.callResponderBtn}
-                            onPress={() => Linking.openURL(`tel:${resp.phone_number}`)}
-                            activeOpacity={0.85}>
-                            <Ionicons name="call" size={13} color="#fff" />
-                            <Text style={styles.callResponderText}>Call Unit</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-
-                      {/* Distance & Live ETA Calculation */}
-                      {resp.last_lat && resp.last_lng && eta ? (
-                        <View style={styles.etaRow}>
-                          <Ionicons name="speedometer-outline" size={14} color="#0284c7" />
-                          <Text style={styles.etaText}>
-                            Live Distance: <Text style={{ fontWeight: '800', color: '#0f172a' }}>{eta.distKm} km</Text> · Est. Arrival: <Text style={{ fontWeight: '800', color: '#0284c7' }}>~{eta.timeMinutes} mins</Text>
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={styles.etaRow}>
-                          <Ionicons name="navigate-outline" size={14} color="#64748b" />
-                          <Text style={styles.etaText}>Unit assigned by MDRRMO command. Live GPS location tracking active.</Text>
-                        </View>
-                      )}
+                        );
+                      })}
                     </View>
-                  );
-                })}
-              </View>
-            ) : null}
+                  )}
 
-            {/* Live Responder Tracking Box */}
-            <View style={styles.trackingMapWrap}>
-              <View style={styles.trackingMapHeader}>
-                <View style={styles.trackingLiveDot} />
-                <Text style={styles.trackingMapTitle}>Live GPS Responder Tracking</Text>
-                <Text style={styles.trackingMapCount}>
-                  {responders.length > 0 ? `${responders.length} units active` : 'Active'}
-                </Text>
-              </View>
+                  {/* Live Responder Tracking Box */}
+                  <View style={styles.trackingMapWrap}>
+                    <View style={styles.trackingMapHeader}>
+                      <View style={styles.trackingLiveDot} />
+                      <Text style={styles.trackingMapTitle}>Live GPS Responder Tracking</Text>
+                      <Text style={styles.trackingMapCount}>
+                        {assignedList.length > 0 ? `${assignedList.length} assigned unit${assignedList.length > 1 ? 's' : ''}` : (responders.length > 0 ? `${responders.length} units active` : 'Active')}
+                      </Text>
+                    </View>
 
-              <SOSTrackingMap
-                sosLocation={activeRequest.lat ? { lat: activeRequest.lat, lng: activeRequest.lng } : null}
-                responders={responders}
-                assignedResponders={activeRequest.dispatched_responders}
-                assignedRescueId={activeRequest.assigned_rescue_id}
-                height={220}
-              />
-            </View>
+                    <SOSTrackingMap
+                      sosLocation={activeRequest.lat ? { lat: activeRequest.lat, lng: activeRequest.lng } : null}
+                      responders={responders}
+                      assignedResponders={assignedList}
+                      assignedRescueId={activeRequest.assigned_rescue_id}
+                      height={220}
+                    />
+                  </View>
+                </>
+              );
+            })()}
 
             {/* Cancel SOS Button (Disabled & Faded once MDRRMO dispatches a responder) */}
             {(() => {
