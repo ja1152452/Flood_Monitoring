@@ -169,10 +169,12 @@ export default function Rescue() {
     socket.on('sos:dispatched', () => {
       qc.invalidateQueries(['sos-pending']);
       qc.invalidateQueries(['sos-history']);
+      fetchResponders();
     });
     socket.on('sos:updated', () => {
       qc.invalidateQueries(['sos-pending']);
       qc.invalidateQueries(['sos-history']);
+      fetchResponders();
     });
     socket.on('sos:declined', (data) => {
       toast.error(`⚠️ Responder ${data.responder?.full_name || 'Unit'} DECLINED dispatch order. Reassignment / Backup required.`);

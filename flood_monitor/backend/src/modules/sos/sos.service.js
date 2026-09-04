@@ -63,8 +63,8 @@ export const getPending = async (requestingUser) => {
   const params    = [];
 
   if (requestingUser.role === 'BARANGAY_OFFICIAL' && requestingUser.barangay_id) {
-    whereClause += ` AND s.barangay_id = $1`;
-    params.push(requestingUser.barangay_id);
+    whereClause += ` AND (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2))`;
+    params.push(requestingUser.barangay_id, requestingUser.id);
   }
 
   const { rows } = await query(
@@ -124,8 +124,8 @@ export const getHistory = async (requestingUser) => {
   const params    = [];
 
   if (requestingUser.role === 'BARANGAY_OFFICIAL' && requestingUser.barangay_id) {
-    whereClause = `WHERE s.barangay_id = $1`;
-    params.push(requestingUser.barangay_id);
+    whereClause = `WHERE (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2))`;
+    params.push(requestingUser.barangay_id, requestingUser.id);
   }
 
   const { rows } = await query(
@@ -501,7 +501,7 @@ export const declineSOS = async (rescueUser, sosId, reason = '') => {
 
     // Check if any other active accepted/dispatched responders remain
     const { rows: remaining } = await client.query(
-      `SELECT id FROM sos_dispatches WHERE sos_id = $1 AND status IN ('DISPATCHED','ACCEPTED')`,
+      `SELECT id FROM sos_dispatches WHERE sos_id = $1 AND status IN ('DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS')`,
       [sosId]
     );
 

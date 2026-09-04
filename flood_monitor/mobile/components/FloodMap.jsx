@@ -284,12 +284,24 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
   if (!Array.isArray(safeAssignedResponders)) safeAssignedResponders = [];
 
   const assignedIds = new Set();
+  const acceptedIds = new Set();
   safeAssignedResponders.forEach(dr => {
     if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
     const rid = dr.responder_id || dr.id;
-    if (rid) assignedIds.add(String(rid).toLowerCase());
+    if (rid) {
+      assignedIds.add(String(rid).toLowerCase());
+      if (['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.status) || ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.responder_duty_status)) {
+        acceptedIds.add(String(rid).toLowerCase());
+      }
+    }
   });
-  if (assignedRescueId) assignedIds.add(String(assignedRescueId).toLowerCase());
+  if (assignedRescueId) {
+    const arId = String(assignedRescueId).toLowerCase();
+    assignedIds.add(arId);
+    if (sosLocation?.status === 'RESPONDING') {
+      acceptedIds.add(arId);
+    }
+  }
 
   // Merge any assigned responders that already have coordinates into the candidate pool
   const respondersMap = new Map();
@@ -351,14 +363,16 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
   });
 
   const assignedIdsArr = useMemo(() => Array.from(assignedIds), [safeAssignedResponders, assignedRescueId]);
+  const acceptedIdsArr = useMemo(() => Array.from(acceptedIds), [safeAssignedResponders, assignedRescueId, sosLocation?.status]);
 
   const updateDataPayload = useMemo(() => {
     return JSON.stringify({
       responders: validResponders,
       sosLocation,
-      assignedIds: assignedIdsArr
+      assignedIds: assignedIdsArr,
+      acceptedIds: acceptedIdsArr
     });
-  }, [validResponders, sosLocation, assignedIdsArr]);
+  }, [validResponders, sosLocation, assignedIdsArr, acceptedIdsArr]);
 
   // Dynamically update Leaflet markers and lines without reloading WebView
   useEffect(() => {
@@ -416,6 +430,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
         var sosLoc = data.sosLocation;
         var rList = data.responders || [];
         var assignedIds = data.assignedIds || [];
+        var acceptedIds = data.acceptedIds || [];
 
         // 1. SOS Marker
         if (sosLoc && sosLoc.lat && sosLoc.lng) {
@@ -456,6 +471,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
           boundsPoints.push([rLat, rLng]);
 
           var isAssigned = assignedIds.indexOf(rid) !== -1;
+          var isAccepted = acceptedIds.indexOf(rid) !== -1;
           var isBackup = String(r.dispatch_type || '').toUpperCase() === 'BACKUP';
           var cfg = ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
           var badgeHtml = isAssigned
@@ -485,8 +501,8 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
             window.responderMarkers[rid] = marker;
           }
 
-          // Draw vector line from responder to SOS if assigned
-          if (sosLoc && sosLoc.lat && sosLoc.lng && isAssigned) {
+          // Draw vector line from responder to SOS ONLY once accepted
+          if (sosLoc && sosLoc.lat && sosLoc.lng && isAccepted) {
             var lineCol = isBackup ? '#f59e0b' : '#dc2626';
             var dashArr = isBackup ? '8, 8' : '12, 12';
             var weight = isBackup ? 4 : 5;
@@ -731,6 +747,11 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
     if (Array.isArray(dResponders) && dResponders.length > 0) {
       dResponders.forEach(dr => {
         if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+        // User Requirement: Line appears and updates ONLY when the responder accepts
+        const hasAccepted = ['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.status) ||
+          ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.responder_duty_status);
+        if (!hasAccepted) return;
+
         const drId = String(dr.responder_id || dr.id || '').toLowerCase();
         const isMe = currentUserId && drId === currentUserId;
 
@@ -757,7 +778,7 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
           navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${sLat}, ${sLng}]], { color: '${lineCol}', weight: ${weight}, opacity: 0.95, dashArray: '${dashArr}', lineCap: 'round' }).addTo(map);`);
         }
       });
-    } else if (s.assigned_rescue_id && !isMDRRMO) {
+    } else if (s.assigned_rescue_id && !isMDRRMO && s.status === 'RESPONDING') {
       const assignId = String(s.assigned_rescue_id).toLowerCase();
       const isMe = currentUserId && assignId === currentUserId;
       let resLat = null, resLng = null;
@@ -963,6 +984,22 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
   }).addTo(map).bindPopup('<div style="font-size:13px"><b>🏛️ Your Location</b></div>');`
     : '';
 
+  const boundsPoints = [];
+  if (userLocation) boundsPoints.push([userLocation.lat, userLocation.lng]);
+  sosList.forEach(s => { if (s.lat && s.lng) boundsPoints.push([s.lat, s.lng]); });
+
+  let fitBoundsJS = `map.setView([${center.lat},${center.lng}], 15);`;
+  if (boundsPoints.length > 1) {
+    fitBoundsJS = `var bounds = L.latLngBounds(${JSON.stringify(boundsPoints)}); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });`;
+  }
+
+  const linesJS = (userLocation && sosList.length > 0)
+    ? sosList
+        .filter(s => s.lat && s.lng && ['ACCEPTED', 'RESPONDING'].includes(s.status))
+        .map(s => `L.polyline([[${userLocation.lat}, ${userLocation.lng}], [${s.lat}, ${s.lng}]], { color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round' }).addTo(map);`)
+        .join('\n')
+    : '';
+
   const html = `<!DOCTYPE html><html><head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
@@ -973,7 +1010,7 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
     @keyframes pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(2.2);opacity:0}}
   </style>
   </head><body><div id="map"></div><script>
-    var map=L.map('map',{zoomControl:true}).setView([${center.lat},${center.lng}],15);
+    var map=L.map('map',{zoomControl:true});
     var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
     var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
     var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
@@ -987,6 +1024,8 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
     L.control.layers(baseMaps, null, { position: 'topleft', collapsed: true }).addTo(map);
     ${userMarkerJS}
     ${sosMarkersJS}
+    ${linesJS}
+    ${fitBoundsJS}
     ${sosList.length === 0 ? `
       var noSos=L.control({position:'topright'});
       noSos.onAdd=function(){var d=L.DomUtil.create('div');d.style.cssText='background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:12px;color:#64748b;font-family:sans-serif';d.innerHTML='✅ No active SOS in your barangay';return d;};

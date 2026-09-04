@@ -287,6 +287,11 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
 
     dResponders.forEach((dr, idx) => {
       if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+      // User Requirement: Line appears and updates ONLY when the responder accepts
+      const hasAccepted = ['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.status) ||
+        ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.responder_duty_status);
+      if (!hasAccepted) return;
+
       const rId = String(dr.responder_id || dr.id || '').toLowerCase();
       const responder = respondersMap.get(rId);
 

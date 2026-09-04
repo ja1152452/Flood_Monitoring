@@ -210,32 +210,39 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
     ? rawDispatches
     : (typeof rawDispatches === 'string' ? JSON.parse(rawDispatches || '[]') : []);
 
-  const myDispatchInfo = dispatchedList.find(dr => {
+  // 1. Prefer exact match by unique user ID
+  let myDispatchInfo = dispatchedList.find(dr => {
     const drId = String(dr.responder_id || dr.user_id || dr.id || '').toLowerCase().trim();
-    const drRole = String(dr.role || '').toUpperCase().trim();
-    return (drId === myId || (drRole && drRole === myRole)) && dr.status !== 'DECLINED';
+    return Boolean(myId && drId === myId && dr.status !== 'DECLINED');
   });
+
+  // 2. Fallback: unassigned role dispatch (e.g. backup request broadcast to a role)
+  if (!myDispatchInfo && myRole) {
+    myDispatchInfo = dispatchedList.find(dr => {
+      const drId = String(dr.responder_id || dr.user_id || dr.id || '').toLowerCase().trim();
+      const drRole = String(dr.role || '').toUpperCase().trim();
+      return (!drId || drId === myId) && drRole === myRole && dr.status !== 'DECLINED';
+    });
+  }
   const myDutyStatus = myDispatchInfo?.responder_duty_status || myDispatchInfo?.status;
 
   const isPending = sos.status === 'PENDING';
-  const isDispatched = sos.status === 'DISPATCHED' || (dispatchedList.length > 0);
+  const isDispatched = sos.status === 'DISPATCHED';
   const isResponding = sos.status === 'RESPONDING';
 
   // Only assigned responders (primary or backup dispatched) get enabled controls; unassigned responders remain disabled in view-only mode
   const isAssignedToMe = Boolean(
-    (String(sos.assigned_rescue_id || '').toLowerCase().trim() === myId && sos.status !== 'RESOLVED' && sos.status !== 'CANCELLED') ||
+    (myId && String(sos.assigned_rescue_id || '').toLowerCase().trim() === myId && sos.status !== 'RESOLVED' && sos.status !== 'CANCELLED') ||
     myDispatchInfo
-  );
-
-  const isMyDispatchPending = isAssignedToMe && (
-    myDispatchInfo ? ['DISPATCHED', 'PENDING'].includes(myDispatchInfo.status) : (isDispatched || isPending)
   );
 
   const isMyDispatchResponding = isAssignedToMe && (
     myDispatchInfo
       ? ['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(myDispatchInfo.status) || ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(myDispatchInfo.responder_duty_status)
-      : isResponding
+      : (isResponding && !isPending && !isDispatched)
   );
+
+  const isMyDispatchPending = isAssignedToMe && !isMyDispatchResponding;
 
   const handleDeclineSubmit = () => {
     setDeclineReasonModal(false);
@@ -274,15 +281,19 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
         <View style={[
           s.statusBadge,
           {
-            backgroundColor: isPending ? '#fff1f2' : isDispatched ? '#fff7ed' : '#f0fdf4',
-            borderColor: isPending ? '#fca5a5' : isDispatched ? '#fed7aa' : '#bbf7d0',
+            backgroundColor: isPending ? '#fff1f2' : isMyDispatchPending ? '#fff7ed' : '#f0fdf4',
+            borderColor: isPending ? '#fca5a5' : isMyDispatchPending ? '#fed7aa' : '#bbf7d0',
           }
         ]}>
           <Text style={[
             s.statusBadgeText,
-            { color: isPending ? '#dc2626' : isDispatched ? '#ea580c' : '#16a34a' }
+            { color: isPending ? '#dc2626' : isMyDispatchPending ? '#ea580c' : '#16a34a' }
           ]}>
-            {isPending ? 'Pending MDRRMO' : isDispatched ? 'Dispatched' : 'Responding / En Route'}
+            {isPending
+              ? 'Pending MDRRMO'
+              : isMyDispatchPending
+              ? 'Dispatched (Action Required)'
+              : 'Responding / En Route'}
           </Text>
         </View>
       </View>
@@ -328,7 +339,7 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
               <Text style={s.disabledBtnText}>Decline (Disabled)</Text>
             </TouchableOpacity>
           </View>
-        ) : !isResponding ? (
+        ) : !isMyDispatchResponding ? (
           <View style={s.sosActions}>
             <TouchableOpacity
               style={[s.actionBtn, { backgroundColor: isBackupDispatch ? '#d97706' : '#16a34a' }]}
@@ -730,6 +741,12 @@ export function BarangayDashboard({ user, onLogout }) {
     enabled: !!barangayId,
   });
 
+  const { data: responders = [] } = useQuery({
+    queryKey: ['responder-locations'],
+    queryFn: getResponderLocations,
+    refetchInterval: 5000,
+  });
+
   const respond = useMutation({
     mutationFn: ({ sosId, statusType }) => respondSOS(sosId, statusType),
     onSuccess: () => { Toast.show({ type: 'success', text1: 'Response confirmed' }); qc.invalidateQueries(['sos-pending']); },
@@ -784,7 +801,7 @@ export function BarangayDashboard({ user, onLogout }) {
 
           <Text style={s.sectionHeaderTitle}>🗺️ Live SOS Map — {user?.barangay_name}</Text>
           <View style={s.mapWrapper}>
-            <BarangaySosMap sosList={requests} userLocation={userLocation} height={280} />
+            <ResponderMap responders={responders} sosList={requests} height={280} currentUser={user} userLocation={userLocation} />
           </View>
 
           <Text style={s.sectionHeaderTitle}>🆘 SOS Requests ({requests.length})</Text>
