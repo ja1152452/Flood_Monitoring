@@ -79,9 +79,8 @@ const ROLE_CFG = {
   RESCUE: { color: '#38bdf8', emoji: '⛑', label: 'Rescue' },
 };
 
-function createResponderIcon(role, name, isOnline) {
+function createResponderIcon(role, isOnline) {
   const cfg = ROLE_CFG[role] || { color: '#64748b', emoji: '👤', label: role };
-  const initials = (name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
   return L.divIcon({
     html: `
       <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
@@ -98,21 +97,16 @@ function createResponderIcon(role, name, isOnline) {
           background:${isOnline ? '#22c55e' : '#94a3b8'};
           border:2px solid white;
         "></div>
-        <div style="
-          background:rgba(15,23,42,0.85);color:white;
-          font-size:9px;font-weight:700;padding:1px 4px;
-          border-radius:4px;white-space:nowrap;margin-top:2px;
-        ">${initials}</div>
       </div>`,
     className: '',
-    iconSize: [36, 50],
-    iconAnchor: [18, 25],
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   });
 }
 
-function responderIcon(role, status, name) {
+function responderIcon(role, status) {
   const isOnline = status !== 'OFF_DUTY';
-  return createResponderIcon(role, name, isOnline);
+  return createResponderIcon(role, isOnline);
 }
 
 function createSOSIcon(status) {
