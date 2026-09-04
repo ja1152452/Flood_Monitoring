@@ -46,6 +46,10 @@ const ROLE_CONFIG = {
 };
 const ROLE_BADGE = ROLE_CONFIG;
 
+const RESPONDER_ROLES = [
+  'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE',
+];
+
 const getRoleOption = (val) => ROLE_OPTIONS.find(r => r.value === val) || ROLE_OPTIONS[0];
 
 const toDateTimeLocal = (dateString) => {
@@ -208,8 +212,8 @@ function FormFields({ form, setForm, isEdit, centers = [], isSuperAdmin = false 
         </div>
       )}
 
-      {/* Joined Date & Time - for Resident */}
-      {form.roleOption === 'CITIZEN' && (
+      {/* Joined Date & Time - for Resident, Responders & MSWDO */}
+      {(form.roleOption === 'CITIZEN' || form.roleOption === 'MSWDO' || RESPONDER_ROLES.includes(form.roleOption)) && (
         <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">

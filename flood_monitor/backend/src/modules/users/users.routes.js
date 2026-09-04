@@ -281,8 +281,8 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
 
   try {
     const { rows } = await query(
-      `INSERT INTO users (email, password_hash, full_name, role, barangay_id, phone_number, evacuation_center_id, created_at)
-       VALUES ($1,$2,$3,$4::user_role,$5,$6,$7, COALESCE($8::timestamptz, NOW()))
+      `INSERT INTO users (email, password_hash, full_name, role, barangay_id, phone_number, evacuation_center_id, created_at, is_active, email_verified)
+       VALUES ($1,$2,$3,$4::user_role,$5,$6,$7, COALESCE($8::timestamptz, NOW()), true, true)
        RETURNING id, email, full_name, role, is_active, created_at, barangay_id`,
       [email.toLowerCase(), hash, full_name, role, barangayId, phone_number || null, centerId, customCreatedAt]
     );
