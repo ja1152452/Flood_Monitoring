@@ -391,16 +391,10 @@ async function migrate() {
         after_state  JSONB,
         ip_address   VARCHAR(45),
         user_agent   TEXT,
-        is_manual    BOOLEAN NOT NULL DEFAULT FALSE,
-        actual_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        severity     VARCHAR(50) DEFAULT 'NORMAL',
         created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS description TEXT;
       ALTER TABLE audit_logs ALTER COLUMN entity_id TYPE VARCHAR(100);
-      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_manual BOOLEAN NOT NULL DEFAULT FALSE;
-      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actual_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'NORMAL';
     `);
     console.log('  OK audit_logs');
 

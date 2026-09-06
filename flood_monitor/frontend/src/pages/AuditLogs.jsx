@@ -1,29 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuditLogs, createAuditLog, updateAuditLog, deleteAuditLog } from '../api/analytics';
 import { getUsers } from '../api/users';
-import { getEvacuationCenters } from '../api/evacuation';
 import { useAuthStore } from '../store/authStore';
-import {
-  BUSINESS_MODULES,
-  ENTITY_TYPES,
-  SEVERITY_CONFIG,
-  generateReferenceCode,
-  formatActionLabel,
-  formatEntityName,
-  formatFriendlyDateTime,
-  formatRelativeTime,
-  parseLogPayload,
-} from '../utils/auditLogFormatter';
+import { formatDateTime } from '../utils/floodUtils';
 import {
   Search, Activity, Waves, Layers, Plus, Edit2, Trash2,
   Eye, Calendar, Clock, X, Check, AlertCircle, FileText,
-  User, Shield, Tag, Sparkles, RefreshCw, ChevronDown, ChevronRight,
-  Info, CheckCircle2, AlertTriangle
+  User, Shield, Tag, CornerDownRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
+
+const ACTION_COLORS = {
+  DELETED:      { bg: '#fee2e2', color: '#b91c1c' },
+  DEACTIVATED:  { bg: '#fee2e2', color: '#b91c1c' },
+  CREATED:      { bg: '#dcfce7', color: '#15803d' },
+  UPDATED:      { bg: '#dbeafe', color: '#1d4ed8' },
+  ACTIVATED:    { bg: '#dbeafe', color: '#1d4ed8' },
+  SOS:          { bg: '#ffedd5', color: '#c2410c' },
+  BACKUP:       { bg: '#f3e8ff', color: '#7e22ce' },
+  LOGIN:        { bg: '#dcfce7', color: '#166534' },
+  SIMULATION:   { bg: '#e0e7ff', color: '#4338ca' },
+  DRILL:        { bg: '#ede9fe', color: '#6d28d9' },
+  MAINTENANCE:  { bg: '#fef3c7', color: '#b45309' },
+  INSPECTION:   { bg: '#ccfbf1', color: '#0f766e' },
+  ALERT:        { bg: '#fee2e2', color: '#b91c1c' },
+  DEFAULT:      { bg: '#f1f5f9', color: '#475569' },
+};
+
+function getActionStyle(action = '') {
+  for (const [key, style] of Object.entries(ACTION_COLORS)) {
+    if (action.includes(key)) return style;
+  }
+  return ACTION_COLORS.DEFAULT;
+}
+
+const ACTION_FILTER_OPTIONS = [
+  { value: '',            label: 'All Actions' },
+  { value: 'SIMULATION',  label: '🧪 Simulation & Drills' },
+  { value: 'DRILL',       label: '⏱️ Drill Scenarios' },
+  { value: 'SOS',         label: '🚨 SOS Emergencies' },
+  { value: 'ALERT',       label: '⚠️ Flood Alerts' },
+  { value: 'BACKUP',      label: '💾 Backups' },
+  { value: 'CREATED',     label: '➕ Created' },
+  { value: 'UPDATED',     label: '✏️ Updated' },
+  { value: 'DELETED',     label: '🗑️ Deleted' },
+  { value: 'LOGIN',       label: '🔑 Login' },
+  { value: 'MAINTENANCE', label: '🛠️ Maintenance & Checks' },
+];
+
+const PRESET_ACTIONS = [
+  { value: 'DRILL_SCENARIO_STARTED', label: '⏱️ DRILL_SCENARIO_STARTED' },
+  { value: 'SIMULATION_STARTED',      label: '🧪 SIMULATION_STARTED' },
+  { value: 'SIMULATION_STOPPED',      label: '🛑 SIMULATION_STOPPED' },
+  { value: 'SIMULATION_RESET',        label: '🔄 SIMULATION_RESET' },
+  { value: 'ALERT_TRIGGERED',         label: '🚨 ALERT_TRIGGERED' },
+  { value: 'ALERT_RESOLVED',          label: '✅ ALERT_RESOLVED' },
+  { value: 'SOS_TRIGGERED',           label: '🆘 SOS_TRIGGERED' },
+  { value: 'SOS_ACKNOWLEDGED',        label: '👁️ SOS_ACKNOWLEDGED' },
+  { value: 'SOS_RESOLVED',            label: '🏁 SOS_RESOLVED' },
+  { value: 'RESCUE_DISPATCHED',       label: '🚑 RESCUE_DISPATCHED' },
+  { value: 'RESCUE_COMPLETED',        label: '🤝 RESCUE_COMPLETED' },
+  { value: 'USER_CREATED',            label: '👤 USER_CREATED' },
+  { value: 'USER_UPDATED',            label: '✏️ USER_UPDATED' },
+  { value: 'USER_DELETED',            label: '🗑️ USER_DELETED' },
+  { value: 'MAINTENANCE_LOG',         label: '🛠️ MAINTENANCE_LOG' },
+  { value: 'INSPECTION_CHECK',        label: '📋 INSPECTION_CHECK' },
+  { value: 'SYSTEM_BACKUP',           label: '💾 SYSTEM_BACKUP' },
+  { value: 'CUSTOM',                  label: '✨ Custom Action…' },
+];
+
+const COMMON_ENTITY_TYPES = [
+  'FLOOD_SIMULATION',
+  'water_level_readings',
+  'flood_alerts',
+  'sos_requests',
+  'rescue_operations',
+  'users',
+  'cameras',
+  'evacuation_centers',
+  'evacuation_families',
+  'flood_risk_areas',
+  'announcements',
+  'SYSTEM',
+  'OTHER',
+];
 
 const toDateTimeLocal = (dateString) => {
   if (!dateString) return '';
@@ -38,30 +101,58 @@ const toDateTimeLocal = (dateString) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+function parseLogDetails(log) {
+  let state = log.after_state || log.before_state;
+  if (!state) return null;
+  if (typeof state === 'string') {
+    try {
+      state = JSON.parse(state);
+    } catch {
+      return { summaryText: state, chips: [] };
+    }
+  }
+  if (typeof state !== 'object' || state === null) {
+    return { summaryText: String(state), chips: [] };
+  }
+
+  let summaryText = '';
+  if (state.scenario_name) summaryText = `Scenario: ${state.scenario_name}`;
+  else if (state.message) summaryText = state.message;
+  else if (state.notes) summaryText = state.notes;
+  else if (state.reason) summaryText = state.reason;
+
+  const chips = [];
+  for (const [k, v] of Object.entries(state)) {
+    if (['scenario_name', 'message', 'description', 'notes', 'reason'].includes(k)) continue;
+    if (v === null || v === undefined) continue;
+    chips.push({ k, v: typeof v === 'object' ? JSON.stringify(v) : String(v) });
+  }
+
+  return { summaryText, chips };
+}
+
 export default function AuditLogs() {
   const [page,          setPage]          = useState(0);
   const [search,        setSearch]        = useState('');
   const [actionFilter,  setActionFilter]  = useState('');
-  const [categoryTab,   setCategoryTab]   = useState('all'); // 'all' | 'live' | 'simulation' | 'manual'
-  const [sourceFilter,  setSourceFilter]  = useState('all'); // 'all' | 'manual' | 'system'
+  const [categoryTab,   setCategoryTab]   = useState('all'); // 'all' | 'live' | 'simulation'
 
   // Modals state
   const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingLog,    setEditingLog]    = useState(null);
-  const [viewLog,       setViewLog]       = useState(null);
-  const [deleteTarget,  setDeleteTarget]  = useState(null);
-  const [showTechDiag,  setShowTechDiag]  = useState(false); // toggle technical diagnostic accordion in view modal
+  const [editingLog,    setEditingLog]    = useState(null); // null = create, object = edit
+  const [viewLog,       setViewLog]       = useState(null); // object for inspection modal
+  const [deleteTarget,  setDeleteTarget]  = useState(null); // object to confirm deletion
 
-  // Manual Audit Log Form State (Completely Human-Friendly, Zero Raw JSON)
+  // Form state
   const [formData, setFormData] = useState({
-    action:        'ALERT_TRIGGERED',
-    summary:       '',
-    notes:         '',
-    severity:      'NORMAL',
-    created_at:    '',
-    entity_type:   'Flood Alert Warning',
-    entity_id:     '',
-    selected_user: '',
+    actionPreset: 'DRILL_SCENARIO_STARTED',
+    actionCustom: '',
+    description:  '',
+    created_at:   '',
+    user_id:      '',
+    entity_type:  'FLOOD_SIMULATION',
+    entity_id:    '',
+    details_json: '',
   });
 
   const queryClient = useQueryClient();
@@ -80,113 +171,113 @@ export default function AuditLogs() {
   });
   const usersList = usersData?.data || [];
 
-  const { data: evacCenters = [] } = useQuery({
-    queryKey: ['evac-centers-for-audit'],
-    queryFn:  getEvacuationCenters,
-  });
-
   const createMutation = useMutation({
     mutationFn: createAuditLog,
     onSuccess: () => {
-      toast.success('Operational audit log successfully recorded');
+      toast.success('Audit log entry created successfully');
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       setFormModalOpen(false);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to record audit log');
+      toast.error(err.response?.data?.message || 'Failed to create audit log entry');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => updateAuditLog(id, data),
     onSuccess: () => {
-      toast.success('Audit log record successfully updated');
+      toast.success('Audit log entry updated successfully');
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       setFormModalOpen(false);
       setEditingLog(null);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to update audit log');
+      toast.error(err.response?.data?.message || 'Failed to update audit log entry');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteAuditLog,
     onSuccess: () => {
-      toast.success('Audit log record deleted');
+      toast.success('Audit log entry deleted');
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
       setDeleteTarget(null);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete audit log');
+      toast.error(err.response?.data?.message || 'Failed to delete audit log entry');
     },
   });
 
-  // Open Create Modal with auto-generated reference ID and defaults
   const openCreateModal = () => {
     setEditingLog(null);
-    const defaultEntityType = 'Flood Alert Warning';
-    const autoRef = generateReferenceCode(defaultEntityType);
-
     setFormData({
-      action:        'ALERT_TRIGGERED',
-      summary:       '',
-      notes:         '',
-      severity:      'NORMAL',
-      created_at:    toDateTimeLocal(new Date()),
-      entity_type:   defaultEntityType,
-      entity_id:     autoRef,
-      selected_user: currentUser?.id || '',
+      actionPreset: 'DRILL_SCENARIO_STARTED',
+      actionCustom: '',
+      description:  '',
+      created_at:   toDateTimeLocal(new Date()),
+      user_id:      currentUser?.id || '',
+      entity_type:  'FLOOD_SIMULATION',
+      entity_id:    '',
+      details_json: '',
     });
     setFormModalOpen(true);
   };
 
-  // Open Edit Modal prefilled with friendly fields
   const openEditModal = (log) => {
     setEditingLog(log);
-    const parsed = parseLogPayload(log);
+    const isPreset = PRESET_ACTIONS.some(p => p.value === log.action);
+    let detailsJson = '';
+    const stateObj = log.after_state || log.before_state;
+    if (stateObj) {
+      try {
+        detailsJson = typeof stateObj === 'string' ? stateObj : JSON.stringify(stateObj, null, 2);
+      } catch {
+        detailsJson = '';
+      }
+    }
 
     setFormData({
-      action:        log.action || 'GENERAL_NOTE',
-      summary:       parsed.summary || log.description || '',
-      notes:         parsed.notes || '',
-      severity:      parsed.severity || log.severity || 'NORMAL',
-      created_at:    toDateTimeLocal(log.created_at),
-      entity_type:   formatEntityName(log.entity_type),
-      entity_id:     log.entity_id || generateReferenceCode(log.entity_type),
-      selected_user: log.user_id || '',
+      actionPreset: isPreset ? log.action : 'CUSTOM',
+      actionCustom: isPreset ? '' : log.action,
+      description:  log.description || '',
+      created_at:   toDateTimeLocal(log.created_at),
+      user_id:      log.user_id || '',
+      entity_type:  log.entity_type || '',
+      entity_id:    log.entity_id || '',
+      details_json: detailsJson,
     });
     setFormModalOpen(true);
   };
 
-  // When entity type changes in the form, automatically re-generate matching reference ID if default
-  const handleEntityTypeChange = (newType) => {
-    setFormData(f => ({
-      ...f,
-      entity_type: newType,
-      entity_id: generateReferenceCode(newType),
-    }));
-  };
-
-  // Form submission handler
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    const finalAction = formData.actionPreset === 'CUSTOM'
+      ? formData.actionCustom.trim()
+      : formData.actionPreset;
 
-    if (!formData.summary.trim()) {
-      toast.error('Please provide a primary summary headline describing this event.');
+    if (!finalAction) {
+      toast.error('Action is required');
       return;
     }
 
+    let parsedState = null;
+    if (formData.details_json.trim()) {
+      try {
+        parsedState = JSON.parse(formData.details_json.trim());
+      } catch {
+        toast.error('Details JSON is invalid. Please enter valid JSON or leave it empty.');
+        return;
+      }
+    }
+
     const payload = {
-      action:      formData.action,
-      summary:     formData.summary.trim(),
-      description: formData.summary.trim(),
-      notes:       formData.notes.trim(),
-      severity:    formData.severity,
-      createdAt:   formData.created_at ? new Date(formData.created_at).toISOString() : null,
-      userId:      formData.selected_user || currentUser?.id || null,
-      entityType:  formData.entity_type,
-      entityId:    formData.entity_id.trim() || generateReferenceCode(formData.entity_type),
+      action: finalAction,
+      description: formData.description.trim() || null,
+      createdAt: formData.created_at ? new Date(formData.created_at).toISOString() : null,
+      userId: formData.user_id || null,
+      entityType: formData.entity_type.trim() || null,
+      entityId: formData.entity_id.trim() || null,
+      afterState: parsedState,
     };
 
     if (editingLog) {
@@ -196,32 +287,20 @@ export default function AuditLogs() {
     }
   };
 
-  // Filtering
   const filtered = logs.filter(log => {
     const isSim = (log.action || '').includes('SIMULATION') || (log.action || '').includes('DRILL') || (log.entity_type || '').includes('SIMULATION');
-    const isManual = Boolean(log.is_manual);
-
     if (categoryTab === 'live' && isSim) return false;
     if (categoryTab === 'simulation' && !isSim) return false;
-    if (categoryTab === 'manual' && !isManual) return false;
-
-    if (sourceFilter === 'manual' && !isManual) return false;
-    if (sourceFilter === 'system' && isManual) return false;
 
     const queryStr = search.toLowerCase();
-    const actionLabel = formatActionLabel(log.action).toLowerCase();
-    const entityLabel = formatEntityName(log.entity_type).toLowerCase();
-
     const matchSearch = !search ||
-      (log.user_email     || '').toLowerCase().includes(queryStr) ||
+      (log.user_email   || '').toLowerCase().includes(queryStr) ||
       (log.user_full_name || '').toLowerCase().includes(queryStr) ||
-      (log.description    || '').toLowerCase().includes(queryStr) ||
-      (log.entity_id      || '').toLowerCase().includes(queryStr) ||
-      actionLabel.includes(queryStr) ||
-      entityLabel.includes(queryStr);
-
+      (log.action       || '').toLowerCase().includes(queryStr) ||
+      (log.entity_type  || '').toLowerCase().includes(queryStr) ||
+      (log.description  || '').toLowerCase().includes(queryStr) ||
+      (log.entity_id    || '').toLowerCase().includes(queryStr);
     const matchAction = !actionFilter || (log.action || '').includes(actionFilter);
-
     return matchSearch && matchAction;
   });
 
@@ -229,50 +308,42 @@ export default function AuditLogs() {
 
   return (
     <div className="space-y-6">
-      {/* PAGE HEADER */}
       <div className="page-header flex items-start justify-between flex-wrap gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Audit Trail &amp; Operational Logs</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-              Forensic Integrity Active
-            </span>
-          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Audit Trail</h1>
           <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-            Official operational event ledger — tracking automated telemetry alerts, drills, and authorized administrative entries
+            Master activity log — real emergency operations, administration, and simulation drill tests
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all hover:shadow hover:-translate-y-0.5 active:translate-y-0">
             <Plus size={15} />
-            Record Audit Log
+            Add Audit Log
           </button>
-
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search headline, reference, actor…"
+              placeholder="Search user, action, description…"
               className="pl-8 pr-3.5 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
             />
           </div>
-
           <select
-            value={sourceFilter}
-            onChange={e => { setSourceFilter(e.target.value); setPage(0); }}
+            value={actionFilter}
+            onChange={e => { setActionFilter(e.target.value); setPage(0); }}
             className="text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm font-semibold">
-            <option value="all">All Sources</option>
-            <option value="manual">✍️ Manual Entries Only</option>
-            <option value="system">⚡ Automated System Only</option>
+            {ACTION_FILTER_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      {/* CATEGORY SWITCHER */}
+      {/* Category Pills Switcher */}
       <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 w-fit shadow-inner">
         <button
           onClick={() => { setCategoryTab('all'); setPage(0); }}
@@ -282,7 +353,7 @@ export default function AuditLogs() {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}>
           <Layers size={13} />
-          All Logs
+          All Activities
         </button>
         <button
           onClick={() => { setCategoryTab('live'); setPage(0); }}
@@ -292,7 +363,7 @@ export default function AuditLogs() {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}>
           <Activity size={13} />
-          Live Operations
+          Live Operations Only
         </button>
         <button
           onClick={() => { setCategoryTab('simulation'); setPage(0); }}
@@ -302,27 +373,16 @@ export default function AuditLogs() {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}>
           <Waves size={13} />
-          Drills &amp; Simulations
-        </button>
-        <button
-          onClick={() => { setCategoryTab('manual'); setPage(0); }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-            categoryTab === 'manual'
-              ? 'bg-amber-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}>
-          <FileText size={13} />
-          Administrative Manual Logs
+          Simulation &amp; Drills Only
         </button>
       </div>
 
-      {/* AUDIT LOGS TABLE */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-                {['Source', 'Date & Time', 'Event / Action', 'Target Entity', 'Description & Operational Remarks', 'Actor', 'Actions'].map(h => (
+                {['Time', 'User', 'Role', 'Action', 'Entity', 'Description', 'Actions'].map(h => (
                   <th
                     key={h}
                     className={`px-5 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 ${
@@ -335,128 +395,109 @@ export default function AuditLogs() {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
               {filtered.map(log => {
-                const parsed = parseLogPayload(log);
-                const actionLabel = formatActionLabel(log.action);
-                const entityLabel = formatEntityName(log.entity_type);
-                const severityCfg = SEVERITY_CONFIG[parsed.severity] || SEVERITY_CONFIG.NORMAL;
-                const refCode = log.entity_id || generateReferenceCode(log.entity_type);
+                const { bg, color } = getActionStyle(log.action);
+                const parsedDetails = parseLogDetails(log);
 
                 return (
-                  <tr key={log.id} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
-                    {/* 1. Log Source Indicator */}
+                  <tr key={log.id}
+                    className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
+                    {/* Time */}
+                    <td className="px-5 py-3.5 text-xs font-medium whitespace-nowrap text-slate-600 dark:text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={12} className="text-slate-400 shrink-0" />
+                        <span>{formatDateTime(log.created_at)}</span>
+                      </div>
+                    </td>
+
+                    {/* User */}
                     <td className="px-5 py-3.5 whitespace-nowrap">
-                      {log.is_manual ? (
-                        <span
-                          title={`Manually logged by ${log.user_full_name || log.user_email || 'Admin'}`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs">
-                          ✍️ Manual Entry
-                        </span>
-                      ) : (
-                        <span
-                          title="System-generated event telemetry"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          ⚡ System Auto
-                        </span>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        {log.user_full_name || log.user_email || 'System'}
+                      </div>
+                      {log.user_full_name && log.user_email && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {log.user_email}
+                        </div>
                       )}
                     </td>
 
-                    {/* 2. Date & Time Column */}
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        {formatFriendlyDateTime(log.created_at)}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Clock size={11} />
-                        <span>{formatRelativeTime(log.created_at)}</span>
-                      </div>
-                    </td>
-
-                    {/* 3. Event / Action Column */}
+                    {/* Role */}
                     <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="font-bold text-xs text-slate-900 dark:text-white">
-                        {actionLabel}
-                      </div>
-                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase border ${severityCfg.badge}`}>
-                        {severityCfg.label}
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {log.user_role || '—'}
                       </span>
                     </td>
 
-                    {/* 4. Target Entity with Auto-Generated Reference */}
+                    {/* Action */}
                     <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        {entityLabel}
-                      </div>
-                      <div className="text-[11px] font-mono font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                        #{refCode}
-                      </div>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg font-mono inline-block shadow-sm"
+                        style={{ backgroundColor: bg, color }}>
+                        {log.action}
+                      </span>
                     </td>
 
-                    {/* 5. Human-Readable Description & Remarks (FITTED & FORMATTED) */}
-                    <td className="px-5 py-3.5 text-xs min-w-[300px] max-w-lg">
-                      {/* Primary Headline Summary */}
-                      <div className="font-bold text-slate-900 dark:text-white text-xs leading-snug break-words">
-                        {parsed.summary}
-                      </div>
+                    {/* Entity */}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        {log.entity_type || '—'}
+                        {log.entity_id ? ` #${String(log.entity_id).slice(0, 8)}` : ''}
+                      </span>
+                    </td>
 
-                      {/* Operational Remarks / Justification if present */}
-                      {parsed.notes && (
-                        <div className="mt-1 text-slate-600 dark:text-slate-300 text-[11px] italic bg-slate-50 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-200/80 dark:border-slate-800 leading-relaxed break-words">
-                          "{parsed.notes}"
+                    {/* Description - PROPERLY FITTED & FORMATTED */}
+                    <td className="px-5 py-3.5 text-xs min-w-[280px] max-w-lg">
+                      {log.description ? (
+                        <div className="font-semibold text-slate-800 dark:text-slate-200 leading-snug whitespace-normal break-words">
+                          {log.description}
                         </div>
-                      )}
+                      ) : null}
 
-                      {/* Clean Attribute Chips (Never raw JSON) */}
-                      {parsed.chips.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {parsed.chips.slice(0, 4).map((chip, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800">
-                              <span className="text-slate-400 dark:text-slate-500 mr-1">{chip.label}:</span>
-                              <span className="font-semibold">{chip.val}</span>
+                      {parsedDetails && (
+                        <div className={`text-slate-600 dark:text-slate-400 leading-relaxed whitespace-normal break-words ${log.description ? 'mt-1.5' : ''}`}>
+                          {parsedDetails.summaryText && !log.description ? (
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {parsedDetails.summaryText}
                             </span>
-                          ))}
-                          {parsed.chips.length > 4 && (
-                            <button
-                              onClick={() => setViewLog(log)}
-                              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
-                              +{parsed.chips.length - 4} more
-                            </button>
+                          ) : null}
+
+                          {parsedDetails.chips.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {parsedDetails.chips.map((chip, i) => (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800">
+                                  <span className="text-slate-400 dark:text-slate-500 mr-1">{chip.k}:</span>
+                                  <span className="font-bold">{chip.v}</span>
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
-                    </td>
 
-                    {/* 6. Actor / Responsible User */}
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs">
-                      <div className="font-bold text-slate-800 dark:text-slate-200">
-                        {log.user_full_name || log.user_email || 'Automated System'}
-                      </div>
-                      {log.user_role && (
-                        <span className="inline-block mt-0.5 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400">
-                          {log.user_role}
-                        </span>
+                      {!log.description && !parsedDetails && (
+                        <span className="text-slate-400 dark:text-slate-500 italic">—</span>
                       )}
                     </td>
 
-                    {/* 7. Row Actions */}
+                    {/* Actions */}
                     <td className="px-4 py-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setViewLog(log)}
-                          title="View Plain-Language Details"
+                          title="View Full Details"
                           className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                           <Eye size={15} />
                         </button>
                         <button
                           onClick={() => openEditModal(log)}
-                          title="Edit Audit Record"
+                          title="Edit Audit Log"
                           className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
                           <Edit2 size={15} />
                         </button>
                         <button
                           onClick={() => setDeleteTarget(log)}
-                          title="Delete Record"
+                          title="Delete Audit Log"
                           className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
                           <Trash2 size={15} />
                         </button>
@@ -473,15 +514,14 @@ export default function AuditLogs() {
           <div className="flex flex-col items-center justify-center py-16 gap-2">
             <span className="text-3xl">📋</span>
             <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-              {isLoading ? 'Retrieving audit trail records…' : 'No audit log records match your current filters.'}
+              {isLoading ? 'Loading audit trail…' : 'No audit logs found'}
             </p>
           </div>
         )}
       </div>
 
-      {/* PAGINATION */}
       <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-        <span>Showing {filtered.length} of {logs.length} entries (Page {page + 1})</span>
+        <span>Showing {filtered.length} of {logs.length} entries (page {page + 1})</span>
         <div className="flex items-center gap-2">
           <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
             className="px-3.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:opacity-40 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold shadow-sm">
@@ -494,24 +534,21 @@ export default function AuditLogs() {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* MANUAL AUDIT LOG INPUT MODAL (Zero JSON, Clean & Non-IT Friendly)          */}
-      {/* ========================================================================= */}
+      {/* CREATE & EDIT MODAL */}
       {formModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
-                  {editingLog ? <Edit2 size={18} /> : <Plus size={18} />}
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
+                  {editingLog ? <Edit2 size={16} /> : <Plus size={16} />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingLog ? 'Edit Administrative Audit Record' : 'Record Official Audit Log Entry'}
+                    {editingLog ? 'Edit Audit Log Entry' : 'Create New Audit Log Entry'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Document operational actions, emergency measures, or official field directives
+                    {editingLog ? 'Modify activity record, timestamp, and details' : 'Log a customized activity or test event'}
                   </p>
                 </div>
               </div>
@@ -524,19 +561,19 @@ export default function AuditLogs() {
             </div>
 
             <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-              {/* 1. Occurrence Timestamp with Shortcuts */}
+              {/* CUSTOM DATE & TIME PICKER */}
               <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Calendar size={13} className="text-red-500" />
-                    Occurrence Date &amp; Time
+                    Event Date &amp; Time (Timestamp)
                   </label>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setFormData(f => ({ ...f, created_at: toDateTimeLocal(new Date()) }))}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline">
-                      Set to Current Time
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline">
+                      Set to Now
                     </button>
                     {formData.created_at && (
                       <>
@@ -544,7 +581,7 @@ export default function AuditLogs() {
                         <button
                           type="button"
                           onClick={() => setFormData(f => ({ ...f, created_at: '' }))}
-                          className="text-xs font-bold text-rose-500 hover:text-rose-400 hover:underline">
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-400 hover:underline">
                           Clear
                         </button>
                       </>
@@ -557,168 +594,120 @@ export default function AuditLogs() {
                   value={formData.created_at || ''}
                   onChange={e => setFormData(f => ({ ...f, created_at: e.target.value }))}
                 />
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  You can set retroactive dates for past incidents. The system automatically preserves the exact server submission time separately for security forensics.
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Customize the exact date and time recorded for this activity. Leave blank to default to current date and time.
                 </p>
               </div>
 
-              {/* 2. Action / Event Categorization (Grouped by Business Module) */}
+              {/* ACTION SELECTION */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Event Category &amp; Action *
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Action Type *
                 </label>
                 <select
                   className={inputCls}
-                  value={formData.action}
-                  onChange={e => {
-                    const chosen = e.target.value;
-                    let suggestedSeverity = 'NORMAL';
-                    for (const m of BUSINESS_MODULES) {
-                      const found = m.actions.find(a => a.value === chosen);
-                      if (found) { suggestedSeverity = found.defaultSeverity; break; }
-                    }
-                    setFormData(f => ({ ...f, action: chosen, severity: suggestedSeverity }));
-                  }}>
-                  {BUSINESS_MODULES.map(module => (
-                    <optgroup key={module.group} label={`${module.icon} ${module.group}`}>
-                      {module.actions.map(act => (
-                        <option key={act.value} value={act.value}>
-                          {act.label}
-                        </option>
-                      ))}
-                    </optgroup>
+                  value={formData.actionPreset}
+                  onChange={e => setFormData(f => ({ ...f, actionPreset: e.target.value }))}>
+                  {PRESET_ACTIONS.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
                 </select>
-              </div>
 
-              {/* 3. Target Entity & Auto-Generated Reference ID */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Target Subject Type
-                  </label>
-                  <select
-                    className={inputCls}
-                    value={formData.entity_type}
-                    onChange={e => handleEntityTypeChange(e.target.value)}>
-                    {ENTITY_TYPES.map(e => (
-                      <option key={e.value} value={e.value}>
-                        {e.icon} {e.value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Auto-Generated Reference ID
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(f => ({ ...f, entity_id: generateReferenceCode(f.entity_type) }))}
-                      title="Generate new unique identifier"
-                      className="text-[11px] font-bold text-blue-600 hover:text-blue-500 dark:text-blue-400 flex items-center gap-1 hover:underline">
-                      <RefreshCw size={11} />
-                      Regenerate
-                    </button>
-                  </div>
+                {formData.actionPreset === 'CUSTOM' && (
                   <input
                     type="text"
-                    className={`${inputCls} font-mono font-bold text-slate-800 dark:text-slate-200`}
-                    value={formData.entity_id}
-                    onChange={e => setFormData(f => ({ ...f, entity_id: e.target.value }))}
+                    placeholder="Enter custom action (e.g. SYSTEM_OPTIMIZATION)"
+                    className={`${inputCls} mt-2 font-mono uppercase`}
+                    value={formData.actionCustom}
+                    onChange={e => setFormData(f => ({ ...f, actionCustom: e.target.value }))}
                   />
-                </div>
+                )}
               </div>
 
-              {/* Optional Quick Link to Existing System Record */}
-              {formData.entity_type.includes('User') && (
-                <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 space-y-1.5">
-                  <label className="text-xs font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1">
-                    <User size={13} />
-                    Link to Registered Citizen / Official:
+              {/* USER / OPERATOR & ENTITY TYPE */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Operator / User
                   </label>
                   <select
                     className={inputCls}
-                    value={formData.selected_user}
-                    onChange={e => {
-                      const uId = e.target.value;
-                      const uObj = usersList.find(u => u.id === uId);
-                      setFormData(f => ({
-                        ...f,
-                        selected_user: uId,
-                        entity_id: uObj ? `USR-${uObj.email.split('@')[0].toUpperCase()}-${uId.slice(0,4).toUpperCase()}` : f.entity_id
-                      }));
-                    }}>
-                    <option value="">Choose User (Optional)…</option>
+                    value={formData.user_id}
+                    onChange={e => setFormData(f => ({ ...f, user_id: e.target.value }))}>
+                    <option value="">System (Automated / None)</option>
                     {usersList.map(u => (
                       <option key={u.id} value={u.id}>
-                        {u.full_name || u.email} ({u.role}) — {u.email}
+                        {u.full_name || u.email} ({u.role})
                       </option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              {/* 4. Primary Summary Headline (Human-Readable) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Entity Type
+                  </label>
+                  <input
+                    list="entity-types-list"
+                    className={inputCls}
+                    placeholder="e.g. FLOOD_SIMULATION"
+                    value={formData.entity_type}
+                    onChange={e => setFormData(f => ({ ...f, entity_type: e.target.value }))}
+                  />
+                  <datalist id="entity-types-list">
+                    {COMMON_ENTITY_TYPES.map(e => (
+                      <option key={e} value={e} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              {/* ENTITY ID */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Primary Summary Headline *
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Entity ID / Reference (Optional)
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Updated emergency contact and siren schedule for Brgy. Concepcion Hall"
+                  placeholder="e.g. SIM-2026-01 or UUID"
                   className={inputCls}
-                  value={formData.summary}
-                  onChange={e => setFormData(f => ({ ...f, summary: e.target.value }))}
+                  value={formData.entity_id}
+                  onChange={e => setFormData(f => ({ ...f, entity_id: e.target.value }))}
                 />
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  A concise, plain-language description displayed as the primary entry title in the audit table.
-                </p>
               </div>
 
-              {/* 5. Operational Notes / Justification */}
+              {/* DESCRIPTION - MULTI-LINE COMFORTABLE */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Operational Notes &amp; Official Remarks
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Description / Notes *
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Provide additional background context, reason for the directive, responder observations, or authorized justification..."
                   className={inputCls}
-                  value={formData.notes}
-                  onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Enter a detailed description of the event or activity (fits comfortably in the table)..."
+                  value={formData.description}
+                  onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
+                />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  This description is displayed prominently in the Description column and wraps neatly.
+                </p>
+              </div>
+
+              {/* DETAILS / STATE (JSON) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Additional Details / State Payload (JSON, Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  className={`${inputCls} font-mono text-[11px]`}
+                  placeholder='{"water_level_m": 2.5, "severity": "HIGH", "notes": "Monsoon surge"}'
+                  value={formData.details_json}
+                  onChange={e => setFormData(f => ({ ...f, details_json: e.target.value }))}
                 />
               </div>
 
-              {/* 6. Status / Severity Tag */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Status &amp; Severity Level
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {Object.entries(SEVERITY_CONFIG).map(([key, cfg]) => {
-                    const isSelected = formData.severity === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setFormData(f => ({ ...f, severity: key }))}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border text-center ${
-                          isSelected
-                            ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                        }`}>
-                        {cfg.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
+              {/* MODAL FOOTER */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
@@ -729,9 +718,9 @@ export default function AuditLogs() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md transition-all disabled:opacity-50">
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all disabled:opacity-50">
                   <Check size={14} />
-                  {editingLog ? 'Update Record' : 'Save Audit Entry'}
+                  {editingLog ? 'Save Changes' : 'Create Entry'}
                 </button>
               </div>
             </form>
@@ -739,199 +728,142 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* PLAIN-LANGUAGE INSPECTION MODAL (Human-Friendly Presentation)             */}
-      {/* ========================================================================= */}
-      {viewLog && (() => {
-        const parsed = parseLogPayload(viewLog);
-        const actionLabel = formatActionLabel(viewLog.action);
-        const entityLabel = formatEntityName(viewLog.entity_type);
-        const severityCfg = SEVERITY_CONFIG[parsed.severity] || SEVERITY_CONFIG.NORMAL;
-        const refCode = viewLog.entity_id || generateReferenceCode(viewLog.entity_type);
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden my-8">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
-                    <Eye size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Official Audit Log Overview
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Reference #{refCode}
-                    </p>
-                  </div>
+      {/* VIEW DETAILS MODAL */}
+      {viewLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden my-8">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                  <Eye size={16} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setViewLog(null); setShowTechDiag(false); }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                {/* Source & Severity Banner */}
-                <div className="flex items-center justify-between flex-wrap gap-2 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    {viewLog.is_manual ? (
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
-                        ✍️ Official Manual Administrative Entry
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-800">
-                        ⚡ Automated Telemetry Event
-                      </span>
-                    )}
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase border ${severityCfg.badge}`}>
-                    Status: {severityCfg.label}
-                  </span>
-                </div>
-
-                {/* Primary Summary Callout */}
-                <div className="p-4 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 space-y-1">
-                  <span className="text-[11px] uppercase tracking-wider font-bold text-blue-700 dark:text-blue-300">
-                    Primary Event Summary
-                  </span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-relaxed">
-                    {parsed.summary}
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Audit Log Inspection
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    ID: {viewLog.id}
                   </p>
                 </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewLog(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X size={18} />
+              </button>
+            </div>
 
-                {/* Operational Notes */}
-                {parsed.notes && (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">
-                      Operational Remarks &amp; Justification
-                    </span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed italic whitespace-pre-wrap">
-                      "{parsed.notes}"
-                    </p>
-                  </div>
-                )}
-
-                {/* Event Facts Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] font-semibold">Event Action:</span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{actionLabel}</span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] font-semibold">Subject / Target Entity:</span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{entityLabel}</span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] font-semibold">Event Occurrence Date:</span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {formatFriendlyDateTime(viewLog.created_at)}
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] font-semibold">Forensic Submission Time:</span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {formatFriendlyDateTime(viewLog.actual_created_at || viewLog.created_at)}
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 sm:col-span-2">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] font-semibold">Responsible Administrator / Actor:</span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {viewLog.user_full_name || viewLog.user_email || 'Automated System Routine'}
-                      {viewLog.user_role ? ` (${viewLog.user_role})` : ''}
-                    </span>
-                  </div>
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Action:</span>
+                  <span className="font-mono font-bold px-2.5 py-1 rounded-lg text-xs inline-block"
+                    style={getActionStyle(viewLog.action)}>
+                    {viewLog.action}
+                  </span>
                 </div>
-
-                {/* Clean Attribute Chips */}
-                {parsed.chips.length > 0 && (
-                  <div>
-                    <label className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-2 block">
-                      Operational Parameters
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {parsed.chips.map((chip, i) => (
-                        <div
-                          key={i}
-                          className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs">
-                          <span className="text-slate-500 mr-1">{chip.label}:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{chip.val}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Collapsible Technical Diagnostics (for IT/Forensics only) */}
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setShowTechDiag(s => !s)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors">
-                    <span className="flex items-center gap-1.5">
-                      <Shield size={13} />
-                      Technical Diagnostics &amp; Raw Forensics (Optional)
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Timestamp:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {formatDateTime(viewLog.created_at)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Operator:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {viewLog.user_full_name || viewLog.user_email || 'System'}
+                  </span>
+                  {viewLog.user_role && (
+                    <span className="ml-2 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      {viewLog.user_role}
                     </span>
-                    {showTechDiag ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  </button>
-
-                  {showTechDiag && (
-                    <div className="p-4 bg-slate-900 text-slate-300 text-[11px] font-mono space-y-2">
-                      <div><span className="text-slate-500">Record UUID:</span> {viewLog.id}</div>
-                      <div><span className="text-slate-500">Client IP:</span> {viewLog.ip_address || '—'}</div>
-                      <div><span className="text-slate-500">User Agent:</span> {viewLog.user_agent || '—'}</div>
-                      {viewLog.after_state && (
-                        <div>
-                          <span className="text-emerald-400 block mb-1">State Payload:</span>
-                          <pre className="p-2.5 rounded bg-black/40 text-emerald-300 max-h-36 overflow-auto">
-                            {typeof viewLog.after_state === 'string' ? viewLog.after_state : JSON.stringify(viewLog.after_state, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
                   )}
                 </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Entity Reference:</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200">
+                    {viewLog.entity_type || '—'} {viewLog.entity_id ? `(#${viewLog.entity_id})` : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">IP Address:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    {viewLog.ip_address || '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Client User-Agent:</span>
+                  <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 truncate block" title={viewLog.user_agent}>
+                    {viewLog.user_agent || '—'}
+                  </span>
+                </div>
               </div>
 
-              {/* Modal Footer */}
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toEdit = viewLog;
-                    setViewLog(null);
-                    openEditModal(toEdit);
-                  }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 transition-colors">
-                  <Edit2 size={13} />
-                  Edit This Record
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setViewLog(null); setShowTechDiag(false); }}
-                  className="px-4 py-1.5 text-xs font-bold rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white transition-colors">
-                  Close
-                </button>
+              {/* Full Description Box */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Description
+                </label>
+                <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-slate-800 dark:text-blue-100 text-xs leading-relaxed whitespace-pre-wrap break-words">
+                  {viewLog.description || 'No description recorded for this entry.'}
+                </div>
               </div>
+
+              {/* State Payloads */}
+              {viewLog.after_state && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                    After State Payload (JSON)
+                  </label>
+                  <pre className="p-3.5 rounded-xl bg-slate-900 text-emerald-400 text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-800">
+                    {typeof viewLog.after_state === 'string'
+                      ? viewLog.after_state
+                      : JSON.stringify(viewLog.after_state, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {viewLog.before_state && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                    Before State Payload (JSON)
+                  </label>
+                  <pre className="p-3.5 rounded-xl bg-slate-900 text-amber-400 text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-800">
+                    {typeof viewLog.before_state === 'string'
+                      ? viewLog.before_state
+                      : JSON.stringify(viewLog.before_state, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
+              <button
+                type="button"
+                onClick={() => {
+                  const toEdit = viewLog;
+                  setViewLog(null);
+                  openEditModal(toEdit);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 transition-colors">
+                <Edit2 size={13} />
+                Edit This Log
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewLog(null)}
+                className="px-4 py-1.5 text-xs font-bold rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white transition-colors">
+                Close
+              </button>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
-      {/* ========================================================================= */}
-      {/* DELETE CONFIRMATION MODAL                                                 */}
-      {/* ========================================================================= */}
+      {/* DELETE CONFIRMATION MODAL */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
@@ -939,21 +871,21 @@ export default function AuditLogs() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Audit Log Entry</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">This forensic action is permanent and cannot be undone.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This action cannot be undone.</p>
               </div>
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1">
               <div>
-                <span className="text-slate-500 font-medium">Event:</span>{' '}
-                <span className="font-bold text-slate-900 dark:text-white">{formatActionLabel(deleteTarget.action)}</span>
+                <span className="text-slate-500">Action:</span>{' '}
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{deleteTarget.action}</span>
               </div>
               <div>
-                <span className="text-slate-500 font-medium">Date:</span>{' '}
-                <span className="text-slate-700 dark:text-slate-300">{formatFriendlyDateTime(deleteTarget.created_at)}</span>
+                <span className="text-slate-500">Timestamp:</span>{' '}
+                <span className="text-slate-700 dark:text-slate-300">{formatDateTime(deleteTarget.created_at)}</span>
               </div>
               {deleteTarget.description && (
-                <div className="text-slate-600 dark:text-slate-400 italic pt-1">
+                <div className="text-slate-600 dark:text-slate-400 italic">
                   "{deleteTarget.description}"
                 </div>
               )}
@@ -972,7 +904,7 @@ export default function AuditLogs() {
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all disabled:opacity-50">
                 <Trash2 size={14} />
-                Confirm Deletion
+                Delete Entry
               </button>
             </div>
           </div>
