@@ -26,9 +26,12 @@ export const createSOS = async (userId, dto) => {
   );
   const sos = rows[0];
 
+  const coordsText = (dto.lat && dto.lng) ? ` (${Number(dto.lat).toFixed(4)}, ${Number(dto.lng).toFixed(4)})` : '';
+  const brgyText = user[0]?.barangay_name ? ` in Brgy. ${user[0].barangay_name}` : '';
   await writeAuditLog({
     userId, action: 'SOS_CREATED',
     entityType: 'sos_requests', entityId: sos.id,
+    description: `SOS distress call reported at coordinates${coordsText}${brgyText}`,
     after: { lat: dto.lat, lng: dto.lng, barangay_id: barangayId },
   });
 
@@ -237,17 +240,25 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
       [primaryResponderId, mdrrmoUser.id, notes || null, sosId]
     );
 
+    // 4. Requirement 4 & 7: Official Dispatch Notification to backup/primary responders
+    const { rows: assignedUsers } = await client.query(
+      `SELECT id, fcm_token, full_name, role, responder_type FROM users WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+
+    const teamDescriptions = assignedUsers.map(u => {
+      const roleLabel = u.role ? `${u.role} Team` : 'Responder Unit';
+      return `${roleLabel} (Officer ${u.full_name || 'Responder'})`;
+    });
+    const dispatchedTeams = teamDescriptions.length > 0 ? teamDescriptions.join(' and ') : 'Responders';
+    const dispatchDesc = `Dispatched ${dispatchedTeams}${notes ? ` — Notes: ${notes}` : ''}`;
+
     await writeAuditLog({
       userId: mdrrmoUser.id, action: `SOS_DISPATCHED_${typeLabel}`,
       entityType: 'sos_requests', entityId: sosId,
-      after: { assigned_responders: ids, dispatch_type: typeLabel, notes },
+      description: dispatchDesc,
+      after: { assigned_responders: ids, dispatch_type: typeLabel, notes, team_summary: dispatchedTeams },
     });
-
-    // 4. Requirement 4 & 7: Official Dispatch Notification to backup/primary responders
-    const { rows: assignedUsers } = await client.query(
-      `SELECT fcm_token, full_name FROM users WHERE id = ANY($1::uuid[]) AND fcm_token IS NOT NULL`,
-      [ids]
-    );
 
     const title = `🚨 Official Dispatch Notification (${typeLabel} Responder)`;
     const body  = `You have been officially assigned as ${typeLabel} Responder to Rescue Request in ${sosCheck[0].barangay_name || 'Lumban'} by MDRRMO. Action required.`;

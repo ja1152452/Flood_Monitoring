@@ -101,34 +101,167 @@ const toDateTimeLocal = (dateString) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-function parseLogDetails(log) {
-  let state = log.after_state || log.before_state;
-  if (!state) return null;
-  if (typeof state === 'string') {
+/**
+ * Converts technical states or raw payloads into clean, plain English sentences
+ * that non-IT personnel like MDRRMO officers can easily understand.
+ */
+function getReadableDescription(log, usersMap = {}) {
+  if (log.description && typeof log.description === 'string' && log.description.trim()) {
+    return log.description.trim();
+  }
+
+  const action = log.action || '';
+  const rawState = log.after_state || log.before_state;
+  if (!rawState) return '—';
+
+  let s = rawState;
+  if (typeof s === 'string') {
     try {
-      state = JSON.parse(state);
+      s = JSON.parse(s);
     } catch {
-      return { summaryText: state, chips: [] };
+      return s || '—';
     }
   }
-  if (typeof state !== 'object' || state === null) {
-    return { summaryText: String(state), chips: [] };
+  if (!s || typeof s !== 'object') return '—';
+
+  // 1. Dispatched Events (SOS_DISPATCHED_PRIMARY, SOS_DISPATCHED_BACKUP, BACKUP_DISPATCHED)
+  if (action.includes('DISPATCHED') || action.includes('DISPATCH')) {
+    const responderIds = s.assigned_responders || (s.responder_id ? [s.responder_id] : []) || [];
+    const responderList = Array.isArray(responderIds) ? responderIds : [responderIds];
+
+    if (responderList.length > 0) {
+      const names = responderList.map(rid => {
+        const u = usersMap[rid];
+        if (!u) return 'Responder';
+        const roleLabel = u.role ? `${u.role} Team` : 'Responder Unit';
+        return `${roleLabel} (Officer ${u.full_name || u.email || 'Responder'})`;
+      });
+      const teamText = names.join(' and ');
+      const notes = s.notes ? ` — Notes: ${s.notes}` : '';
+      return `Dispatched ${teamText}${notes}`;
+    }
+
+    if (s.notes) {
+      return `Dispatched response team — Notes: ${s.notes}`;
+    }
+    return `Dispatched emergency response units`;
   }
 
-  let summaryText = '';
-  if (state.scenario_name) summaryText = `Scenario: ${state.scenario_name}`;
-  else if (state.message) summaryText = state.message;
-  else if (state.notes) summaryText = state.notes;
-  else if (state.reason) summaryText = state.reason;
-
-  const chips = [];
-  for (const [k, v] of Object.entries(state)) {
-    if (['scenario_name', 'message', 'description', 'notes', 'reason'].includes(k)) continue;
-    if (v === null || v === undefined) continue;
-    chips.push({ k, v: typeof v === 'object' ? JSON.stringify(v) : String(v) });
+  // 2. SOS Distress Call Created
+  if (action === 'SOS_CREATED') {
+    let loc = '';
+    if (s.lat && s.lng) {
+      loc = `coordinates (${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)})`;
+    }
+    if (loc) {
+      return `SOS distress call reported at ${loc}`;
+    }
+    return `SOS distress call reported`;
   }
 
-  return { summaryText, chips };
+  // 3. SOS Response Lifecycle
+  if (action === 'SOS_RESPONDED_EN_ROUTE' || action === 'SOS_RESPONDED') {
+    return 'Responder acknowledged and is currently en route to distress location';
+  }
+  if (action === 'SOS_RESPONDED_RESCUE_IN_PROGRESS') {
+    return 'Rescue operation is in progress on site';
+  }
+  if (action === 'SOS_RESCUE_COMPLETED') {
+    return 'Rescue operation successfully completed';
+  }
+  if (action === 'SOS_CANCELLED') {
+    return 'SOS distress request cancelled by resident';
+  }
+  if (action === 'SOS_DISPATCH_DECLINED') {
+    return 'Responder declined dispatch order';
+  }
+  if (action === 'BACKUP_REQUESTED') {
+    const roleReq = s.target_role || s.role || 'additional';
+    return `Field responder requested ${roleReq} backup assistance`;
+  }
+  if (action === 'BACKUP_RESOLVED') {
+    return 'Field backup request resolved and cleared';
+  }
+
+  // 4. Flood Simulation & Drills
+  if (action === 'DRILL_SCENARIO_STARTED') {
+    const name = s.scenario_name || s.name || 'Emergency Drill';
+    const target = s.target_level_m ? ` (Target: ${s.target_level_m}m)` : '';
+    return `Drill scenario started: ${name}${target}`;
+  }
+  if (action === 'DRILL_SCENARIO_COMPLETED') {
+    return `Drill scenario completed successfully`;
+  }
+  if (action === 'DRILL_THRESHOLD_BREACHED') {
+    return `Drill warning threshold reached`;
+  }
+  if (action === 'SIMULATION_STARTED') {
+    const level = s.water_level_m ? ` (Water level: ${Number(s.water_level_m).toFixed(2)}m)` : '';
+    return `Flood simulation initiated${level}`;
+  }
+  if (action === 'SIMULATION_STOPPED') {
+    return `Flood simulation stopped and deactivated`;
+  }
+  if (action === 'SIMULATION_RESET') {
+    return `Flood simulation reset to normal baseline`;
+  }
+
+  // 5. Alerts & Sirens
+  if (action === 'ALERT_DISPATCHED' || action === 'ALERT_TRIGGERED') {
+    const lvl = s.flood_level ? ` (${s.flood_level})` : '';
+    return `Flood warning alert triggered and dispatched${lvl}`;
+  }
+  if (action === 'MANUAL_SIREN_TRIGGERED') {
+    return `Emergency warning siren manually sounded`;
+  }
+
+  // 6. Announcements & Evacuation
+  if (action === 'ANNOUNCEMENT_CREATED') {
+    const title = s.title ? `: "${s.title}"` : '';
+    return `Public safety announcement posted${title}`;
+  }
+  if (action === 'ANNOUNCEMENT_DEACTIVATED') {
+    return `Public safety announcement deactivated`;
+  }
+  if (action.includes('EVAC_CENTER')) {
+    const center = s.name ? ` "${s.name}"` : '';
+    if (action.includes('CREATED')) return `Evacuation center${center} registered`;
+    if (action.includes('UPDATED')) return `Evacuation center${center} updated`;
+    if (action.includes('DELETED')) return `Evacuation center${center} removed`;
+  }
+  if (action === 'FAMILY_ADDED') {
+    return `Evacuee family registered at evacuation center`;
+  }
+  if (action === 'FAMILY_UPDATED') {
+    return `Evacuee family records updated`;
+  }
+
+  // 7. Users & Security
+  if (action === 'USER_LOGIN') {
+    return `User logged into the system console`;
+  }
+  if (action === 'USER_REGISTER') {
+    return `New user account registered`;
+  }
+  if (action === 'USER_CREATED') {
+    return `User account created by administrator`;
+  }
+  if (action === 'USER_UPDATED') {
+    return `User account profile updated`;
+  }
+  if (action === 'USER_DEACTIVATED') {
+    return `User account deactivated`;
+  }
+  if (action === 'USER_DELETED') {
+    return `User account permanently deleted`;
+  }
+
+  // 8. Custom / Explicit messages in state
+  if (s.message && typeof s.message === 'string') return s.message;
+  if (s.notes && typeof s.notes === 'string') return s.notes;
+  if (s.reason && typeof s.reason === 'string') return s.reason;
+
+  return '—';
 }
 
 export default function AuditLogs() {
@@ -170,6 +303,7 @@ export default function AuditLogs() {
     queryFn:  () => getUsers({ limit: 100 }),
   });
   const usersList = usersData?.data || [];
+  const usersMap = Object.fromEntries(usersList.map(u => [u.id, u]));
 
   const createMutation = useMutation({
     mutationFn: createAuditLog,
@@ -179,7 +313,8 @@ export default function AuditLogs() {
       setFormModalOpen(false);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to create audit log entry');
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to create audit log entry';
+      toast.error(msg);
     },
   });
 
@@ -192,7 +327,8 @@ export default function AuditLogs() {
       setEditingLog(null);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to update audit log entry');
+      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to update audit log entry';
+      toast.error(msg);
     },
   });
 
@@ -217,7 +353,7 @@ export default function AuditLogs() {
       created_at:   toDateTimeLocal(new Date()),
       user_id:      currentUser?.id || '',
       entity_type:  'FLOOD_SIMULATION',
-      entity_id:    '',
+      entity_id:    '', // Auto-generated upon save
       details_json: '',
     });
     setFormModalOpen(true);
@@ -261,7 +397,7 @@ export default function AuditLogs() {
     }
 
     let parsedState = null;
-    if (formData.details_json.trim()) {
+    if (formData.details_json && formData.details_json.trim()) {
       try {
         parsedState = JSON.parse(formData.details_json.trim());
       } catch {
@@ -270,13 +406,22 @@ export default function AuditLogs() {
       }
     }
 
+    let formattedCreatedAt = null;
+    if (formData.created_at && String(formData.created_at).trim()) {
+      const d = new Date(formData.created_at);
+      if (!isNaN(d.getTime())) {
+        formattedCreatedAt = d.toISOString();
+      }
+    }
+
     const payload = {
       action: finalAction,
-      description: formData.description.trim() || null,
-      createdAt: formData.created_at ? new Date(formData.created_at).toISOString() : null,
-      userId: formData.user_id || null,
-      entityType: formData.entity_type.trim() || null,
-      entityId: formData.entity_id.trim() || null,
+      description: formData.description?.trim() || null,
+      createdAt: formattedCreatedAt,
+      userId: formData.user_id?.trim() || null,
+      entityType: formData.entity_type?.trim() || null,
+      // If editing, preserve existing entity_id; if new, let backend auto-generate upon save!
+      entityId: editingLog ? (formData.entity_id?.trim() || null) : null,
       afterState: parsedState,
     };
 
@@ -293,12 +438,13 @@ export default function AuditLogs() {
     if (categoryTab === 'simulation' && !isSim) return false;
 
     const queryStr = search.toLowerCase();
+    const cleanDesc = (log.description || '').toLowerCase();
     const matchSearch = !search ||
       (log.user_email   || '').toLowerCase().includes(queryStr) ||
       (log.user_full_name || '').toLowerCase().includes(queryStr) ||
       (log.action       || '').toLowerCase().includes(queryStr) ||
       (log.entity_type  || '').toLowerCase().includes(queryStr) ||
-      (log.description  || '').toLowerCase().includes(queryStr) ||
+      cleanDesc.includes(queryStr) ||
       (log.entity_id    || '').toLowerCase().includes(queryStr);
     const matchAction = !actionFilter || (log.action || '').includes(actionFilter);
     return matchSearch && matchAction;
@@ -396,7 +542,7 @@ export default function AuditLogs() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
               {filtered.map(log => {
                 const { bg, color } = getActionStyle(log.action);
-                const parsedDetails = parseLogDetails(log);
+                const cleanDescription = getReadableDescription(log, usersMap);
 
                 return (
                   <tr key={log.id}
@@ -444,39 +590,14 @@ export default function AuditLogs() {
                       </span>
                     </td>
 
-                    {/* Description - PROPERLY FITTED & FORMATTED */}
-                    <td className="px-5 py-3.5 text-xs min-w-[280px] max-w-lg">
-                      {log.description ? (
-                        <div className="font-semibold text-slate-800 dark:text-slate-200 leading-snug whitespace-normal break-words">
-                          {log.description}
+                    {/* Description - PLAIN READABLE SENTENCE (NO RAW JSON OR CHIPS) */}
+                    <td className="px-5 py-3.5 text-xs min-w-[280px] max-w-xl">
+                      {cleanDescription && cleanDescription !== '—' ? (
+                        <div className="font-semibold text-slate-800 dark:text-slate-200 leading-relaxed whitespace-normal break-words">
+                          {cleanDescription}
                         </div>
-                      ) : null}
-
-                      {parsedDetails && (
-                        <div className={`text-slate-600 dark:text-slate-400 leading-relaxed whitespace-normal break-words ${log.description ? 'mt-1.5' : ''}`}>
-                          {parsedDetails.summaryText && !log.description ? (
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
-                              {parsedDetails.summaryText}
-                            </span>
-                          ) : null}
-
-                          {parsedDetails.chips.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {parsedDetails.chips.map((chip, i) => (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800">
-                                  <span className="text-slate-400 dark:text-slate-500 mr-1">{chip.k}:</span>
-                                  <span className="font-bold">{chip.v}</span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {!log.description && !parsedDetails && (
-                        <span className="text-slate-400 dark:text-slate-500 italic">—</span>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-500 font-medium">—</span>
                       )}
                     </td>
 
@@ -662,34 +783,45 @@ export default function AuditLogs() {
                 </div>
               </div>
 
-              {/* ENTITY ID */}
+              {/* ENTITY ID - READ-ONLY & AUTO-GENERATED (NO MANUAL TYPING REQUIRED) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Entity ID / Reference (Optional)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Entity Reference ID
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    Auto-generated upon save
+                  </span>
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. SIM-2026-01 or UUID"
-                  className={inputCls}
-                  value={formData.entity_id}
-                  onChange={e => setFormData(f => ({ ...f, entity_id: e.target.value }))}
+                  readOnly
+                  disabled
+                  placeholder="Auto-generated upon save"
+                  className={`${inputCls} bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none font-mono text-[11px]`}
+                  value={editingLog ? (formData.entity_id || 'None') : 'Auto-generated upon save'}
                 />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {editingLog
+                    ? 'Unique reference ID linked to this activity log entry.'
+                    : 'A unique reference ID is automatically created upon saving. No manual entry needed.'}
+                </p>
               </div>
 
               {/* DESCRIPTION - MULTI-LINE COMFORTABLE */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Description / Notes *
+                  Description / Notes
                 </label>
                 <textarea
                   rows={3}
                   className={inputCls}
-                  placeholder="Enter a detailed description of the event or activity (fits comfortably in the table)..."
+                  placeholder="Enter a plain, readable description of what occurred (e.g. Dispatched BFP Team for flood rescue in Brgy. Wawa)..."
                   value={formData.description}
                   onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  This description is displayed prominently in the Description column and wraps neatly.
+                  Displays in the table as a clean, understandable description for MDRRMO officers.
                 </p>
               </div>
 
@@ -701,7 +833,7 @@ export default function AuditLogs() {
                 <textarea
                   rows={3}
                   className={`${inputCls} font-mono text-[11px]`}
-                  placeholder='{"water_level_m": 2.5, "severity": "HIGH", "notes": "Monsoon surge"}'
+                  placeholder='{"notes": "Monsoon surge warning", "water_level_m": 2.5}'
                   value={formData.details_json}
                   onChange={e => setFormData(f => ({ ...f, details_json: e.target.value }))}
                 />
@@ -805,8 +937,8 @@ export default function AuditLogs() {
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
                   Description
                 </label>
-                <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-slate-800 dark:text-blue-100 text-xs leading-relaxed whitespace-pre-wrap break-words">
-                  {viewLog.description || 'No description recorded for this entry.'}
+                <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-slate-800 dark:text-blue-100 text-xs leading-relaxed whitespace-pre-wrap break-words font-medium">
+                  {getReadableDescription(viewLog, usersMap)}
                 </div>
               </div>
 
@@ -814,7 +946,7 @@ export default function AuditLogs() {
               {viewLog.after_state && (
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
-                    After State Payload (JSON)
+                    After State Payload (Raw Technical JSON)
                   </label>
                   <pre className="p-3.5 rounded-xl bg-slate-900 text-emerald-400 text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-800">
                     {typeof viewLog.after_state === 'string'
@@ -827,7 +959,7 @@ export default function AuditLogs() {
               {viewLog.before_state && (
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
-                    Before State Payload (JSON)
+                    Before State Payload (Raw Technical JSON)
                   </label>
                   <pre className="p-3.5 rounded-xl bg-slate-900 text-amber-400 text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-800">
                     {typeof viewLog.before_state === 'string'
@@ -884,11 +1016,9 @@ export default function AuditLogs() {
                 <span className="text-slate-500">Timestamp:</span>{' '}
                 <span className="text-slate-700 dark:text-slate-300">{formatDateTime(deleteTarget.created_at)}</span>
               </div>
-              {deleteTarget.description && (
-                <div className="text-slate-600 dark:text-slate-400 italic">
-                  "{deleteTarget.description}"
-                </div>
-              )}
+              <div className="text-slate-600 dark:text-slate-400 italic">
+                "{getReadableDescription(deleteTarget, usersMap)}"
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
