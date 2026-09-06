@@ -385,13 +385,16 @@ async function migrate() {
         user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
         action       VARCHAR(100) NOT NULL,
         entity_type  VARCHAR(100),
-        entity_id    UUID,
+        entity_id    VARCHAR(100),
+        description  TEXT,
         before_state JSONB,
         after_state  JSONB,
         ip_address   VARCHAR(45),
         user_agent   TEXT,
         created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE audit_logs ALTER COLUMN entity_id TYPE VARCHAR(100);
     `);
     console.log('  OK audit_logs');
 

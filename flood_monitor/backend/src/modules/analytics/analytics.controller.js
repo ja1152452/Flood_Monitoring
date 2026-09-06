@@ -25,6 +25,48 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const createAuditLog = asyncHandler(async (req, res) => {
+  const { action, description, createdAt, userId, entityType, entityId, beforeState, afterState } = req.body;
+  if (!action) {
+    return res.status(400).json({ success: false, message: 'Action is required' });
+  }
+  const log = await service.createAuditLog({
+    userId: userId || req.user?.id || null,
+    action,
+    description,
+    entityType,
+    entityId,
+    beforeState,
+    afterState,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    createdAt,
+  });
+  res.status(201).json({ success: true, data: log });
+});
+
+export const updateAuditLog = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { action, description, createdAt, userId, entityType, entityId, beforeState, afterState } = req.body;
+  const log = await service.updateAuditLog(id, {
+    userId,
+    action,
+    description,
+    entityType,
+    entityId,
+    beforeState,
+    afterState,
+    createdAt,
+  });
+  res.json({ success: true, data: log });
+});
+
+export const deleteAuditLog = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await service.deleteAuditLog(id);
+  res.json({ success: true, message: 'Audit log deleted successfully' });
+});
+
 export const getReadingTrend = asyncHandler(async (req, res) => {
   const { cameraId, minutes } = req.query;
   if (!cameraId) {
