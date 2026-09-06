@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import api from '../api/axios';
-import { classifySimulatedLevel } from '../utils/waterSimulationUtils';
+import { classifySimulatedLevel, calculateDynamicRate } from '../utils/waterSimulationUtils';
 import { startDrillRecording, recordDrillPoint, finishDrillRecording } from '../utils/simulationRecorder';
 
 let lastSyncTime = 0;
@@ -8,22 +8,34 @@ let pendingSyncTimeout = null;
 
 const RAILWAY_SIM_URL = 'https://flood-monitoring.up.railway.app/api/v1/stream/simulation';
 
+export const calculateEffectiveSimRate = (state) => {
+  if (!state || state.mode !== 'simulation') return 0.0;
+  if (state.scenarioSubMode === 'scenario') {
+    if (!state.scenarioIsRunning) return 0.0;
+    const phase = state.scenarioPhase;
+    if (phase === 'peak' || phase === 'idle' || phase === 'completed') return 0.0;
+    return calculateDynamicRate(state.simWaterLevel, phase);
+  } else {
+    // Manual continuous rise: compute dynamic rate from current water level
+    return state.isSimRising ? calculateDynamicRate(state.simWaterLevel, true) : 0.0;
+  }
+};
+
 const syncToBackend = (state, force = false) => {
   const now = Date.now();
   const send = async () => {
     try {
       const isSim = state.mode === 'simulation';
       const classification = classifySimulatedLevel(state.simWaterLevel);
-      const isRising = state.scenarioSubMode === 'scenario' 
-        ? state.scenarioPhase === 'rising' 
-        : state.isSimRising;
+      const effectiveRate = calculateEffectiveSimRate(state);
+      const isRising = effectiveRate > 0.01;
 
       const payload = {
         active: isSim,
         water_level_m: state.simWaterLevel,
         flood_level: classification.level,
         is_rising: isRising,
-        rate_per_hour: isRising ? parseFloat((state.simRiseSpeed * 3600).toFixed(2)) : 0.0,
+        rate_per_hour: effectiveRate,
       };
 
       // 1. Primary sync to local backend
@@ -64,6 +76,7 @@ export const useSimulationStore = create((set, get) => ({
   simWaterLevel: 2.00, // in meters
   isSimRising: false,
   simRiseSpeed: 0.08, // m/s
+  simRatePerHour: 0.0, // Live synchronized rate of change in m/hr
 
   // Scenario & Timer Sub-Mode
   scenarioSubMode: 'scenario', // 'scenario'
@@ -79,7 +92,7 @@ export const useSimulationStore = create((set, get) => ({
   setMode: (mode) => {
     set({ mode });
     if (mode === 'live') {
-      set({ isSimRising: false, scenarioIsRunning: false, scenarioPhase: 'idle' });
+      set({ isSimRising: false, scenarioIsRunning: false, scenarioPhase: 'idle', simRatePerHour: 0.0 });
       finishDrillRecording();
     }
     syncToBackend(get(), true);
@@ -100,12 +113,14 @@ export const useSimulationStore = create((set, get) => ({
       isSimRising: false,
       scenarioIsRunning: false,
       scenarioPhase: 'completed',
+      simRatePerHour: 0.0,
     });
     syncToBackend(get(), true);
   },
 
   setIsSimRising: (isRising) => {
-    set({ isSimRising: isRising });
+    const rate = isRising ? calculateDynamicRate(get().simWaterLevel, true) : 0.0;
+    set({ isSimRising: isRising, simRatePerHour: rate });
     if (isRising) {
       startDrillRecording('Manual Simulation Run', { startLevelM: get().simWaterLevel });
     } else {
@@ -115,7 +130,8 @@ export const useSimulationStore = create((set, get) => ({
   },
 
   setSimRiseSpeed: (speed) => {
-    set({ simRiseSpeed: speed });
+    const rate = get().isSimRising ? calculateDynamicRate(get().simWaterLevel, true) : 0.0;
+    set({ simRiseSpeed: speed, simRatePerHour: rate });
     syncToBackend(get(), true);
   },
 
@@ -127,6 +143,7 @@ export const useSimulationStore = create((set, get) => ({
       scenarioIsRunning: false,
       scenarioElapsedSec: 0,
       scenarioPhase: 'idle',
+      simRatePerHour: 0.0,
       lastRecordedSec: -1,
     });
     syncToBackend(get(), true);
@@ -150,6 +167,7 @@ export const useSimulationStore = create((set, get) => ({
       scenarioPhase: 'idle',
       scenarioIsRunning: false,
       simWaterLevel: preset.startM,
+      simRatePerHour: 0.0,
       lastRecordedSec: -1,
     });
     syncToBackend(get(), true);
@@ -178,22 +196,29 @@ export const useSimulationStore = create((set, get) => ({
       },
     }).catch(() => {});
 
+    const startRate = calculateEffectiveSimRate({
+      ...s,
+      scenarioIsRunning: true,
+      scenarioPhase: 'rising',
+    });
+
     if (s.scenarioPhase === 'idle' || s.scenarioPhase === 'completed') {
       set({
         simWaterLevel: s.scenarioStartMeters,
         scenarioElapsedSec: 0,
         scenarioPhase: 'rising',
         scenarioIsRunning: true,
+        simRatePerHour: startRate,
         lastRecordedSec: -1,
       });
     } else {
-      set({ scenarioIsRunning: true });
+      set({ scenarioIsRunning: true, simRatePerHour: startRate });
     }
     syncToBackend(get(), true);
   },
 
   pauseScenario: () => {
-    set({ scenarioIsRunning: false });
+    set({ scenarioIsRunning: false, simRatePerHour: 0.0 });
     syncToBackend(get(), true);
   },
 
@@ -205,6 +230,7 @@ export const useSimulationStore = create((set, get) => ({
       scenarioElapsedSec: 0,
       scenarioPhase: 'idle',
       simWaterLevel: s.scenarioStartMeters,
+      simRatePerHour: 0.0,
       lastRecordedSec: -1,
     });
     syncToBackend(get(), true);
@@ -256,6 +282,8 @@ export const useSimulationStore = create((set, get) => ({
     const roundedM = Math.round(currentM * 100) / 100;
     const classification = classifySimulatedLevel(roundedM);
 
+    const activeRate = isDone ? 0.0 : calculateDynamicRate(roundedM, phase);
+
     // Record sample point every second
     const secFloor = Math.floor(newElapsed);
     if (secFloor > s.lastRecordedSec) {
@@ -264,7 +292,7 @@ export const useSimulationStore = create((set, get) => ({
         waterLevelM: roundedM,
         floodLevel: classification.level,
         phase: phase,
-        ratePerHour: phase === 'rising' ? parseFloat((((targetM - startM) / totalDuration) * 3600).toFixed(1)) : 0,
+        ratePerHour: activeRate,
       });
       set({ lastRecordedSec: secFloor });
     }
@@ -288,6 +316,7 @@ export const useSimulationStore = create((set, get) => ({
       simWaterLevel: roundedM,
       scenarioPhase: phase,
       scenarioIsRunning: !isDone,
+      simRatePerHour: activeRate,
     });
 
     syncToBackend(get(), false);

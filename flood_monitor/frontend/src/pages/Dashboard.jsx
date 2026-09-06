@@ -89,7 +89,7 @@ function WeatherCard({ weather }) {
 export default function Dashboard() {
   useReadingsSSE(CAMERA_ID);
 
-  const { mode, simWaterLevel, isSimRising, simRiseSpeed } = useSimulationStore();
+  const { mode, simWaterLevel, isSimRising, simRiseSpeed, simRatePerHour } = useSimulationStore();
   const isSimulation = mode === 'simulation';
 
   const { data: reading } = useQuery({
@@ -151,11 +151,11 @@ export default function Dashboard() {
     )
     : null;
 
-  const simRateVal = isSimRising ? parseFloat((simRiseSpeed * 3600).toFixed(2)) : 0;
+  const simRateVal = simRatePerHour ?? (isSimRising ? parseFloat((simRiseSpeed * 3600).toFixed(2)) : 0);
   const rateVal = isSimulation ? simRateVal : (rate?.rate_per_hour || 0);
   const rateSign = rateVal > 0 ? '+' : '';
   const effectiveTrend = isSimulation
-    ? (isSimRising ? 'RISING' : 'STABLE')
+    ? (rateVal > 0.01 ? 'RISING' : rateVal < -0.01 ? 'RECEDING' : 'STABLE')
     : (rate?.trend === 'FALLING' ? 'RECEDING' : (rate?.trend || 'STABLE'));
   const rateTrend = effectiveTrend;
   const rateColor = rateTrend === 'RISING' ? 'text-red-600 dark:text-red-400'
@@ -299,7 +299,7 @@ export default function Dashboard() {
               </span>
               {isSimulation ? (
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  ({isSimRising ? `+${(simRiseSpeed * 3600).toFixed(2)} m/hr` : 'Holding Level'})
+                  ({rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : 'Holding Level'})
                 </span>
               ) : (
                 trend?.delta_m != null && (
@@ -320,7 +320,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-slate-700 dark:text-slate-300 font-bold">Rate of Change:</span>
                 <span className={`font-extrabold ${trendColor}`}>
-                  {isSimulation ? (isSimRising ? `+${(simRiseSpeed * 3600).toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateVal.toFixed(2)} m/hr`)}
+                  {isSimulation ? (rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateVal.toFixed(2)} m/hr`)}
                 </span>
               </div>
             </div>

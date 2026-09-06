@@ -53,11 +53,13 @@ router.get('/rate-of-rise',
   asyncHandler(async (req, res) => {
     if (isSimulationActive()) {
       const sim = getSimulationState();
+      const rate = sim.rate_per_hour || 0;
+      const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'RECEDING' : 'STABLE');
       return res.json({
         success: true,
         data: {
-          rate_per_hour: sim.rate_per_hour || 0,
-          trend: sim.is_rising ? 'RISING' : 'STABLE',
+          rate_per_hour: rate,
+          trend: trend,
           is_simulated: true,
         },
       });
@@ -103,6 +105,20 @@ router.get('/trend',
   authenticate,
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
+    if (isSimulationActive()) {
+      const sim = getSimulationState();
+      const rate = sim.rate_per_hour || 0;
+      const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'RECEDING' : 'STABLE');
+      return res.json({
+        success: true,
+        data: {
+          rate_per_hour: rate,
+          trend: trend,
+          latest_m: parseFloat(sim.water_level_m || 2.0),
+          is_simulated: true,
+        },
+      });
+    }
     const { rows } = await query(
       `SELECT water_level_m, captured_at
        FROM water_level_readings
@@ -206,6 +222,23 @@ router.get('/:cameraId/trend',
   authenticate,
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
+    if (isSimulationActive()) {
+      const sim = getSimulationState();
+      const rate = sim.rate_per_hour || 0;
+      const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'FALLING' : 'STABLE');
+      return res.json({
+        success: true,
+        data: {
+          trend: trend,
+          delta_m: parseFloat((rate / 3600).toFixed(3)),
+          rate_per_hour: rate,
+          latest: parseFloat(sim.water_level_m || 2.0),
+          previous: parseFloat(sim.water_level_m || 2.0),
+          is_simulated: true,
+        },
+      });
+    }
+
     const { rows } = await query(
       `SELECT water_level_m, captured_at, flood_level
        FROM water_level_readings
@@ -232,6 +265,20 @@ router.get('/:cameraId/rate-of-rise',
   authenticate,
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
+    if (isSimulationActive()) {
+      const sim = getSimulationState();
+      const rate = sim.rate_per_hour || 0;
+      const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'RECEDING' : 'STABLE');
+      return res.json({
+        success: true,
+        data: {
+          rate_per_hour: rate,
+          trend: trend,
+          is_simulated: true,
+        },
+      });
+    }
+
     const { rows } = await query(
       `SELECT water_level_m, captured_at
        FROM water_level_readings

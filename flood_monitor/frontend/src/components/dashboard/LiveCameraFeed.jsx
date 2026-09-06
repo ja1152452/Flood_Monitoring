@@ -74,6 +74,7 @@ export function LiveCameraFeed() {
     pauseScenario,
     resetScenario,
     tickScenario,
+    simRatePerHour,
   } = useSimulationStore();
 
   const [videoDims, setVideoDims] = useState({ width: 640, height: 360 });
@@ -608,6 +609,12 @@ export function LiveCameraFeed() {
 
                     <span className="text-xs font-bold text-slate-300">
                       Water Level: <span className="text-indigo-300 font-black">{simWaterLevel.toFixed(2)} m</span>
+                    </span>
+
+                    <span className="text-xs font-bold text-slate-300">
+                      Rate of Rise: <span className="text-amber-400 font-black">
+                        {simRatePerHour > 0 ? `+${simRatePerHour.toFixed(2)}` : simRatePerHour.toFixed(2)} m/hr
+                      </span>
                     </span>
                   </div>
 

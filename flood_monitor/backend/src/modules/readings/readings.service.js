@@ -119,6 +119,38 @@ export const getFloodLevelLabel = (level) => {
 };
 
 export const getWaterLevelInterpretation = async (cameraId) => {
+  if (isSimulationActive()) {
+    const sim = getSimulationState();
+    const current_m = parseFloat(sim.water_level_m || 2.0);
+    const flood_level = sim.flood_level || 'NORMAL';
+    const flood_level_label = getFloodLevelLabel(flood_level);
+    const rate_per_hour = sim.rate_per_hour || 0;
+    const isRising = rate_per_hour > 0.01 || sim.is_rising;
+    const isReceding = !isRising && rate_per_hour < -0.01;
+    const trend = isRising ? 'RISING' : (isReceding ? 'RECEDING' : 'STABLE');
+    const rate_text = rate_per_hour > 0 ? `+${rate_per_hour.toFixed(2)} m/hr` : `${rate_per_hour.toFixed(2)} m/hr`;
+    const delta_direction = isRising ? 'increased' : (isReceding ? 'decreased' : 'remained stable');
+
+    const predictive = await calculatePredictiveForecast(cameraId, current_m, rate_per_hour, flood_level, true);
+
+    return {
+      trend,
+      delta_m: parseFloat((rate_per_hour / 3600).toFixed(3)),
+      delta_cm: Math.round(Math.abs(rate_per_hour / 36)),
+      delta_direction,
+      time_interval_minutes: 1,
+      time_interval_text: 'Real-time Overlay',
+      rate_per_hour,
+      rate_text,
+      current_level_m: current_m,
+      previous_level_m: current_m,
+      flood_level,
+      flood_level_label,
+      interpretation: `Simulated water level is currently at ${flood_level_label} (${current_m.toFixed(2)} m) with rate ${rate_text}.`,
+      ...predictive,
+    };
+  }
+
   // 1. Fetch current latest reading
   const { rows: currentRows } = await query(
     `SELECT water_level_m, flood_level, captured_at
@@ -266,7 +298,7 @@ export const getWaterLevelInterpretation = async (cameraId) => {
   };
 };
 
-export const calculatePredictiveForecast = async (cameraId, currentLevelM, ratePerHour, floodLevel) => {
+export const calculatePredictiveForecast = async (cameraId, currentLevelM, ratePerHour, floodLevel, isSimulated = false) => {
   const current_m = parseFloat(currentLevelM || 0);
   const liveRate = parseFloat(ratePerHour || 0);
 
@@ -280,11 +312,11 @@ export const calculatePredictiveForecast = async (cameraId, currentLevelM, rateP
 
   const currentCfg = THRESHOLDS.find(t => t.level === floodLevel) || THRESHOLDS[0];
 
-  // Query database for historical transitions out of current flood level
+  // Query database for historical transitions out of current flood level (live mode only)
   let dbTransitionHours = null;
   let dbOccurrences = 0;
 
-  if (currentCfg.nextLevel) {
+  if (!isSimulated && currentCfg.nextLevel) {
     try {
       const { rows: dbHist } = await query(
         `SELECT 
@@ -317,18 +349,20 @@ export const calculatePredictiveForecast = async (cameraId, currentLevelM, rateP
   const deltaM = Math.max(0.1, currentCfg.target - current_m);
   let effective_rate = liveRate;
 
-  if (liveRate <= 0.01 && dbTransitionHours && dbTransitionHours > 0) {
-    effective_rate = parseFloat((deltaM / dbTransitionHours).toFixed(2));
-  } else if (effective_rate <= 0.01) {
-    effective_rate = 0.35; // Default physical baseline rate for Lumban River
+  if (Math.abs(liveRate) <= 0.01) {
+    if (dbTransitionHours && dbTransitionHours > 0) {
+      effective_rate = parseFloat((deltaM / dbTransitionHours).toFixed(2));
+    } else {
+      effective_rate = 0.35; // Default physical baseline rate for Lumban River
+    }
   }
 
   const predicted_level_1h = parseFloat(Math.max(0, current_m + effective_rate * 1).toFixed(2));
   const predicted_level_3h = parseFloat(Math.max(0, current_m + effective_rate * 3).toFixed(2));
 
   let estimated_hours_to_next = dbTransitionHours;
-  if (liveRate > 0.01) {
-    estimated_hours_to_next = parseFloat((deltaM / liveRate).toFixed(1));
+  if (Math.abs(effective_rate) > 0.01) {
+    estimated_hours_to_next = parseFloat((deltaM / Math.abs(effective_rate)).toFixed(2));
   }
 
   let timeText = '';

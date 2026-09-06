@@ -214,12 +214,12 @@ export const getActive = async () => {
     if (level !== 'NORMAL') {
       const isSiren = SIREN_LEVELS.has(level);
       const waterM = parseFloat(sim.water_level_m || 2.0).toFixed(2);
-      const ratePerHour = sim.rate_per_hour || (sim.is_rising ? 0.45 : 0.0);
+      const ratePerHour = sim.rate_per_hour != null ? parseFloat(sim.rate_per_hour) : (sim.is_rising ? 0.45 : 0.0);
 
       let predictive = {};
       try {
         const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
-        predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level);
+        predictive = await calculatePredictiveForecast('sim-camera', parseFloat(waterM), ratePerHour, level, true);
       } catch (_) {}
 
       return [{
