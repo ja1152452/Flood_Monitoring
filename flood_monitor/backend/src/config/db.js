@@ -128,6 +128,26 @@ export const runAutoMigrations = async () => {
       ALTER TABLE sos_requests ADD COLUMN IF NOT EXISTS backup_resolved_at TIMESTAMPTZ;
     `);
 
+    // Audit logs table and columns
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
+        action       VARCHAR(100) NOT NULL,
+        entity_type  VARCHAR(100),
+        entity_id    VARCHAR(100),
+        description  TEXT,
+        before_state JSONB,
+        after_state  JSONB,
+        ip_address   VARCHAR(45),
+        user_agent   TEXT,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE audit_logs ALTER COLUMN entity_id TYPE VARCHAR(100);
+      CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs (created_at DESC);
+    `);
+
     console.log('[DB] Auto-migrations completed successfully.');
   } catch (err) {
     console.error('[DB] Auto-migration warning:', err.message);
