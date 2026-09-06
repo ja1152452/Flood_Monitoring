@@ -26,32 +26,69 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 });
 
 export const createAuditLog = asyncHandler(async (req, res) => {
-  const { action, description, createdAt, userId, entityType, entityId, beforeState, afterState } = req.body;
+  const {
+    action,
+    description,
+    summary,
+    notes,
+    severity,
+    createdAt,
+    userId,
+    entityType,
+    entityId,
+    beforeState,
+    afterState,
+  } = req.body;
+
   if (!action) {
-    return res.status(400).json({ success: false, message: 'Action is required' });
+    return res.status(400).json({ success: false, message: 'Action type is required' });
   }
+
+  const primarySummary = (summary || description || '').trim();
+  if (!primarySummary) {
+    return res.status(400).json({ success: false, message: 'Primary summary headline is required' });
+  }
+
   const log = await service.createAuditLog({
     userId: userId || req.user?.id || null,
     action,
-    description,
-    entityType,
-    entityId,
+    description: primarySummary,
+    notes: (notes || '').trim(),
+    severity: severity || 'NORMAL',
+    entityType: entityType || 'General',
+    entityId: entityId || null,
     beforeState,
     afterState,
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
     createdAt,
+    isManual: true,
   });
   res.status(201).json({ success: true, data: log });
 });
 
 export const updateAuditLog = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { action, description, createdAt, userId, entityType, entityId, beforeState, afterState } = req.body;
+  const {
+    action,
+    description,
+    summary,
+    notes,
+    severity,
+    createdAt,
+    userId,
+    entityType,
+    entityId,
+    beforeState,
+    afterState,
+  } = req.body;
+
   const log = await service.updateAuditLog(id, {
     userId,
     action,
-    description,
+    description: summary !== undefined ? summary : description,
+    notes,
+    severity,
     entityType,
     entityId,
     beforeState,
