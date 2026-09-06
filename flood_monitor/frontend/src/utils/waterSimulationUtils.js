@@ -78,6 +78,52 @@ export function classifySimulatedLevel(meters) {
 }
 
 /**
+ * Dynamically computes the real-time rate of rise (m/hr) based on the current water level
+ * and physical hydraulic threshold targets calibrated for Lumban River.
+ * Matches backend calculatePredictiveForecast rate physics and eliminates hardcoded rates.
+ * 
+ * @param {number} meters - Current water level in meters
+ * @param {string|boolean} phaseOrIsRising - Current phase ('rising'|'peak'|'receding'|'idle'|'completed') or boolean isRising
+ * @returns {number} Rate of change in meters per hour (m/hr)
+ */
+export function calculateDynamicRate(meters, phaseOrIsRising = 'rising') {
+  const isRising = typeof phaseOrIsRising === 'boolean'
+    ? phaseOrIsRising
+    : phaseOrIsRising === 'rising';
+  const isReceding = typeof phaseOrIsRising === 'string' && phaseOrIsRising === 'receding';
+
+  if (!isRising && !isReceding) return 0.0;
+
+  const m = Math.max(0.0, parseFloat(meters) || 2.0);
+
+  // Dynamic threshold targets matching backend calculatePredictiveForecast
+  let target = 3.1;
+  let transitionHours = 1.8;
+
+  if (m < 3.1) {
+    target = 3.1;
+    transitionHours = 1.8;
+  } else if (m < 4.0) {
+    target = 4.0;
+    transitionHours = 1.5;
+  } else if (m < 5.0) {
+    target = 5.0;
+    transitionHours = 1.2;
+  } else if (m < 6.0) {
+    target = 6.0;
+    transitionHours = 1.0;
+  } else {
+    target = 7.0;
+    transitionHours = 0.8;
+  }
+
+  const deltaM = Math.max(0.1, target - m);
+  const baseRate = parseFloat((deltaM / transitionHours).toFixed(2));
+
+  return isReceding ? -Math.abs(baseRate) : Math.abs(baseRate);
+}
+
+/**
  * Convert water level in meters (m) to pixel Y coordinate on a canvas of height `canvasHeight`.
  * Uses calibrated piecewise interpolation based on `points`.
  * 

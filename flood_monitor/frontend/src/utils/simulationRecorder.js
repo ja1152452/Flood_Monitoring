@@ -4,6 +4,8 @@
  * and provides preloaded drill runs for Analytics and Reports.
  */
 
+import { calculateDynamicRate } from './waterSimulationUtils.js';
+
 const STORAGE_KEY = 'flood_simulation_drill_sessions_v1';
 
 // Standard pre-loaded drill sessions (including Morning 9:00 AM & Night sessions)
@@ -51,7 +53,7 @@ const DEFAULT_DRILL_SESSIONS = [
         waterLevelM: parseFloat(level.toFixed(3)),
         waterLevelCm: Math.round(level * 100),
         floodLevel: category,
-        ratePerHour: phase === 'rising' ? 260.0 : phase === 'receding' ? -260.0 : 0.0,
+        ratePerHour: calculateDynamicRate(level, phase),
         phase: phase,
       };
     }),
@@ -99,7 +101,7 @@ const DEFAULT_DRILL_SESSIONS = [
         waterLevelM: parseFloat(level.toFixed(3)),
         waterLevelCm: Math.round(level * 100),
         floodLevel: category,
-        ratePerHour: phase === 'rising' ? 220.0 : phase === 'receding' ? -220.0 : 0.0,
+        ratePerHour: calculateDynamicRate(level, phase),
         phase: phase,
       };
     }),
@@ -136,7 +138,7 @@ const DEFAULT_DRILL_SESSIONS = [
         waterLevelM: parseFloat(level.toFixed(2)),
         waterLevelCm: Math.round(level * 100),
         floodLevel: category,
-        ratePerHour: 210.0,
+        ratePerHour: calculateDynamicRate(level, 'rising'),
         phase: 'rising',
       };
     }),
@@ -162,14 +164,28 @@ export const getStoredDrillSessions = () => {
       }
     }
 
+    // Sanitize any previously cached hardcoded rates (210, 220, 260) with dynamic calculations
+    const sanitized = merged.map((sess) => ({
+      ...sess,
+      points: (sess.points || []).map((p) => {
+        if (p.ratePerHour === 210 || p.ratePerHour === 220 || p.ratePerHour === 260 || p.ratePerHour == null) {
+          return {
+            ...p,
+            ratePerHour: calculateDynamicRate(p.waterLevelM, p.phase || 'rising'),
+          };
+        }
+        return p;
+      }),
+    }));
+
     // Sort by startedAt descending
-    merged.sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
+    sanitized.sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     } catch {}
 
-    return merged.length > 0 ? merged : DEFAULT_DRILL_SESSIONS;
+    return sanitized.length > 0 ? sanitized : DEFAULT_DRILL_SESSIONS;
   } catch {
     return DEFAULT_DRILL_SESSIONS;
   }
