@@ -250,8 +250,9 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
       const roleLabel = u.role ? `${u.role} Team` : 'Responder Unit';
       return `${roleLabel} (Officer ${u.full_name || 'Responder'})`;
     });
-    const dispatchedTeams = teamDescriptions.length > 0 ? teamDescriptions.join(' and ') : 'Responders';
-    const dispatchDesc = `Dispatched ${dispatchedTeams}${notes ? ` — Notes: ${notes}` : ''}`;
+    const isBackupType = typeLabel === 'BACKUP';
+    const dispatchPrefix = isBackupType ? 'Dispatched backup: ' : 'Dispatched: ';
+    const dispatchDesc = `${dispatchPrefix}${dispatchedTeams}${notes ? ` — Notes: ${notes}` : ''}`;
 
     await writeAuditLog({
       userId: mdrrmoUser.id, action: `SOS_DISPATCHED_${typeLabel}`,
@@ -865,10 +866,15 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
       }
     }
 
+    const rolePrefix = responder.role ? `${responder.role} Team ` : '';
+    const officerName = responder.full_name || 'Responder';
+    const backupDesc = `Dispatched backup: ${rolePrefix}(Officer ${officerName})${notes ? ` — Notes: ${notes}` : ''}`;
+
     await writeAuditLog({
       userId: mdrrmoUser.id, action: 'BACKUP_DISPATCHED',
       entityType: 'backup_requests', entityId: backupId,
-      after: { responderId, sos_id: backup.sos_id, notes },
+      description: backupDesc,
+      after: { responderId, sos_id: backup.sos_id, notes, responder_name: responder.full_name, responder_role: responder.role },
     });
 
     const io = getIO();

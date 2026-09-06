@@ -106,45 +106,89 @@ const toDateTimeLocal = (dateString) => {
  * that non-IT personnel like MDRRMO officers can easily understand.
  */
 function getReadableDescription(log, usersMap = {}) {
-  if (log.description && typeof log.description === 'string' && log.description.trim()) {
-    return log.description.trim();
-  }
-
   const action = log.action || '';
   const rawState = log.after_state || log.before_state;
-  if (!rawState) return '—';
 
-  let s = rawState;
+  let s = rawState || {};
   if (typeof s === 'string') {
     try {
       s = JSON.parse(s);
     } catch {
-      return s || '—';
+      s = {};
     }
   }
-  if (!s || typeof s !== 'object') return '—';
+  if (!s || typeof s !== 'object') s = {};
 
-  // 1. Dispatched Events (SOS_DISPATCHED_PRIMARY, SOS_DISPATCHED_BACKUP, BACKUP_DISPATCHED)
+  // 1. User Account Creation (Requirement 1: "Created [Role] account for [email]")
+  if (action === 'USER_CREATED') {
+    const role = s.role || s.user_role || (log.entity_id && usersMap[log.entity_id]?.role);
+    const email = s.email || s.user_email || (log.entity_id && usersMap[log.entity_id]?.email);
+    if (role && email) {
+      return `Created ${role} account for ${email}`;
+    }
+    if (email) {
+      return `Created account for ${email}`;
+    }
+    if (role) {
+      return `Created ${role} account`;
+    }
+    if (log.description && typeof log.description === 'string' && log.description.trim() && !log.description.includes('by administrator')) {
+      return log.description.trim();
+    }
+    return 'User account created by administrator';
+  }
+
+  // 2. Dispatched Events (Requirement 2: SOS_DISPATCHED_PRIMARY, SOS_DISPATCHED_BACKUP, BACKUP_DISPATCHED)
   if (action.includes('DISPATCHED') || action.includes('DISPATCH')) {
-    const responderIds = s.assigned_responders || (s.responder_id ? [s.responder_id] : []) || [];
+    const isBackup = action.includes('BACKUP') || s.dispatch_type === 'BACKUP';
+    const isPrimary = action.includes('PRIMARY') || s.dispatch_type === 'PRIMARY';
+    const prefix = isBackup ? 'Dispatched backup: ' : (isPrimary ? 'Dispatched primary: ' : 'Dispatched: ');
+
+    const responderIds = s.assigned_responders || (s.responder_id ? [s.responder_id] : (s.responderId ? [s.responderId] : [])) || [];
     const responderList = Array.isArray(responderIds) ? responderIds : [responderIds];
 
-    if (responderList.length > 0) {
-      const names = responderList.map(rid => {
-        const u = usersMap[rid];
-        if (!u) return 'Responder';
+    const teamDescriptions = [];
+    for (const rid of responderList) {
+      const u = typeof rid === 'string' ? usersMap[rid] : (typeof rid === 'object' ? rid : null);
+      if (u) {
         const roleLabel = u.role ? `${u.role} Team` : 'Responder Unit';
-        return `${roleLabel} (Officer ${u.full_name || u.email || 'Responder'})`;
-      });
-      const teamText = names.join(' and ');
+        teamDescriptions.push(`${roleLabel} (Officer ${u.full_name || u.email || 'Responder'})`);
+      }
+    }
+
+    if (teamDescriptions.length === 0) {
+      const rRole = s.responder_role || s.role;
+      const rName = s.responder_name || s.full_name || s.name;
+      if (rRole && rName) {
+        teamDescriptions.push(`${rRole} Team (Officer ${rName})`);
+      } else if (rRole) {
+        teamDescriptions.push(`${rRole} Team`);
+      } else if (rName) {
+        teamDescriptions.push(`Officer ${rName}`);
+      } else if (s.team_summary && typeof s.team_summary === 'string' && s.team_summary.trim()) {
+        teamDescriptions.push(s.team_summary.trim());
+      }
+    }
+
+    if (teamDescriptions.length > 0) {
+      const teamText = teamDescriptions.join(' and ');
       const notes = s.notes ? ` — Notes: ${s.notes}` : '';
-      return `Dispatched ${teamText}${notes}`;
+      return `${prefix}${teamText}${notes}`;
+    }
+
+    if (log.description && typeof log.description === 'string' && log.description.trim() && !log.description.includes('emergency response units') && !log.description.includes('response team')) {
+      return log.description.trim();
     }
 
     if (s.notes) {
-      return `Dispatched response team — Notes: ${s.notes}`;
+      return `${prefix}response team — Notes: ${s.notes}`;
     }
-    return `Dispatched emergency response units`;
+    return `${prefix}emergency response units`;
+  }
+
+  // If already has a clean custom description (not generic)
+  if (log.description && typeof log.description === 'string' && log.description.trim()) {
+    return log.description.trim();
   }
 
   // 2. SOS Distress Call Created

@@ -290,6 +290,7 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
     await writeAuditLog({
       userId: req.user.id, action: 'USER_CREATED',
       entityType: 'users', entityId: rows[0].id,
+      description: `Created ${role} account for ${email}`,
       after: { email, role, barangay, evacuation_center_id: centerId, created_at: rows[0].created_at },
     });
 
