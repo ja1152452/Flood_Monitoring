@@ -186,6 +186,21 @@ export default function Rescue() {
       toast.warn(`🚨 FIELD BACKUP REQUESTED! ${data?.target_role || 'Assistance'} requested.`);
       qc.invalidateQueries(['active-backups']);
     });
+    socket.on('backup:dispatched', () => {
+      qc.invalidateQueries(['active-backups']);
+      qc.invalidateQueries(['sos-pending']);
+      fetchResponders();
+    });
+    socket.on('backup:resolved', () => {
+      qc.invalidateQueries(['active-backups']);
+      qc.invalidateQueries(['sos-pending']);
+      fetchResponders();
+    });
+    socket.on('backup:updated', () => {
+      qc.invalidateQueries(['active-backups']);
+      qc.invalidateQueries(['sos-pending']);
+      fetchResponders();
+    });
 
     return () => {
       clearInterval(interval);
@@ -195,6 +210,9 @@ export default function Rescue() {
       socket.off('sos:updated');
       socket.off('sos:declined');
       socket.off('backup:created');
+      socket.off('backup:dispatched');
+      socket.off('backup:resolved');
+      socket.off('backup:updated');
     };
   }, [qc]);
 
@@ -683,14 +701,19 @@ export default function Rescue() {
 
               <div key={b.id} className="p-4 rounded-2xl bg-sky-500/5 dark:bg-sky-950/20 border border-sky-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-sky-700 dark:text-sky-300 uppercase">
                       🚨 Backup Requested by {b.requester_role} — {b.requester_name}
                     </span>
+                    {b.status === 'DISPATCHED' && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
+                        DISPATCHED TO: {b.assigned_responder_name || 'Assigned Unit'} ({b.assigned_responder_role || 'Unit'})
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-700 dark:text-slate-300 italic">"{b.message || 'Backup needed on-site.'}"</p>
                   <div className="text-[11px] text-slate-500">
-                    Target Unit: <strong>{b.target_role}</strong> · Time: {formatDateTime(b.created_at)}
+                    Target Unit: <strong>{b.target_role || 'General Rescue'}</strong> · Time: {formatDateTime(b.created_at)}
                   </div>
                 </div>
 
@@ -698,10 +721,11 @@ export default function Rescue() {
                   <button
                     onClick={() => {
                       setDispatchBackupModalRequest(b);
-                      setSelectedBackupResponderId('');
+                      setSelectedBackupResponderId(b.assigned_responder_id || '');
+                      setDispatchBackupNotes('');
                     }}
                     className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
-                    <UserPlus size={13} /> Dispatch {b.target_role || 'Backup'}
+                    <UserPlus size={13} /> {b.status === 'DISPATCHED' ? 'Reassign' : 'Dispatch'} {b.target_role || 'Backup'}
                   </button>
                   <button
                     onClick={() => resolveBackupMutation.mutate(b.id)}
@@ -1226,7 +1250,7 @@ export default function Rescue() {
             </div>
 
             <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-2xl text-xs text-amber-800 dark:text-amber-300 space-y-1">
-              <div>Requested Unit Type: <strong className="uppercase">{dispatchBackupModalRequest.target_role}</strong></div>
+              <div>Requested Unit Type: <strong className="uppercase">{dispatchBackupModalRequest.target_role || 'General Emergency Rescue'}</strong></div>
               {dispatchBackupModalRequest.message && (
                 <div className="italic text-slate-700 dark:text-slate-300">"{dispatchBackupModalRequest.message}"</div>
               )}
@@ -1234,34 +1258,40 @@ export default function Rescue() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>Available {dispatchBackupModalRequest.target_role} Responders Only</span>
+                <span>Available {dispatchBackupModalRequest.target_role || 'Rescue'} Responders Only</span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold lowercase border border-emerald-500/20">📍 sorted: nearest first</span>
               </label>
 
               <div className="max-h-48 overflow-y-auto space-y-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2">
-                {safeResponders.filter(r => 
-                  (!dispatchBackupModalRequest.target_role || 
-                   r.role === dispatchBackupModalRequest.target_role || 
-                   (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
-                   (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
-                   (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
-                  ) &&
-                  !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)
-                ).length === 0 ? (
+                {safeResponders.filter(r => {
+                  const targetRole = String(dispatchBackupModalRequest.target_role || '').toUpperCase().trim();
+                  const isGeneral = !targetRole || targetRole === 'RESCUE' || targetRole === 'ALL' || targetRole === 'GENERAL' || targetRole === 'ANY';
+                  const isRoleMatch = isGeneral ||
+                    r.role === targetRole ||
+                    (targetRole === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
+                    (targetRole === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
+                    (targetRole === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER')) ||
+                    (targetRole === 'MDRRMO_RESPONDER' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'));
+
+                  return isRoleMatch && !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status);
+                }).length === 0 ? (
                   <div className="text-xs text-amber-600 dark:text-amber-400 text-center py-4 font-medium">
-                    ⚠️ No AVAILABLE {dispatchBackupModalRequest.target_role} responders found online.
+                    ⚠️ No AVAILABLE {dispatchBackupModalRequest.target_role || 'rescue'} responders found online.
                   </div>
                 ) : (
                   safeResponders
-                    .filter(r => 
-                      (!dispatchBackupModalRequest.target_role || 
-                       r.role === dispatchBackupModalRequest.target_role || 
-                       (dispatchBackupModalRequest.target_role === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
-                       (dispatchBackupModalRequest.target_role === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
-                       (dispatchBackupModalRequest.target_role === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'))
-                      ) &&
-                      !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status)
-                    )
+                    .filter(r => {
+                      const targetRole = String(dispatchBackupModalRequest.target_role || '').toUpperCase().trim();
+                      const isGeneral = !targetRole || targetRole === 'RESCUE' || targetRole === 'ALL' || targetRole === 'GENERAL' || targetRole === 'ANY';
+                      const isRoleMatch = isGeneral ||
+                        r.role === targetRole ||
+                        (targetRole === 'BFP' && (r.role === 'BFP' || r.role === 'COAST_GUARD')) ||
+                        (targetRole === 'COAST_GUARD' && (r.role === 'COAST_GUARD' || r.role === 'BFP')) ||
+                        (targetRole === 'MDRRMO' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER')) ||
+                        (targetRole === 'MDRRMO_RESPONDER' && (r.role === 'MDRRMO' || r.role === 'MDRRMO_RESPONDER'));
+
+                      return isRoleMatch && !['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'OFF_DUTY', 'UNAVAILABLE'].includes(r.responder_status);
+                    })
                     .sort((a, b) => {
                       const distA = getDistanceKm(a.last_lat, a.last_lng, dispatchBackupModalRequest.lat, dispatchBackupModalRequest.lng) ?? 999999;
                       const distB = getDistanceKm(b.last_lat, b.last_lng, dispatchBackupModalRequest.lat, dispatchBackupModalRequest.lng) ?? 999999;
@@ -1336,6 +1366,8 @@ export default function Rescue() {
                       dispatchType: 'BACKUP',
                     });
                     setDispatchBackupModalRequest(null);
+                    setSelectedBackupResponderId('');
+                    setDispatchBackupNotes('');
                   } else {
                     dispatchBackupMutation.mutate({
                       id: dispatchBackupModalRequest.id,

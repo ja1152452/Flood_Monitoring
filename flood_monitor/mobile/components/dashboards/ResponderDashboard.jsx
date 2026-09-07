@@ -367,6 +367,15 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
             )}
 
             <View style={s.sosActions}>
+              {onRequestBackup && (
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: '#d97706' }]}
+                  onPress={() => onRequestBackup(sos)}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>🚨 Request Backup</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={[s.actionBtn, { backgroundColor: '#16a34a' }]}
                 onPress={() => onComplete(sos.id)}

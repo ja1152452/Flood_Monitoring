@@ -230,11 +230,11 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
     const primaryResponderId = ids[0];
     const { rows: updatedSOS } = await client.query(
       `UPDATE sos_requests
-       SET status = 'DISPATCHED',
+       SET status = CASE WHEN status = 'RESPONDING' THEN 'RESPONDING' ELSE 'DISPATCHED' END,
            assigned_rescue_id = COALESCE(assigned_rescue_id, $1),
            dispatched_by = $2,
-           dispatched_at = NOW(),
-           dispatch_notes = $3
+           dispatched_at = COALESCE(dispatched_at, NOW()),
+           dispatch_notes = CASE WHEN dispatch_notes IS NULL OR dispatch_notes = '' THEN $3 ELSE dispatch_notes END
        WHERE id = $4
        RETURNING *`,
       [primaryResponderId, mdrrmoUser.id, notes || null, sosId]
@@ -381,9 +381,9 @@ export const respondToSOS = async (rescueUser, sosId, targetState = 'EN_ROUTE') 
 
     await client.query(
       `UPDATE backup_requests
-       SET status = 'ACCEPTED', resolved_at = NOW()
-       WHERE (sos_id = $1 OR assigned_responder_id = $2) AND status IN ('ACTIVE', 'DISPATCHED')`,
-      [sosId, rescueUser.id]
+       SET status = 'ACCEPTED'
+       WHERE assigned_responder_id = $1 AND status IN ('ACTIVE', 'DISPATCHED')`,
+      [rescueUser.id]
     );
 
     const { rows } = await client.query(
@@ -501,9 +501,9 @@ export const declineSOS = async (rescueUser, sosId, reason = '') => {
 
     await client.query(
       `UPDATE backup_requests
-       SET status = 'DECLINED', resolved_at = NOW()
-       WHERE (sos_id = $1 OR assigned_responder_id = $2) AND status IN ('ACTIVE', 'DISPATCHED')`,
-      [sosId, rescueUser.id]
+       SET status = 'ACTIVE', assigned_responder_id = NULL
+       WHERE assigned_responder_id = $1 AND status = 'DISPATCHED'`,
+      [rescueUser.id]
     );
 
     // Requirement 6 & 7: Reset responder availability status back to AVAILABLE (Available Again)
@@ -575,6 +575,14 @@ export const completeRescue = async (rescueUser, sosId) => {
       `UPDATE sos_dispatches
        SET status = 'COMPLETED', completed_at = NOW()
        WHERE sos_id = $1`,
+      [sosId]
+    );
+
+    // Resolve any linked backup requests
+    await client.query(
+      `UPDATE backup_requests
+       SET status = 'RESOLVED', resolved_at = NOW()
+       WHERE sos_id = $1 AND status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')`,
       [sosId]
     );
 
@@ -709,7 +717,7 @@ export const requestBackup = async (requesterId, dto) => {
 
   const { rows: responders } = await query(
     `SELECT fcm_token FROM users
-     WHERE (role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR (role::text IN ('MDRRMO','MDRRMO_RESPONDER') AND $1 IN ('MDRRMO','MDRRMO_RESPONDER')) OR role::text IN ('ADMIN','SUPER_ADMIN'))
+     WHERE ($1::text IS NULL OR $1::text = '' OR $1::text = 'RESCUE' OR $1::text = 'ALL' OR role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR (role::text IN ('MDRRMO','MDRRMO_RESPONDER') AND $1 IN ('MDRRMO','MDRRMO_RESPONDER')) OR role::text IN ('ADMIN','SUPER_ADMIN'))
        AND is_active = TRUE AND id != $2 AND fcm_token IS NOT NULL`,
     [target_role, requesterId]
   );
@@ -762,7 +770,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
       `SELECT br.*, u.full_name AS requester_name, u.role AS requester_role
        FROM backup_requests br
        JOIN users u ON u.id = br.requester_id
-       WHERE br.id = $1 AND br.status = 'ACTIVE'`,
+       WHERE br.id = $1 AND br.status IN ('ACTIVE', 'DISPATCHED')`,
       [backupId]
     );
     if (!backupCheck.length) throw ApiError.notFound('Active backup request not found');
@@ -781,11 +789,15 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
     }
 
     if (backup.target_role && responder.role !== backup.target_role) {
-      const isMatch = responder.role === backup.target_role ||
-        (backup.target_role === 'COAST_GUARD' && (responder.role === 'COAST_GUARD' || responder.role === 'BFP')) ||
-        (backup.target_role === 'BFP' && (responder.role === 'BFP' || responder.role === 'COAST_GUARD')) ||
-        (backup.target_role === 'MDRRMO' && (responder.role === 'MDRRMO' || responder.role === 'MDRRMO_RESPONDER')) ||
-        (backup.target_role === 'MDRRMO_RESPONDER' && (responder.role === 'MDRRMO' || responder.role === 'MDRRMO_RESPONDER'));
+      const target = String(backup.target_role).toUpperCase().trim();
+      const respRole = String(responder.role).toUpperCase().trim();
+      const isGeneral = target === 'RESCUE' || target === 'ALL' || target === 'GENERAL' || target === 'ANY';
+      const isMatch = isGeneral ||
+        respRole === target ||
+        (target === 'COAST_GUARD' && (respRole === 'COAST_GUARD' || respRole === 'BFP')) ||
+        (target === 'BFP' && (respRole === 'BFP' || respRole === 'COAST_GUARD')) ||
+        (target === 'MDRRMO' && (respRole === 'MDRRMO' || respRole === 'MDRRMO_RESPONDER')) ||
+        (target === 'MDRRMO_RESPONDER' && (respRole === 'MDRRMO' || respRole === 'MDRRMO_RESPONDER'));
 
       if (!isMatch) {
         throw ApiError.badRequest(`Responder ${responder.full_name} is ${responder.role}, but backup request specifically requires ${backup.target_role}.`);
@@ -794,7 +806,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
 
     const { rows: updatedBackup } = await client.query(
       `UPDATE backup_requests
-       SET status = 'DISPATCHED', assigned_responder_id = $1, resolved_at = NOW()
+       SET status = 'DISPATCHED', assigned_responder_id = $1
        WHERE id = $2
        RETURNING *`,
       [responderId, backupId]
@@ -831,7 +843,9 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
 
     await client.query(
       `UPDATE sos_requests
-       SET status = 'DISPATCHED', dispatched_by = $1, dispatched_at = NOW()
+       SET status = CASE WHEN status = 'RESPONDING' THEN 'RESPONDING' ELSE 'DISPATCHED' END,
+           dispatched_by = $1,
+           dispatched_at = COALESCE(dispatched_at, NOW())
        WHERE id = $2`,
       [mdrrmoUser.id, targetSosId]
     );
@@ -885,6 +899,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
         responder: { id: responder.id, full_name: responder.full_name, role: responder.role },
         sos_id: targetSosId || backup.sos_id
       });
+      io.emit('backup:updated', updatedBackup[0]);
     }
 
     if (targetSosId) {
@@ -955,13 +970,37 @@ export const resolveBackup = async (backupId, userId) => {
   if (!rows.length) {
     return { id: backupId, status: 'RESOLVED', message: 'Backup request cleared' };
   }
+  const backup = rows[0];
+
+  if (backup.assigned_responder_id) {
+    await query(
+      `UPDATE sos_dispatches SET status = 'COMPLETED', completed_at = NOW()
+       WHERE (sos_id = $1 OR id = $1) AND responder_id = $2`,
+      [backup.sos_id, backup.assigned_responder_id]
+    ).catch(() => {});
+
+    const { rows: otherActive } = await query(
+      `SELECT id FROM sos_dispatches WHERE responder_id = $1 AND status IN ('DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS')`,
+      [backup.assigned_responder_id]
+    );
+    if (!otherActive.length) {
+      await query(
+        `UPDATE users SET responder_status = 'AVAILABLE' WHERE id = $1`,
+        [backup.assigned_responder_id]
+      ).catch(() => {});
+    }
+  }
+
   await writeAuditLog({
     userId, action: 'BACKUP_RESOLVED',
     entityType: 'backup_requests', entityId: backupId,
   }).catch(() => {});
 
   const io = getIO();
-  if (io) io.emit('backup:resolved', rows[0]);
+  if (io) {
+    io.emit('backup:resolved', backup);
+    io.emit('backup:updated', backup);
+  }
 
-  return rows[0];
+  return backup;
 };
