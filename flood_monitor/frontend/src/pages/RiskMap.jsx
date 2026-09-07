@@ -13,7 +13,7 @@ import {
   Maximize2, Minimize2, RotateCcw, ShieldAlert,
   Waves, Route, Sliders, ChevronDown,
   ChevronUp, X, Filter, Info, Navigation, Shield,
-  CloudRain, Wind
+  CloudRain, Wind, Users, Phone
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 

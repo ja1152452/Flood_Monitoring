@@ -250,6 +250,7 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
       const roleLabel = u.role ? `${u.role} Team` : 'Responder Unit';
       return `${roleLabel} (Officer ${u.full_name || 'Responder'})`;
     });
+    const dispatchedTeams = teamDescriptions.join(', ') || 'Rescue Team';
     const isBackupType = typeLabel === 'BACKUP';
     const dispatchPrefix = isBackupType ? 'Dispatched backup: ' : 'Dispatched: ';
     const dispatchDesc = `${dispatchPrefix}${dispatchedTeams}${notes ? ` — Notes: ${notes}` : ''}`;

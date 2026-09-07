@@ -50,7 +50,7 @@ export function WaterLevelInterpretationCard({ trendData }) {
     trend === 'RISING'
       ? `Water level increased by ${deltaCm} cm within ${timeIntervalText} and is currently at ${trendData.flood_level_label || floodConfig.label} (${currentLevelM.toFixed(2)} m).`
       : trend === 'RECEDING'
-      ? `Water level decreased by ${deltaCm} cm within ${timeIntervalText} and is currently at ${floodLabel} (${currentLevelM.toFixed(2)} m).`
+      ? `Water level decreased by ${deltaCm} cm within ${timeIntervalText} and is currently at ${trendData.flood_level_label || floodConfig.label} (${currentLevelM.toFixed(2)} m).`
       : `Water level remained stable within ${timeIntervalText} and is currently at ${trendData.flood_level_label || floodConfig.label} (${currentLevelM.toFixed(2)} m).`
   );
 
