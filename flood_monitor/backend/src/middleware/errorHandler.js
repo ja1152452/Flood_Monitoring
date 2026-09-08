@@ -21,11 +21,15 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({ success: false, message });
   }
 
+  if (err.code === '22P02') {
+    return res.status(400).json({ success: false, message: 'Invalid ID format or input syntax' });
+  }
+
   console.error('[Unhandled Error]', err);
 
   return res.status(500).json({
     success: false,
-    message: 'Internal server error',
+    message: err.message || 'Internal server error',
     ...(process.env.NODE_ENV !== 'production' ? { detail: err.message, stack: err.stack } : {}),
   });
 };

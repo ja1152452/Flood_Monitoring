@@ -87,9 +87,13 @@ async function migrate() {
         updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    // Add responder_type column if it doesn't exist (for existing DBs)
+    // Add responder_type and location columns if they don't exist (for existing DBs)
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type VARCHAR(30);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_status VARCHAR(30) DEFAULT 'AVAILABLE';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lat DOUBLE PRECISION;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_lng DOUBLE PRECISION;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_location_at TIMESTAMPTZ;
     `);
     // Add email verification columns if they don't exist
     await client.query(`

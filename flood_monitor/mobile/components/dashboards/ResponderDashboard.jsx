@@ -491,7 +491,14 @@ export function ResponderDashboard({ user, onLogout }) {
 
   const backupMut = useMutation({
     mutationFn: requestBackup,
-    onSuccess: () => Toast.show({ type: 'success', text1: 'Backup request sent' }),
+    onSuccess: () => {
+      Toast.show({ type: 'success', text1: '🚨 Backup request broadcasted to MDRRMO & team!' });
+      qc.invalidateQueries(['active-backups']);
+      qc.invalidateQueries(['backup-history']);
+    },
+    onError: (err) => {
+      Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to request backup' });
+    },
   });
 
   const handleRequestBackup = (sos) => {
@@ -530,8 +537,8 @@ export function ResponderDashboard({ user, onLogout }) {
   const sendBackupRequest = (sos, targetRole) => {
     backupMut.mutate({
       sos_id: sos.id,
-      lat: user?.last_lat || sos.lat,
-      lng: user?.last_lng || sos.lng,
+      lat: Number(user?.last_lat || sos.lat || 14.3006),
+      lng: Number(user?.last_lng || sos.lng || 121.4619),
       message: `Backup (${targetRole}) requested by ${user?.full_name || 'Responder'} for SOS in ${sos.barangay_name || 'Lumban'}`,
       target_role: targetRole,
     });

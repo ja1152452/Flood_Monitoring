@@ -177,6 +177,8 @@ export const getHistory = async (requestingUser) => {
 
 export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = '', dispatchType = 'PRIMARY') => {
   return withTransaction(async (client) => {
+    const dispatcherId = mdrrmoUser?.id || null;
+
     // 1. Verify SOS exists
     const { rows: sosCheck } = await client.query(
       `SELECT s.*, b.name AS barangay_name
@@ -187,17 +189,21 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
     );
     if (!sosCheck.length) throw ApiError.notFound('Rescue request not found');
 
-    const ids = Array.isArray(responderIds) ? responderIds : [responderIds];
+    const ids = (Array.isArray(responderIds) ? responderIds : [responderIds]).filter(Boolean);
     if (ids.length === 0) throw ApiError.badRequest('At least one responder must be selected for dispatch');
 
     // Requirement 7 Rules:
     // • Only responders with Available status may be selected as Primary or Backup.
     // • Responders already handling another rescue operation must NEVER be selected as backup until they become Available again.
     const { rows: targetResponders } = await client.query(
-      `SELECT id, full_name, COALESCE(responder_status, 'AVAILABLE') AS responder_status
+      `SELECT id, full_name, role, COALESCE(responder_status, 'AVAILABLE') AS responder_status
        FROM users WHERE id = ANY($1::uuid[])`,
       [ids]
     );
+
+    if (targetResponders.length !== ids.length) {
+      throw ApiError.badRequest('One or more selected responder units could not be found');
+    }
 
     for (const r of targetResponders) {
       if (['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS', 'UNAVAILABLE', 'OFF_DUTY'].includes(r.responder_status)) {
@@ -216,7 +222,7 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
          VALUES ($1, $2, $3, $4, 'DISPATCHED', $5, NOW())
          ON CONFLICT (sos_id, responder_id)
          DO UPDATE SET dispatch_type = EXCLUDED.dispatch_type, status = 'DISPATCHED', notes = EXCLUDED.notes, dispatched_at = NOW()`,
-        [sosId, rid, mdrrmoUser.id, typeLabel, notes || null]
+        [sosId, rid, dispatcherId, typeLabel, notes || null]
       );
 
       // Transition responder status to DISPATCHED
@@ -237,7 +243,7 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
            dispatch_notes = CASE WHEN dispatch_notes IS NULL OR dispatch_notes = '' THEN $3 ELSE dispatch_notes END
        WHERE id = $4
        RETURNING *`,
-      [primaryResponderId, mdrrmoUser.id, notes || null, sosId]
+      [primaryResponderId, dispatcherId, notes || null, sosId]
     );
 
     // 4. Requirement 4 & 7: Official Dispatch Notification to backup/primary responders
@@ -256,7 +262,7 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
     const dispatchDesc = `${dispatchPrefix}${dispatchedTeams}${notes ? ` — Notes: ${notes}` : ''}`;
 
     await writeAuditLog({
-      userId: mdrrmoUser.id, action: `SOS_DISPATCHED_${typeLabel}`,
+      userId: dispatcherId, action: `SOS_DISPATCHED_${typeLabel}`,
       entityType: 'sos_requests', entityId: sosId,
       description: dispatchDesc,
       after: { assigned_responders: ids, dispatch_type: typeLabel, notes, team_summary: dispatchedTeams },
@@ -766,6 +772,8 @@ export const getActiveBackups = async (requestingUser) => {
 
 export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = '') => {
   return withTransaction(async (client) => {
+    const dispatcherId = mdrrmoUser?.id || null;
+
     const { rows: backupCheck } = await client.query(
       `SELECT br.*, u.full_name AS requester_name, u.role AS requester_role
        FROM backup_requests br
@@ -791,7 +799,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
     if (backup.target_role && responder.role !== backup.target_role) {
       const target = String(backup.target_role).toUpperCase().trim();
       const respRole = String(responder.role).toUpperCase().trim();
-      const isGeneral = target === 'RESCUE' || target === 'ALL' || target === 'GENERAL' || target === 'ANY';
+      const isGeneral = !target || target === 'RESCUE' || target === 'ALL' || target === 'GENERAL' || target === 'ANY';
       const isMatch = isGeneral ||
         respRole === target ||
         (target === 'COAST_GUARD' && (respRole === 'COAST_GUARD' || respRole === 'BFP')) ||
@@ -813,6 +821,13 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
     );
 
     let targetSosId = backup.sos_id;
+    if (targetSosId) {
+      const { rows: checkSos } = await client.query(`SELECT id FROM sos_requests WHERE id = $1`, [targetSosId]);
+      if (!checkSos.length) {
+        targetSosId = null;
+      }
+    }
+
     if (!targetSosId) {
       const { rows: newSos } = await client.query(
         `INSERT INTO sos_requests (user_id, victim_name, lat, lng, message, status, assigned_rescue_id, dispatched_by, dispatched_at, dispatch_notes)
@@ -825,7 +840,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
           backup.lng,
           backup.message || `Field backup requested by ${backup.requester_name}`,
           responderId,
-          mdrrmoUser.id,
+          dispatcherId,
           notes || `Backup requested by ${backup.requester_name}`
         ]
       );
@@ -838,7 +853,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
        VALUES ($1, $2, $3, 'BACKUP', 'DISPATCHED', $4, NOW())
        ON CONFLICT (sos_id, responder_id)
        DO UPDATE SET dispatch_type = 'BACKUP', status = 'DISPATCHED', notes = EXCLUDED.notes, dispatched_at = NOW()`,
-      [targetSosId, responderId, mdrrmoUser.id, notes || `Backup requested by ${backup.requester_name}`]
+      [targetSosId, responderId, dispatcherId, notes || `Backup requested by ${backup.requester_name}`]
     );
 
     await client.query(
@@ -847,7 +862,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
            dispatched_by = $1,
            dispatched_at = COALESCE(dispatched_at, NOW())
        WHERE id = $2`,
-      [mdrrmoUser.id, targetSosId]
+      [dispatcherId, targetSosId]
     );
 
     await client.query(
@@ -861,12 +876,12 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
       sendPushNotification(responder.fcm_token, title, body).catch(() => {});
     }
 
-    if (backup.sos_id) {
+    if (targetSosId) {
       const { rows: sosRecord } = await client.query(
         `SELECT user_id FROM sos_requests WHERE id = $1`,
-        [backup.sos_id]
+        [targetSosId]
       );
-      if (sosRecord.length) {
+      if (sosRecord.length && sosRecord[0].user_id) {
         const { rows: residentUser } = await client.query(
           `SELECT fcm_token FROM users WHERE id = $1 AND fcm_token IS NOT NULL`,
           [sosRecord[0].user_id]
@@ -886,10 +901,10 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
     const backupDesc = `Dispatched backup: ${rolePrefix}(Officer ${officerName})${notes ? ` — Notes: ${notes}` : ''}`;
 
     await writeAuditLog({
-      userId: mdrrmoUser.id, action: 'BACKUP_DISPATCHED',
+      userId: dispatcherId, action: 'BACKUP_DISPATCHED',
       entityType: 'backup_requests', entityId: backupId,
       description: backupDesc,
-      after: { responderId, sos_id: backup.sos_id, notes, responder_name: responder.full_name, responder_role: responder.role },
+      after: { responderId, sos_id: targetSosId, notes, responder_name: responder.full_name, responder_role: responder.role },
     });
 
     const io = getIO();

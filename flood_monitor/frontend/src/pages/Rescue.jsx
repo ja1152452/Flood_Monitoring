@@ -245,8 +245,12 @@ export default function Rescue() {
       setDispatchModalSos(null);
       setSelectedResponderIds([]);
       setDispatchNotes('');
+      setDispatchBackupModalRequest(null);
+      setSelectedBackupResponderId('');
+      setDispatchBackupNotes('');
       qc.invalidateQueries(['sos-pending']);
       qc.invalidateQueries(['sos-history']);
+      qc.invalidateQueries(['active-backups']);
       fetchResponders();
     },
     onError: (err) => {
@@ -1365,9 +1369,6 @@ export default function Rescue() {
                       notes: dispatchBackupNotes,
                       dispatchType: 'BACKUP',
                     });
-                    setDispatchBackupModalRequest(null);
-                    setSelectedBackupResponderId('');
-                    setDispatchBackupNotes('');
                   } else {
                     dispatchBackupMutation.mutate({
                       id: dispatchBackupModalRequest.id,
