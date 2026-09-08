@@ -236,7 +236,7 @@ export const dispatchSOS = async (mdrrmoUser, sosId, responderIds = [], notes = 
     const primaryResponderId = ids[0];
     const { rows: updatedSOS } = await client.query(
       `UPDATE sos_requests
-       SET status = CASE WHEN status = 'RESPONDING' THEN 'RESPONDING' ELSE 'DISPATCHED' END,
+       SET status = CASE WHEN status::text = 'RESPONDING' THEN status ELSE 'DISPATCHED' END,
            assigned_rescue_id = COALESCE(assigned_rescue_id, $1),
            dispatched_by = $2,
            dispatched_at = COALESCE(dispatched_at, NOW()),
@@ -858,7 +858,7 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
 
     await client.query(
       `UPDATE sos_requests
-       SET status = CASE WHEN status = 'RESPONDING' THEN 'RESPONDING' ELSE 'DISPATCHED' END,
+       SET status = CASE WHEN status::text = 'RESPONDING' THEN status ELSE 'DISPATCHED' END,
            dispatched_by = $1,
            dispatched_at = COALESCE(dispatched_at, NOW())
        WHERE id = $2`,

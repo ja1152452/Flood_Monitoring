@@ -160,6 +160,7 @@ export const runAutoMigrations = async () => {
         ALTER TABLE sos_requests ADD COLUMN IF NOT EXISTS backup_requested_at TIMESTAMPTZ;
         ALTER TABLE sos_requests ADD COLUMN IF NOT EXISTS backup_dispatched_at TIMESTAMPTZ;
         ALTER TABLE sos_requests ADD COLUMN IF NOT EXISTS backup_resolved_at TIMESTAMPTZ;
+        ALTER TABLE sos_requests ALTER COLUMN status TYPE VARCHAR(30) USING status::text;
       `);
     } catch (err) {
       console.warn('[DB] Warning updating sos_requests columns:', err.message);
