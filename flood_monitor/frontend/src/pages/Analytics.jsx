@@ -9,7 +9,7 @@ import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
 import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Pencil, Check, Calendar } from 'lucide-react';
-import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, deleteDrillSessionPoint, shiftDrillSessionDateTime } from '../utils/simulationRecorder';
+import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, deleteDrillSessionPoint, shiftDrillSessionDateTime, deleteDrillSessionPointsByDate, matchesPointDate } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../api/axios';
@@ -528,11 +528,27 @@ export default function Analytics() {
   const [confirmDeletePoint, setConfirmDeletePoint] = useState(null);
   const [editNotification, setEditNotification] = useState(null);
 
-  // Batch shift modal state
+  // Batch shift & Delete by date modal state
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [batchModalTab, setBatchModalTab] = useState('shift'); // 'shift' | 'delete'
   const [batchSessionId, setBatchSessionId] = useState('');
   const [batchStartDate, setBatchStartDate] = useState('');
   const [batchStartTime, setBatchStartTime] = useState('');
+  const [deleteSessionScope, setDeleteSessionScope] = useState('ALL');
+  const [deleteTargetDate, setDeleteTargetDate] = useState('');
+  const [confirmDeleteByDate, setConfirmDeleteByDate] = useState(null);
+
+  const deleteMatchCount = useMemo(() => {
+    if (!deleteTargetDate) return 0;
+    let count = 0;
+    drillSessions.forEach(s => {
+      if (deleteSessionScope !== 'ALL' && s.id !== deleteSessionScope) return;
+      (s.points || []).forEach(pt => {
+        if (matchesPointDate(pt, deleteTargetDate)) count++;
+      });
+    });
+    return count;
+  }, [drillSessions, deleteSessionScope, deleteTargetDate]);
 
   useEffect(() => {
     if (!editNotification) return;
@@ -596,12 +612,21 @@ export default function Analytics() {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      setBatchStartDate(`${y}-${m}-${day}`);
+      const defaultDateStr = `${y}-${m}-${day}`;
+      setBatchStartDate(defaultDateStr);
+      setDeleteTargetDate(simWlFilter.type === 'date' && simWlFilter.date ? simWlFilter.date : defaultDateStr);
       const hr = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
       const sec = String(d.getSeconds()).padStart(2, '0');
       setBatchStartTime(`${hr}:${min}:${sec}`);
+    } else {
+      const today = new Date().toISOString().slice(0, 10);
+      setBatchStartDate(today);
+      setDeleteTargetDate(today);
+      setBatchStartTime('09:00:00');
     }
+    setDeleteSessionScope(simWlFilter.session && simWlFilter.session !== 'ALL' ? simWlFilter.session : 'ALL');
+    setBatchModalTab('shift');
     setShiftModalOpen(true);
   };
 
@@ -612,6 +637,30 @@ export default function Analytics() {
     setShiftModalOpen(false);
     const s = updated.find(x => x.id === batchSessionId);
     setEditNotification(`Shifted session "${s?.name || 'Drill'}" to ${batchStartDate} ${batchStartTime}`);
+  };
+
+  const handleRequestDeleteByDate = () => {
+    if (!deleteTargetDate || deleteMatchCount === 0) return;
+    const targetSession = deleteSessionScope === 'ALL'
+      ? null
+      : drillSessions.find(s => s.id === deleteSessionScope);
+    setConfirmDeleteByDate({
+      date: deleteTargetDate,
+      count: deleteMatchCount,
+      sessionId: deleteSessionScope,
+      sessionName: targetSession ? targetSession.name : 'All Drill Sessions',
+    });
+  };
+
+  const handleConfirmDeleteByDate = () => {
+    if (!confirmDeleteByDate) return;
+    const { date, sessionId, count, sessionName } = confirmDeleteByDate;
+    const result = deleteDrillSessionPointsByDate(sessionId, date);
+    setDrillSessions(result.updatedSessions);
+    setConfirmDeleteByDate(null);
+    setShiftModalOpen(false);
+    setSimTablePage(1);
+    setEditNotification(`Deleted ${result.deletedCount || count} drill reading(s) on ${date} (${sessionName})`);
   };
 
   const handleDeleteRow = (p) => {
@@ -947,10 +996,10 @@ export default function Analytics() {
                     type="button"
                     onClick={handleOpenBatchShift}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 shadow-sm transition-all"
-                    title="Shift date and time for an entire drill session"
+                    title="Edit date/time or delete drill readings by date"
                   >
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Batch Edit Date/Time</span>
+                    <span>Batch Edit / Delete by Date</span>
                   </button>
                 </div>
               </div>
@@ -1123,10 +1172,11 @@ export default function Analytics() {
               )}
             </div>
 
-            {/* Batch Shift Drill Session Date & Time Modal */}
+            {/* Batch Shift & Delete Drill Session Date & Time Modal */}
             {shiftModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
+                  {/* Modal Header */}
                   <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -1140,87 +1190,242 @@ export default function Analytics() {
                     </button>
                   </div>
 
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                        Select Drill Session
-                      </label>
-                      <select
-                        value={batchSessionId}
-                        onChange={(e) => {
-                          const sid = e.target.value;
-                          setBatchSessionId(sid);
-                          const s = drillSessions.find(ds => ds.id === sid);
-                          if (s && s.startedAt) {
-                            const d = new Date(s.startedAt);
-                            const y = d.getFullYear();
-                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                            const day = String(d.getDate()).padStart(2, '0');
-                            setBatchStartDate(`${y}-${m}-${day}`);
-                            const hr = String(d.getHours()).padStart(2, '0');
-                            const min = String(d.getMinutes()).padStart(2, '0');
-                            const sec = String(d.getSeconds()).padStart(2, '0');
-                            setBatchStartTime(`${hr}:${min}:${sec}`);
-                          }
-                        }}
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      >
-                        {drillSessions.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.points?.length || 0} pts)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                          New Date
-                        </label>
-                        <input
-                          type="date"
-                          value={batchStartDate}
-                          onChange={(e) => setBatchStartDate(e.target.value)}
-                          className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                          Start Time
-                        </label>
-                        <input
-                          type="time"
-                          step="1"
-                          value={batchStartTime}
-                          onChange={(e) => setBatchStartTime(e.target.value)}
-                          className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-                      💡 <strong>Notice:</strong> This shifts all timestamps in the selected drill session proportionally starting from this date and time.
-                    </div>
+                  {/* Mode Tabs */}
+                  <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-900/40 p-1.5 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setBatchModalTab('shift')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
+                        batchModalTab === 'shift'
+                          ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>Shift Date & Time</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBatchModalTab('delete')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
+                        batchModalTab === 'delete'
+                          ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete by Date</span>
+                    </button>
                   </div>
 
-                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShiftModalOpen(false)}
-                      className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleApplyBatchShift}
-                      disabled={!batchSessionId || !batchStartDate || !batchStartTime}
-                      className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all"
-                    >
-                      <Check className="w-4 h-4" /> Apply to All Points
-                    </button>
+                  {/* Tab 1: Shift Date & Time */}
+                  {batchModalTab === 'shift' && (
+                    <>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                            Select Drill Session
+                          </label>
+                          <select
+                            value={batchSessionId}
+                            onChange={(e) => {
+                              const sid = e.target.value;
+                              setBatchSessionId(sid);
+                              const s = drillSessions.find(ds => ds.id === sid);
+                              if (s && s.startedAt) {
+                                const d = new Date(s.startedAt);
+                                const y = d.getFullYear();
+                                const m = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
+                                setBatchStartDate(`${y}-${m}-${day}`);
+                                const hr = String(d.getHours()).padStart(2, '0');
+                                const min = String(d.getMinutes()).padStart(2, '0');
+                                const sec = String(d.getSeconds()).padStart(2, '0');
+                                setBatchStartTime(`${hr}:${min}:${sec}`);
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          >
+                            {drillSessions.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.points?.length || 0} pts)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                              New Date
+                            </label>
+                            <input
+                              type="date"
+                              value={batchStartDate}
+                              onChange={(e) => setBatchStartDate(e.target.value)}
+                              className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              step="1"
+                              value={batchStartTime}
+                              onChange={(e) => setBatchStartTime(e.target.value)}
+                              className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                          💡 <strong>Notice:</strong> This shifts all timestamps in the selected drill session proportionally starting from this date and time.
+                        </div>
+                      </div>
+
+                      <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShiftModalOpen(false)}
+                          className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApplyBatchShift}
+                          disabled={!batchSessionId || !batchStartDate || !batchStartTime}
+                          className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all"
+                        >
+                          <Check className="w-4 h-4" /> Apply to All Points
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Tab 2: Delete by Date */}
+                  {batchModalTab === 'delete' && (
+                    <>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                            Target Drill Session
+                          </label>
+                          <select
+                            value={deleteSessionScope}
+                            onChange={(e) => setDeleteSessionScope(e.target.value)}
+                            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                          >
+                            <option value="ALL">All Drill Sessions</option>
+                            {drillSessions.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.points?.length || 0} pts)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                            Select Date to Delete
+                          </label>
+                          <input
+                            type="date"
+                            value={deleteTargetDate}
+                            onChange={(e) => setDeleteTargetDate(e.target.value)}
+                            className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Real-time Match Summary Box */}
+                        {deleteTargetDate ? (
+                          deleteMatchCount > 0 ? (
+                            <div className="p-3 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs space-y-1.5">
+                              <div className="font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
+                                <Trash2 className="w-4 h-4" />
+                                <span>Found {deleteMatchCount} drill reading{deleteMatchCount !== 1 ? 's' : ''} on {deleteTargetDate}</span>
+                              </div>
+                              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                                Scope: <strong>{deleteSessionScope === 'ALL' ? 'All Drill Sessions' : (drillSessions.find(s => s.id === deleteSessionScope)?.name || 'Selected Session')}</strong>
+                              </p>
+                              <p className="text-rose-600/90 dark:text-rose-400/90 text-[11px]">
+                                ⚠️ Deleting will permanently remove these {deleteMatchCount} readings on this date and recalculate session duration and peak stats.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
+                              ℹ️ No simulated drill readings found on <strong>{deleteTargetDate}</strong> in the selected session scope.
+                            </div>
+                          )
+                        ) : (
+                          <div className="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
+                            Pick a date above to scan and delete drill readings recorded on that specific date.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShiftModalOpen(false)}
+                          className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRequestDeleteByDate}
+                          disabled={!deleteTargetDate || deleteMatchCount === 0}
+                          className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shadow-md shadow-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete {deleteMatchCount > 0 ? `${deleteMatchCount} Reading${deleteMatchCount !== 1 ? 's' : ''}` : 'by Date'}</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal for Simulated Drill Readings by Date */}
+            {confirmDeleteByDate && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-sm overflow-hidden">
+                  <div className="p-5 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-500/20">
+                      <Trash2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Readings by Date?</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Are you sure you want to permanently delete all simulated drill readings on this date?
+                      </p>
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 text-xs text-left space-y-1">
+                        <div>Scope: <strong className="text-indigo-600 dark:text-indigo-400">{confirmDeleteByDate.sessionName}</strong></div>
+                        <div>Date: <strong className="text-slate-800 dark:text-slate-200">{confirmDeleteByDate.date}</strong></div>
+                        <div>Readings to Delete: <strong className="text-rose-600 dark:text-rose-400">{confirmDeleteByDate.count} point{confirmDeleteByDate.count !== 1 ? 's' : ''}</strong></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteByDate(null)}
+                        className="flex-1 px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmDeleteByDate}
+                        className="flex-1 px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-colors"
+                      >
+                        Confirm Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

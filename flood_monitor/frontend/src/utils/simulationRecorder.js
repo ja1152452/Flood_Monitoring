@@ -389,6 +389,100 @@ export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTi
   }
 };
 
+export const matchesPointDate = (point, targetYMD) => {
+  if (!point || !targetYMD) return false;
+  const iso = point.isoDateTime || point.captured_at;
+  if (iso && iso.slice(0, 10) === targetYMD) return true;
+
+  if (iso) {
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      if (`${y}-${m}-${day}` === targetYMD) return true;
+    }
+  }
+
+  if (point.date === targetYMD) return true;
+  if (point.date) {
+    const d2 = new Date(point.date);
+    if (!isNaN(d2.getTime())) {
+      const y = d2.getFullYear();
+      const m = String(d2.getMonth() + 1).padStart(2, '0');
+      const day = String(d2.getDate()).padStart(2, '0');
+      if (`${y}-${m}-${day}` === targetYMD) return true;
+    }
+  }
+  return false;
+};
+
+export const deleteDrillSessionPointsByDate = (sessionId, targetDateStr) => {
+  try {
+    const current = getStoredDrillSessions();
+    if (!targetDateStr) return { updatedSessions: current, deletedCount: 0 };
+
+    let totalDeleted = 0;
+
+    const modified = current.map((session) => {
+      // If a specific sessionId is specified, only touch that session
+      if (sessionId && sessionId !== 'ALL' && session.id !== sessionId) {
+        return session;
+      }
+
+      const originalPoints = session.points || [];
+      const remainingPoints = originalPoints.filter((pt) => !matchesPointDate(pt, targetDateStr));
+      const deletedCount = originalPoints.length - remainingPoints.length;
+      totalDeleted += deletedCount;
+
+      if (deletedCount === 0) return session;
+
+      const updatedSession = { ...session };
+      updatedSession.points = remainingPoints;
+      updatedSession.pointsCount = remainingPoints.length;
+
+      if (remainingPoints.length > 0) {
+        // Keep points sorted chronologically ascending
+        remainingPoints.sort((a, b) => {
+          const timeA = new Date(a.isoDateTime || 0).getTime();
+          const timeB = new Date(b.isoDateTime || 0).getTime();
+          if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+            return timeA - timeB;
+          }
+          return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
+        });
+
+        if (remainingPoints[0].isoDateTime) updatedSession.startedAt = remainingPoints[0].isoDateTime;
+        if (remainingPoints[remainingPoints.length - 1].isoDateTime) {
+          updatedSession.finishedAt = remainingPoints[remainingPoints.length - 1].isoDateTime;
+        }
+
+        let maxLevel = -Infinity;
+        let peakCat = 'NORMAL';
+        remainingPoints.forEach((pt) => {
+          const lvl = parseFloat(pt.waterLevelM || pt.water_level_m || 0);
+          if (lvl > maxLevel) {
+            maxLevel = lvl;
+            peakCat = pt.floodLevel || pt.flood_level || 'NORMAL';
+          }
+        });
+        if (maxLevel > -Infinity) {
+          updatedSession.peakLevelM = parseFloat(maxLevel.toFixed(2));
+          updatedSession.peakCategory = peakCat;
+        }
+      }
+
+      return updatedSession;
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(modified));
+    return { updatedSessions: modified, deletedCount: totalDeleted };
+  } catch (err) {
+    console.error('Failed to delete drill session points by date:', err);
+    return { updatedSessions: getStoredDrillSessions(), deletedCount: 0 };
+  }
+};
+
 // Active live recorder instance for current simulation run
 let activeRecording = null;
 
