@@ -257,10 +257,13 @@ export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTi
     const points = [...(session.points || [])];
     if (points.length === 0) return current;
 
+    if (!newStartDateStr || !newStartTimeStr) return current;
+
     const [year, month, day] = newStartDateStr.split('-').map(Number);
     const [hours, minutes, seconds = 0] = newStartTimeStr.split(':').map(Number);
     const newBaseDate = new Date(year, month - 1, day, hours, minutes, seconds);
     const baseMs = newBaseDate.getTime();
+    if (isNaN(baseMs)) return current;
 
     const updatedPoints = points.map((p, idx) => {
       const offsetMs = (p.elapsedSec ?? idx * 2) * 1000;
