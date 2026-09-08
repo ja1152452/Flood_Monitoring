@@ -8,8 +8,8 @@ import { getWeather } from '../api/weather';
 import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
-import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getStoredDrillSessions, deleteDrillSession } from '../utils/simulationRecorder';
+import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Pencil, Check, Calendar } from 'lucide-react';
+import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, shiftDrillSessionDateTime } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../api/axios';
@@ -457,6 +457,7 @@ export default function Analytics() {
         return {
           id: `${s.id}-${idx}`,
           sessionId: s.id,
+          pointIndex: idx,
           sessionName: s.name,
           captured_at: pointIso,
           date: p.date || sessionDateStr,
@@ -512,6 +513,97 @@ export default function Analytics() {
     const start = (simTablePage - 1) * SIM_ROWS_PER_PAGE;
     return filteredSimPoints.slice(start, start + SIM_ROWS_PER_PAGE);
   }, [filteredSimPoints, simTablePage]);
+
+  // Editing state for Simulated Drill points
+  const [editingPointId, setEditingPointId] = useState(null);
+  const [editPointDate, setEditPointDate] = useState('');
+  const [editPointTime, setEditPointTime] = useState('');
+  const [editNotification, setEditNotification] = useState(null);
+
+  // Batch shift modal state
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [batchSessionId, setBatchSessionId] = useState('');
+  const [batchStartDate, setBatchStartDate] = useState('');
+  const [batchStartTime, setBatchStartTime] = useState('');
+
+  useEffect(() => {
+    if (!editNotification) return;
+    const t = setTimeout(() => setEditNotification(null), 3500);
+    return () => clearTimeout(t);
+  }, [editNotification]);
+
+  const handleStartRowEdit = (p) => {
+    setEditingPointId(p.id);
+    const d = new Date(p.captured_at);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      setEditPointDate(`${y}-${m}-${day}`);
+
+      const hr = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      const sec = String(d.getSeconds()).padStart(2, '0');
+      setEditPointTime(`${hr}:${min}:${sec}`);
+    } else {
+      const today = new Date();
+      setEditPointDate(today.toISOString().slice(0, 10));
+      setEditPointTime('12:00:00');
+    }
+  };
+
+  const handleSaveRowEdit = (p) => {
+    if (!editPointDate || !editPointTime) return;
+
+    const [y, m, d] = editPointDate.split('-').map(Number);
+    const timeParts = editPointTime.split(':').map(Number);
+    const hr = timeParts[0] || 0;
+    const min = timeParts[1] || 0;
+    const sec = timeParts[2] || 0;
+
+    const dt = new Date(y, m - 1, d, hr, min, sec);
+    if (isNaN(dt.getTime())) return;
+
+    const dateStr = dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    const timeStr = dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const isoDateTime = dt.toISOString();
+
+    const updated = updateDrillSessionPoint(p.sessionId, p.pointIndex, {
+      date: dateStr,
+      timestamp: timeStr,
+      isoDateTime,
+    });
+
+    setDrillSessions(updated);
+    setEditingPointId(null);
+    setEditNotification(`Updated point to ${dateStr} ${timeStr}`);
+  };
+
+  const handleOpenBatchShift = () => {
+    const defaultSess = drillSessions.find(s => s.id === simWlFilter.session) || drillSessions[0];
+    if (defaultSess) {
+      setBatchSessionId(defaultSess.id);
+      const d = new Date(defaultSess.startedAt || Date.now());
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      setBatchStartDate(`${y}-${m}-${day}`);
+      const hr = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      const sec = String(d.getSeconds()).padStart(2, '0');
+      setBatchStartTime(`${hr}:${min}:${sec}`);
+    }
+    setShiftModalOpen(true);
+  };
+
+  const handleApplyBatchShift = () => {
+    if (!batchSessionId || !batchStartDate || !batchStartTime) return;
+    const updated = shiftDrillSessionDateTime(batchSessionId, batchStartDate, batchStartTime);
+    setDrillSessions(updated);
+    setShiftModalOpen(false);
+    const s = updated.find(x => x.id === batchSessionId);
+    setEditNotification(`Shifted session "${s?.name || 'Drill'}" to ${batchStartDate} ${batchStartTime}`);
+  };
 
   const handleFilteredSimExport = () => {
     if (!filteredSimPoints.length) return;
@@ -822,13 +914,24 @@ export default function Analytics() {
                     {filteredSimPoints.length} total drill points logged
                   </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenBatchShift}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 shadow-sm transition-all"
+                    title="Shift date and time for an entire drill session"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Batch Edit Date/Time</span>
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto max-h-[32rem]">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise'].map(h => (
+                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise', 'Action'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -837,14 +940,52 @@ export default function Analytics() {
                     {paginatedSimPoints.map(p => {
                       const config = getFloodConfig(p.flood_level);
                       const statusColor = STATUS_COLORS[p.flood_level] || '#64748b';
+                      const isEditing = editingPointId === p.id;
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-5 py-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                            {p.date}
+                          {/* DATE */}
+                          <td className="px-5 py-3 text-xs">
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editPointDate}
+                                onChange={e => setEditPointDate(e.target.value)}
+                                className="w-32 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                              />
+                            ) : (
+                              <div
+                                onClick={() => handleStartRowEdit(p)}
+                                className="group inline-flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                title="Click to edit date"
+                              >
+                                <span>{p.date}</span>
+                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
+                              </div>
+                            )}
                           </td>
-                          <td className="px-5 py-3 text-xs font-mono font-medium text-slate-600 dark:text-slate-400">
-                            {p.timestamp}
+
+                          {/* TIME */}
+                          <td className="px-5 py-3 text-xs">
+                            {isEditing ? (
+                              <input
+                                type="time"
+                                step="1"
+                                value={editPointTime}
+                                onChange={e => setEditPointTime(e.target.value)}
+                                className="w-28 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                              />
+                            ) : (
+                              <div
+                                onClick={() => handleStartRowEdit(p)}
+                                className="group inline-flex items-center gap-1.5 font-mono font-medium text-slate-600 dark:text-slate-400 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                title="Click to edit time"
+                              >
+                                <span>{p.timestamp}</span>
+                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity" />
+                              </div>
+                            )}
                           </td>
+
                           <td className="px-5 py-3 text-xs font-bold text-indigo-400">
                             {p.sessionName}
                           </td>
@@ -865,6 +1006,42 @@ export default function Analytics() {
                           </td>
                           <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
                             {p.rate_per_hour} m/hr
+                          </td>
+
+                          {/* ACTION */}
+                          <td className="px-5 py-3 text-xs">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveRowEdit(p)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors"
+                                  title="Save Changes"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Save</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPointId(null)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors"
+                                  title="Cancel"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>Cancel</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleStartRowEdit(p)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                title="Edit Date & Time"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -906,6 +1083,117 @@ export default function Analytics() {
                 </div>
               )}
             </div>
+
+            {/* Batch Shift Drill Session Date & Time Modal */}
+            {shiftModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base">Edit Drill Session Date & Time</h3>
+                    </div>
+                    <button
+                      onClick={() => setShiftModalOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                        Select Drill Session
+                      </label>
+                      <select
+                        value={batchSessionId}
+                        onChange={(e) => {
+                          const sid = e.target.value;
+                          setBatchSessionId(sid);
+                          const s = drillSessions.find(ds => ds.id === sid);
+                          if (s && s.startedAt) {
+                            const d = new Date(s.startedAt);
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            setBatchStartDate(`${y}-${m}-${day}`);
+                            const hr = String(d.getHours()).padStart(2, '0');
+                            const min = String(d.getMinutes()).padStart(2, '0');
+                            const sec = String(d.getSeconds()).padStart(2, '0');
+                            setBatchStartTime(`${hr}:${min}:${sec}`);
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      >
+                        {drillSessions.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.points?.length || 0} pts)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                          New Date
+                        </label>
+                        <input
+                          type="date"
+                          value={batchStartDate}
+                          onChange={(e) => setBatchStartDate(e.target.value)}
+                          className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                          Start Time
+                        </label>
+                        <input
+                          type="time"
+                          step="1"
+                          value={batchStartTime}
+                          onChange={(e) => setBatchStartTime(e.target.value)}
+                          className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                      💡 <strong>Notice:</strong> This shifts all timestamps in the selected drill session proportionally starting from this date and time.
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShiftModalOpen(false)}
+                      className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyBatchShift}
+                      disabled={!batchSessionId || !batchStartDate || !batchStartTime}
+                      className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all"
+                    >
+                      <Check className="w-4 h-4" /> Apply to All Points
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Floating Toast Notification */}
+            {editNotification && (
+              <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-2xl shadow-emerald-600/30 border border-emerald-500/50 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>{editNotification}</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

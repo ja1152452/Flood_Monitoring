@@ -214,6 +214,79 @@ export const deleteDrillSession = (id) => {
   }
 };
 
+export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields) => {
+  try {
+    const current = getStoredDrillSessions();
+    const sessionIndex = current.findIndex((s) => s.id === sessionId);
+    if (sessionIndex === -1) return current;
+
+    const session = { ...current[sessionIndex] };
+    const points = [...(session.points || [])];
+
+    if (pointIndex >= 0 && pointIndex < points.length) {
+      points[pointIndex] = {
+        ...points[pointIndex],
+        ...updatedFields,
+      };
+
+      if (pointIndex === 0 && updatedFields.isoDateTime) {
+        session.startedAt = updatedFields.isoDateTime;
+      }
+      if (pointIndex === points.length - 1 && updatedFields.isoDateTime) {
+        session.finishedAt = updatedFields.isoDateTime;
+      }
+
+      session.points = points;
+      current[sessionIndex] = session;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    }
+    return current;
+  } catch (err) {
+    console.error('Failed to update drill session point:', err);
+    return getStoredDrillSessions();
+  }
+};
+
+export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTimeStr) => {
+  try {
+    const current = getStoredDrillSessions();
+    const sessionIndex = current.findIndex((s) => s.id === sessionId);
+    if (sessionIndex === -1) return current;
+
+    const session = { ...current[sessionIndex] };
+    const points = [...(session.points || [])];
+    if (points.length === 0) return current;
+
+    const [year, month, day] = newStartDateStr.split('-').map(Number);
+    const [hours, minutes, seconds = 0] = newStartTimeStr.split(':').map(Number);
+    const newBaseDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    const baseMs = newBaseDate.getTime();
+
+    const updatedPoints = points.map((p, idx) => {
+      const offsetMs = (p.elapsedSec ?? idx * 2) * 1000;
+      const ptDate = new Date(baseMs + offsetMs);
+      const dateStr = ptDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+      const timeStr = ptDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return {
+        ...p,
+        date: dateStr,
+        timestamp: timeStr,
+        isoDateTime: ptDate.toISOString(),
+      };
+    });
+
+    session.startedAt = updatedPoints[0].isoDateTime;
+    session.finishedAt = updatedPoints[updatedPoints.length - 1].isoDateTime;
+    session.points = updatedPoints;
+    current[sessionIndex] = session;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    return current;
+  } catch (err) {
+    console.error('Failed to shift drill session date/time:', err);
+    return getStoredDrillSessions();
+  }
+};
+
 // Active live recorder instance for current simulation run
 let activeRecording = null;
 
