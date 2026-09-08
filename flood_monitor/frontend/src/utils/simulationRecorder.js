@@ -7,6 +7,7 @@
 import { calculateDynamicRate } from './waterSimulationUtils.js';
 
 const STORAGE_KEY = 'flood_simulation_drill_sessions_v1';
+const DELETED_SESSIONS_KEY = 'flood_simulation_drill_deleted_ids_v1';
 
 // Standard pre-loaded drill sessions (including Morning 9:00 AM & Night sessions)
 const DEFAULT_DRILL_SESSIONS = [
@@ -156,24 +157,34 @@ export const getStoredDrillSessions = () => {
     }
     if (!Array.isArray(parsed)) parsed = [];
 
-    // Ensure standard drill sessions (especially 9:00 AM Morning Drill) are always present
+    // Ensure standard drill sessions are present unless explicitly deleted
+    let deletedIds = [];
+    try {
+      const delRaw = localStorage.getItem(DELETED_SESSIONS_KEY);
+      if (delRaw) deletedIds = JSON.parse(delRaw);
+    } catch {}
+
     const merged = [...parsed];
     for (const def of DEFAULT_DRILL_SESSIONS) {
-      if (!merged.some((s) => s.id === def.id || s.name === def.name)) {
+      if (!deletedIds.includes(def.id) && !merged.some((s) => s.id === def.id || s.name === def.name)) {
         merged.push(def);
       }
     }
 
     // Sanitize any previously cached hardcoded rates (210, 220, 260) with dynamic calculations
     const sanitized = merged.map((sess) => {
-      const pts = (sess.points || []).map((p) => {
-        if (p.ratePerHour === 210 || p.ratePerHour === 220 || p.ratePerHour === 260 || p.ratePerHour == null) {
-          return {
-            ...p,
-            ratePerHour: calculateDynamicRate(p.waterLevelM, p.phase || 'rising'),
-          };
-        }
-        return p;
+      const pts = (sess.points || []).map((p, pIdx) => {
+        const rate = (p.ratePerHour === 210 || p.ratePerHour === 220 || p.ratePerHour === 260 || p.ratePerHour == null)
+          ? calculateDynamicRate(p.waterLevelM, p.phase || 'rising')
+          : p.ratePerHour;
+
+        const iso = p.isoDateTime || (sess.startedAt ? new Date(new Date(sess.startedAt).getTime() + (p.elapsedSec ?? pIdx * 2) * 1000).toISOString() : new Date().toISOString());
+
+        return {
+          ...p,
+          isoDateTime: iso,
+          ratePerHour: rate,
+        };
       });
 
       // Keep points sorted chronologically ascending within each drill session
@@ -199,6 +210,9 @@ export const getStoredDrillSessions = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     } catch {}
 
+    if (raw !== null || deletedIds.length > 0) {
+      return sanitized;
+    }
     return sanitized.length > 0 ? sanitized : DEFAULT_DRILL_SESSIONS;
   } catch {
     return DEFAULT_DRILL_SESSIONS;
@@ -222,6 +236,16 @@ export const deleteDrillSession = (id) => {
     const current = getStoredDrillSessions();
     const filtered = current.filter((s) => s.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+
+    try {
+      const deletedRaw = localStorage.getItem(DELETED_SESSIONS_KEY);
+      const deletedIds = deletedRaw ? JSON.parse(deletedRaw) : [];
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem(DELETED_SESSIONS_KEY, JSON.stringify(deletedIds));
+      }
+    } catch {}
+
     return filtered;
   } catch {
     return [];
@@ -237,10 +261,11 @@ export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields, po
     const session = { ...current[sessionIndex] };
     const points = [...(session.points || [])];
 
-    let targetIdx = pointIndex;
-    if (pointIso && (targetIdx < 0 || targetIdx >= points.length || points[targetIdx]?.isoDateTime !== pointIso)) {
-      const foundIdx = points.findIndex(p => p.isoDateTime === pointIso);
-      if (foundIdx !== -1) targetIdx = foundIdx;
+    let targetIdx = -1;
+    if (pointIndex >= 0 && pointIndex < points.length && (!pointIso || points[pointIndex]?.isoDateTime === pointIso)) {
+      targetIdx = pointIndex;
+    } else if (pointIso) {
+      targetIdx = points.findIndex(p => p.isoDateTime === pointIso);
     }
 
     if (targetIdx >= 0 && targetIdx < points.length) {
@@ -259,9 +284,33 @@ export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields, po
         return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
       });
 
+      session.pointsCount = points.length;
       if (points.length > 0) {
         if (points[0].isoDateTime) session.startedAt = points[0].isoDateTime;
         if (points[points.length - 1].isoDateTime) session.finishedAt = points[points.length - 1].isoDateTime;
+
+        if (points.length >= 2 && points[0].isoDateTime && points[points.length - 1].isoDateTime) {
+          const diffSec = Math.round((new Date(points[points.length - 1].isoDateTime).getTime() - new Date(points[0].isoDateTime).getTime()) / 1000);
+          session.durationSec = Math.max(0, diffSec);
+        } else if (points.length >= 2) {
+          session.durationSec = Math.max(0, (points[points.length - 1].elapsedSec ?? 0) - (points[0].elapsedSec ?? 0));
+        } else {
+          session.durationSec = 0;
+        }
+
+        let maxLevel = -Infinity;
+        let peakCat = 'NORMAL';
+        points.forEach((pt) => {
+          const lvl = parseFloat(pt.waterLevelM || pt.water_level_m || 0);
+          if (lvl > maxLevel) {
+            maxLevel = lvl;
+            peakCat = pt.floodLevel || pt.flood_level || 'NORMAL';
+          }
+        });
+        if (maxLevel > -Infinity) {
+          session.peakLevelM = parseFloat(maxLevel.toFixed(2));
+          session.peakCategory = peakCat;
+        }
       }
 
       session.points = points;
@@ -284,10 +333,11 @@ export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) 
     const session = { ...current[sessionIndex] };
     const points = [...(session.points || [])];
 
-    let targetIdx = pointIndex;
-    if (pointIso && (targetIdx < 0 || targetIdx >= points.length || points[targetIdx]?.isoDateTime !== pointIso)) {
-      const foundIdx = points.findIndex(p => p.isoDateTime === pointIso);
-      if (foundIdx !== -1) targetIdx = foundIdx;
+    let targetIdx = -1;
+    if (pointIndex >= 0 && pointIndex < points.length && (!pointIso || points[pointIndex]?.isoDateTime === pointIso)) {
+      targetIdx = pointIndex;
+    } else if (pointIso) {
+      targetIdx = points.findIndex(p => p.isoDateTime === pointIso);
     }
 
     if (targetIdx >= 0 && targetIdx < points.length) {
@@ -308,6 +358,15 @@ export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) 
         if (points[0].isoDateTime) session.startedAt = points[0].isoDateTime;
         if (points[points.length - 1].isoDateTime) session.finishedAt = points[points.length - 1].isoDateTime;
 
+        if (points.length >= 2 && points[0].isoDateTime && points[points.length - 1].isoDateTime) {
+          const diffSec = Math.round((new Date(points[points.length - 1].isoDateTime).getTime() - new Date(points[0].isoDateTime).getTime()) / 1000);
+          session.durationSec = Math.max(0, diffSec);
+        } else if (points.length >= 2) {
+          session.durationSec = Math.max(0, (points[points.length - 1].elapsedSec ?? 0) - (points[0].elapsedSec ?? 0));
+        } else {
+          session.durationSec = 0;
+        }
+
         let maxLevel = -Infinity;
         let peakCat = 'NORMAL';
         points.forEach((pt) => {
@@ -323,6 +382,11 @@ export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) 
         }
       } else {
         session.pointsCount = 0;
+        session.startedAt = null;
+        session.finishedAt = null;
+        session.peakLevelM = 0;
+        session.peakCategory = 'NORMAL';
+        session.durationSec = 0;
       }
 
       session.points = points;
@@ -391,8 +455,14 @@ export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTi
 
 export const matchesPointDate = (point, targetYMD) => {
   if (!point || !targetYMD) return false;
+  const parts = String(targetYMD).trim().split('-');
+  let normTarget = targetYMD;
+  if (parts.length === 3) {
+    normTarget = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+  }
+
   const iso = point.isoDateTime || point.captured_at;
-  if (iso && iso.slice(0, 10) === targetYMD) return true;
+  if (iso && iso.slice(0, 10) === normTarget) return true;
 
   if (iso) {
     const d = new Date(iso);
@@ -400,18 +470,18 @@ export const matchesPointDate = (point, targetYMD) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      if (`${y}-${m}-${day}` === targetYMD) return true;
+      if (`${y}-${m}-${day}` === normTarget) return true;
     }
   }
 
-  if (point.date === targetYMD) return true;
+  if (point.date === normTarget) return true;
   if (point.date) {
     const d2 = new Date(point.date);
     if (!isNaN(d2.getTime())) {
       const y = d2.getFullYear();
       const m = String(d2.getMonth() + 1).padStart(2, '0');
       const day = String(d2.getDate()).padStart(2, '0');
-      if (`${y}-${m}-${day}` === targetYMD) return true;
+      if (`${y}-${m}-${day}` === normTarget) return true;
     }
   }
   return false;
@@ -457,6 +527,15 @@ export const deleteDrillSessionPointsByDate = (sessionId, targetDateStr) => {
           updatedSession.finishedAt = remainingPoints[remainingPoints.length - 1].isoDateTime;
         }
 
+        if (remainingPoints.length >= 2 && remainingPoints[0].isoDateTime && remainingPoints[remainingPoints.length - 1].isoDateTime) {
+          const diffSec = Math.round((new Date(remainingPoints[remainingPoints.length - 1].isoDateTime).getTime() - new Date(remainingPoints[0].isoDateTime).getTime()) / 1000);
+          updatedSession.durationSec = Math.max(0, diffSec);
+        } else if (remainingPoints.length >= 2) {
+          updatedSession.durationSec = Math.max(0, (remainingPoints[remainingPoints.length - 1].elapsedSec ?? 0) - (remainingPoints[0].elapsedSec ?? 0));
+        } else {
+          updatedSession.durationSec = 0;
+        }
+
         let maxLevel = -Infinity;
         let peakCat = 'NORMAL';
         remainingPoints.forEach((pt) => {
@@ -470,6 +549,13 @@ export const deleteDrillSessionPointsByDate = (sessionId, targetDateStr) => {
           updatedSession.peakLevelM = parseFloat(maxLevel.toFixed(2));
           updatedSession.peakCategory = peakCat;
         }
+      } else {
+        updatedSession.pointsCount = 0;
+        updatedSession.startedAt = null;
+        updatedSession.finishedAt = null;
+        updatedSession.peakLevelM = 0;
+        updatedSession.peakCategory = 'NORMAL';
+        updatedSession.durationSec = 0;
       }
 
       return updatedSession;

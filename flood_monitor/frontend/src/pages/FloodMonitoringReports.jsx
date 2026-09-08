@@ -174,11 +174,14 @@ export default function FloodMonitoringReports() {
 
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105);
-    doc.text(`Drill Session: ${selectedDrill.name}`, 14, 30);
+    doc.text(`Drill Session: ${selectedDrill.name || 'Drill Run'}`, 14, 30);
     doc.text(`Drill Date: ${drillDateStr}`, 14, 35);
-    doc.text(`Scenario Type: ${String(selectedDrill.scenarioType).toUpperCase()}`, 14, 40);
-    doc.text(`Peak Water Level Reached: ${selectedDrill.peakLevelM.toFixed(2)}m (${selectedDrill.peakCategory})`, 14, 45);
-    doc.text(`Drill Duration: ${selectedDrill.durationSec} seconds (${selectedDrill.pointsCount} points logged)`, 14, 50);
+    doc.text(`Scenario Type: ${String(selectedDrill.scenarioType || 'DRILL').toUpperCase()}`, 14, 40);
+    const peakStr = (parseFloat(selectedDrill.peakLevelM) || 0).toFixed(2);
+    const durSec = selectedDrill.durationSec ?? 0;
+    const ptsCount = selectedDrill.pointsCount ?? (selectedDrill.points || []).length;
+    doc.text(`Peak Water Level Reached: ${peakStr}m (${selectedDrill.peakCategory || 'NORMAL'})`, 14, 45);
+    doc.text(`Drill Duration: ${durSec} seconds (${ptsCount} points logged)`, 14, 50);
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 55);
 
     const sortedDrillPoints = [...(selectedDrill.points || [])].sort((a, b) => {
@@ -194,13 +197,13 @@ export default function FloodMonitoringReports() {
         const pDate = p.date || drillDateStr;
         return [
           pDate,
-          `+${p.elapsedSec}s`,
-          p.timestamp,
-          `${p.waterLevelM.toFixed(2)}m`,
-          `${p.waterLevelCm} cm`,
-          p.floodLevel,
+          `+${p.elapsedSec ?? 0}s`,
+          p.timestamp || '—',
+          `${(parseFloat(p.waterLevelM) || 0).toFixed(2)}m`,
+          p.waterLevelCm != null ? `${p.waterLevelCm} cm` : '—',
+          p.floodLevel || 'NORMAL',
           p.phase ? p.phase.toUpperCase() : 'N/A',
-          `${p.ratePerHour} m/hr`,
+          p.ratePerHour != null ? `${p.ratePerHour} m/hr` : '—',
         ];
       }),
       styles:     { fontSize: 8, textColor: [30, 41, 59] },
@@ -228,13 +231,13 @@ export default function FloodMonitoringReports() {
     const headers = ['Date', 'Elapsed_Seconds', 'Timestamp', 'Water_Level_Meters', 'Water_Level_CM', 'Flood_Status', 'Drill_Phase', 'Rate_M_Per_Hr'];
     const rows = sortedDrillPoints.map(p => [
       `"${p.date || defaultDateStr}"`,
-      p.elapsedSec,
-      `"${p.timestamp}"`,
-      p.waterLevelM,
-      p.waterLevelCm,
-      `"${p.floodLevel}"`,
-      `"${p.phase}"`,
-      p.ratePerHour,
+      p.elapsedSec ?? 0,
+      `"${p.timestamp || '—'}"`,
+      p.waterLevelM != null ? p.waterLevelM : 0,
+      p.waterLevelCm != null ? p.waterLevelCm : 0,
+      `"${p.floodLevel || 'NORMAL'}"`,
+      `"${p.phase || 'N/A'}"`,
+      p.ratePerHour != null ? p.ratePerHour : 0,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -482,15 +485,17 @@ export default function FloodMonitoringReports() {
             </div>
             <div>
               <span className="text-slate-500 font-semibold block">Peak Level Reached:</span>
-              <span className="font-extrabold text-white text-sm">{selectedDrill.peakLevelM.toFixed(2)}m ({selectedDrill.peakCategory})</span>
+              <span className="font-extrabold text-white text-sm">
+                {(parseFloat(selectedDrill.peakLevelM) || 0).toFixed(2)}m ({selectedDrill.peakCategory || 'NORMAL'})
+              </span>
             </div>
             <div>
               <span className="text-slate-500 font-semibold block">Total Duration:</span>
-              <span className="font-extrabold text-white text-sm">{selectedDrill.durationSec}s</span>
+              <span className="font-extrabold text-white text-sm">{selectedDrill.durationSec ?? 0}s</span>
             </div>
             <div>
               <span className="text-slate-500 font-semibold block">Data Points Logged:</span>
-              <span className="font-extrabold text-white text-sm">{selectedDrill.pointsCount} entries</span>
+              <span className="font-extrabold text-white text-sm">{selectedDrill.pointsCount ?? (selectedDrill.points || []).length} entries</span>
             </div>
           </div>
 

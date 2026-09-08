@@ -397,22 +397,27 @@ export default function Analytics() {
     if (!selectedDrill) return null;
     const doc = new jsPDF();
     doc.setFontSize(16); doc.setTextColor(30, 41, 59);
-    doc.text(`Simulation Drill Evaluation Report — ${selectedDrill.name}`, 14, 16);
+    doc.text(`Simulation Drill Evaluation Report — ${selectedDrill.name || 'Drill Run'}`, 14, 16);
     doc.setFontSize(9); doc.setTextColor(100);
-    doc.text(`Drill Duration: ${selectedDrill.durationSec}s | Peak Level: ${selectedDrill.peakLevelM.toFixed(2)}m (${selectedDrill.peakCategory})`, 14, 23);
-    doc.text(`Started: ${new Date(selectedDrill.startedAt).toLocaleString('en-PH')} | Logged Data Points: ${selectedDrill.pointsCount}`, 14, 28);
+    const peakStr = (parseFloat(selectedDrill.peakLevelM) || 0).toFixed(2);
+    const durSec = selectedDrill.durationSec ?? 0;
+    const peakCat = selectedDrill.peakCategory || 'NORMAL';
+    doc.text(`Drill Duration: ${durSec}s | Peak Level: ${peakStr}m (${peakCat})`, 14, 23);
+    const startStr = selectedDrill.startedAt ? new Date(selectedDrill.startedAt).toLocaleString('en-PH') : '—';
+    const ptsCount = selectedDrill.pointsCount ?? (selectedDrill.points || []).length;
+    doc.text(`Started: ${startStr} | Logged Data Points: ${ptsCount}`, 14, 28);
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
     autoTable(doc, {
       startY: 39,
       head: [['Elapsed (s)', 'Time of Day', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
       body: (selectedDrill.points || []).map(p => [
-        `+${p.elapsedSec}s`,
+        `+${p.elapsedSec ?? 0}s`,
         p.timestamp || '—',
-        p.waterLevelM.toFixed(2),
-        `${p.waterLevelCm} cm`,
-        p.floodLevel,
+        (parseFloat(p.waterLevelM) || 0).toFixed(2),
+        p.waterLevelCm != null ? `${p.waterLevelCm} cm` : '—',
+        p.floodLevel || 'NORMAL',
         p.phase || '—',
-        `${p.ratePerHour} m/hr`,
+        p.ratePerHour != null ? `${p.ratePerHour} m/hr` : '—',
       ]),
       styles: { fontSize: 8, textColor: [30, 41, 59] },
       headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
@@ -424,7 +429,7 @@ export default function Analytics() {
   const handleDrillExport = () => {
     const doc = buildDrillPdf();
     if (!doc) return;
-    const filename = `simulation-drill-report-${selectedDrill.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.pdf`;
+    const filename = `simulation-drill-report-${(selectedDrill.name || 'drill').toLowerCase().replace(/[^a-z0-9]/g, '-')}.pdf`;
     const url = doc.output('bloburl');
     setPdfPreview({ url, filename });
   };
@@ -488,7 +493,7 @@ export default function Analytics() {
 
     // 3. Filter by time range
     if (simWlFilter.type === 'date') {
-      list = list.filter(p => p.captured_at.slice(0, 10) === simWlFilter.date);
+      list = list.filter(p => matchesPointDate(p, simWlFilter.date));
     } else if (simWlFilter.type === 'month') {
       list = list.filter(p => {
         const d = new Date(p.captured_at);
@@ -515,11 +520,12 @@ export default function Analytics() {
     });
   }, [allSimPoints, simWlFilter]);
 
-  const totalSimTablePages = Math.ceil(filteredSimPoints.length / SIM_ROWS_PER_PAGE) || 1;
+  const totalSimTablePages = Math.max(1, Math.ceil(filteredSimPoints.length / SIM_ROWS_PER_PAGE));
   const paginatedSimPoints = useMemo(() => {
-    const start = (simTablePage - 1) * SIM_ROWS_PER_PAGE;
+    const validPage = Math.min(simTablePage, totalSimTablePages);
+    const start = (validPage - 1) * SIM_ROWS_PER_PAGE;
     return filteredSimPoints.slice(start, start + SIM_ROWS_PER_PAGE);
-  }, [filteredSimPoints, simTablePage]);
+  }, [filteredSimPoints, simTablePage, totalSimTablePages]);
 
   // Editing and Deleting state for Simulated Drill points
   const [editingPointId, setEditingPointId] = useState(null);
@@ -657,6 +663,8 @@ export default function Analytics() {
     const { date, sessionId, count, sessionName } = confirmDeleteByDate;
     const result = deleteDrillSessionPointsByDate(sessionId, date);
     setDrillSessions(result.updatedSessions);
+    setEditingPointId(null);
+    setConfirmDeletePoint(null);
     setConfirmDeleteByDate(null);
     setShiftModalOpen(false);
     setSimTablePage(1);
@@ -699,14 +707,14 @@ export default function Analytics() {
       startY: 39,
       head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
       body: filteredSimPoints.slice(0, 3000).map(p => [
-        p.date,
-        p.timestamp,
-        p.sessionName,
-        p.water_level_m.toFixed(2),
-        `${p.water_level_cm} cm`,
-        p.flood_level,
+        p.date || '—',
+        p.timestamp || '—',
+        p.sessionName || '—',
+        (parseFloat(p.water_level_m) || 0).toFixed(2),
+        p.water_level_cm != null ? `${p.water_level_cm} cm` : '—',
+        p.flood_level || 'NORMAL',
         p.phase || '—',
-        `${p.rate_per_hour} m/hr`,
+        p.rate_per_hour != null ? `${p.rate_per_hour} m/hr` : '—',
       ]),
       styles: { fontSize: 8, textColor: [30, 41, 59] },
       headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
@@ -840,19 +848,19 @@ export default function Analytics() {
                 Drill Session Overview: <span className="text-indigo-400 font-extrabold">{selectedDrill.name}</span>
               </h2>
               <span className="text-xs text-slate-500 font-medium">
-                Started: {new Date(selectedDrill.startedAt).toLocaleString('en-PH')} · {selectedDrill.pointsCount} points logged
+                Started: {selectedDrill.startedAt ? new Date(selectedDrill.startedAt).toLocaleString('en-PH') : 'No data'} · {selectedDrill.pointsCount ?? (selectedDrill.points || []).length} points logged
               </span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 label="Peak Water Level"
-                value={`${selectedDrill.peakLevelM.toFixed(2)}m`}
-                sub={`Max Threshold: ${selectedDrill.peakCategory}`}
+                value={`${(parseFloat(selectedDrill.peakLevelM) || 0).toFixed(2)}m`}
+                sub={`Max Threshold: ${selectedDrill.peakCategory || 'NORMAL'}`}
                 color={STATUS_COLORS[selectedDrill.peakCategory] ? `text-${STATUS_COLORS[selectedDrill.peakCategory]}` : 'text-indigo-400'}
               />
               <StatCard
                 label="Drill Duration"
-                value={`${selectedDrill.durationSec}s`}
+                value={`${selectedDrill.durationSec ?? 0}s`}
                 sub="Elapsed Scenario Time"
                 color="text-blue-600 dark:text-blue-400"
               />
@@ -1070,7 +1078,7 @@ export default function Analytics() {
                             {p.water_level_m != null ? `${parseFloat(p.water_level_m).toFixed(3)} m` : '—'}
                           </td>
                           <td className="px-5 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            {p.water_level_cm} cm
+                            {p.water_level_cm != null ? `${p.water_level_cm} cm` : '—'}
                           </td>
                           <td className="px-5 py-3">
                             <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
@@ -1082,7 +1090,7 @@ export default function Analytics() {
                             {p.phase || 'N/A'}
                           </td>
                           <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
-                            {p.rate_per_hour} m/hr
+                            {p.rate_per_hour != null ? `${p.rate_per_hour} m/hr` : '—'}
                           </td>
 
                           {/* ACTION */}
