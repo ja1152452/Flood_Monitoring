@@ -165,9 +165,8 @@ export const getStoredDrillSessions = () => {
     }
 
     // Sanitize any previously cached hardcoded rates (210, 220, 260) with dynamic calculations
-    const sanitized = merged.map((sess) => ({
-      ...sess,
-      points: (sess.points || []).map((p) => {
+    const sanitized = merged.map((sess) => {
+      const pts = (sess.points || []).map((p) => {
         if (p.ratePerHour === 210 || p.ratePerHour === 220 || p.ratePerHour === 260 || p.ratePerHour == null) {
           return {
             ...p,
@@ -175,10 +174,25 @@ export const getStoredDrillSessions = () => {
           };
         }
         return p;
-      }),
-    }));
+      });
 
-    // Sort by startedAt descending
+      // Keep points sorted chronologically ascending within each drill session
+      pts.sort((a, b) => {
+        const timeA = new Date(a.isoDateTime || 0).getTime();
+        const timeB = new Date(b.isoDateTime || 0).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
+      });
+
+      return {
+        ...sess,
+        points: pts,
+      };
+    });
+
+    // Sort sessions by startedAt descending (latest drill session first)
     sanitized.sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
 
     try {
@@ -214,7 +228,7 @@ export const deleteDrillSession = (id) => {
   }
 };
 
-export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields) => {
+export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields, pointIso = null) => {
   try {
     const current = getStoredDrillSessions();
     const sessionIndex = current.findIndex((s) => s.id === sessionId);
@@ -223,17 +237,31 @@ export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields) =>
     const session = { ...current[sessionIndex] };
     const points = [...(session.points || [])];
 
-    if (pointIndex >= 0 && pointIndex < points.length) {
-      points[pointIndex] = {
-        ...points[pointIndex],
+    let targetIdx = pointIndex;
+    if (pointIso && (targetIdx < 0 || targetIdx >= points.length || points[targetIdx]?.isoDateTime !== pointIso)) {
+      const foundIdx = points.findIndex(p => p.isoDateTime === pointIso);
+      if (foundIdx !== -1) targetIdx = foundIdx;
+    }
+
+    if (targetIdx >= 0 && targetIdx < points.length) {
+      points[targetIdx] = {
+        ...points[targetIdx],
         ...updatedFields,
       };
 
-      if (pointIndex === 0 && updatedFields.isoDateTime) {
-        session.startedAt = updatedFields.isoDateTime;
-      }
-      if (pointIndex === points.length - 1 && updatedFields.isoDateTime) {
-        session.finishedAt = updatedFields.isoDateTime;
+      // Always keep session points sorted chronologically ascending
+      points.sort((a, b) => {
+        const timeA = new Date(a.isoDateTime || 0).getTime();
+        const timeB = new Date(b.isoDateTime || 0).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
+      });
+
+      if (points.length > 0) {
+        if (points[0].isoDateTime) session.startedAt = points[0].isoDateTime;
+        if (points[points.length - 1].isoDateTime) session.finishedAt = points[points.length - 1].isoDateTime;
       }
 
       session.points = points;
@@ -266,6 +294,16 @@ export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) 
       points.splice(targetIdx, 1);
 
       if (points.length > 0) {
+        // Keep points sorted chronologically ascending
+        points.sort((a, b) => {
+          const timeA = new Date(a.isoDateTime || 0).getTime();
+          const timeB = new Date(b.isoDateTime || 0).getTime();
+          if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+            return timeA - timeB;
+          }
+          return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
+        });
+
         session.pointsCount = points.length;
         if (points[0].isoDateTime) session.startedAt = points[0].isoDateTime;
         if (points[points.length - 1].isoDateTime) session.finishedAt = points[points.length - 1].isoDateTime;
@@ -327,6 +365,16 @@ export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTi
         timestamp: timeStr,
         isoDateTime: ptDate.toISOString(),
       };
+    });
+
+    // Keep shifted points sorted chronologically ascending
+    updatedPoints.sort((a, b) => {
+      const timeA = new Date(a.isoDateTime || 0).getTime();
+      const timeB = new Date(b.isoDateTime || 0).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeA - timeB;
+      }
+      return (a.elapsedSec ?? 0) - (b.elapsedSec ?? 0);
     });
 
     session.startedAt = updatedPoints[0].isoDateTime;

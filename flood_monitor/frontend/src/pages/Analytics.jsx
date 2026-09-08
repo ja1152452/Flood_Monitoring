@@ -455,7 +455,7 @@ export default function Analytics() {
         const pointIso = p.isoDateTime || new Date(sessionDate.getTime() + (p.elapsedSec || idx * 2) * 1000).toISOString();
         const ptDate = new Date(pointIso);
         return {
-          id: `${s.id}-${idx}`,
+          id: `${s.id}-${p.isoDateTime || ''}-${idx}`,
           sessionId: s.id,
           pointIndex: idx,
           sessionName: s.name,
@@ -474,7 +474,7 @@ export default function Analytics() {
   }, [drillSessions]);
 
   const filteredSimPoints = useMemo(() => {
-    let list = allSimPoints;
+    let list = [...allSimPoints];
 
     // 1. Filter by session
     if (simWlFilter.session && simWlFilter.session !== 'ALL') {
@@ -504,8 +504,15 @@ export default function Analytics() {
       });
     }
 
-    // Sort records from LATEST to OLDEST (Newest first)
-    return list.sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
+    // Sort records strictly from LATEST to OLDEST (Top is newest, bottom is oldest)
+    return list.sort((a, b) => {
+      const timeB = new Date(b.captured_at || b.isoDateTime || 0).getTime();
+      const timeA = new Date(a.captured_at || a.isoDateTime || 0).getTime();
+      if (!isNaN(timeB) && !isNaN(timeA) && timeB !== timeA) {
+        return timeB - timeA; // Descending: Latest at top
+      }
+      return (b.elapsedSec ?? 0) - (a.elapsedSec ?? 0);
+    });
   }, [allSimPoints, simWlFilter]);
 
   const totalSimTablePages = Math.ceil(filteredSimPoints.length / SIM_ROWS_PER_PAGE) || 1;
@@ -573,11 +580,12 @@ export default function Analytics() {
       date: dateStr,
       timestamp: timeStr,
       isoDateTime,
-    });
+    }, p.captured_at);
 
     setDrillSessions(updated);
     setEditingPointId(null);
-    setEditNotification(`Updated point to ${dateStr} ${timeStr}`);
+    setSimTablePage(1);
+    setEditNotification(`Updated point to ${dateStr} ${timeStr} (reordered latest to oldest)`);
   };
 
   const handleOpenBatchShift = () => {
@@ -931,7 +939,7 @@ export default function Analytics() {
                     Detailed Simulated Drill Readings
                   </h3>
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                    {filteredSimPoints.length} total drill points logged
+                    {filteredSimPoints.length} total drill points logged · Ordered latest to oldest
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -951,7 +959,7 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Date', 'Time', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise', 'Action'].map(h => (
+                      {['Date', 'Time (Latest First)', 'Drill Session', 'Simulated Level', 'Level (cm)', 'Status', 'Drill Phase', 'Rate of Rise', 'Action'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
