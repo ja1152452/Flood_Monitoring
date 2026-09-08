@@ -29,8 +29,8 @@ const DEFAULT_DRILL_SESSIONS = [
     points: Array.from({ length: 31 }).map((_, i) => {
       const sec = i * 2;
       const progress = sec / 60;
-      let level = 2.00;
-      let phase = 'rising';
+      let level;
+      let phase;
       if (progress < 0.45) {
         level = 2.00 + (6.25 - 2.00) * (progress / 0.45);
         phase = 'rising';
@@ -77,8 +77,8 @@ const DEFAULT_DRILL_SESSIONS = [
     points: Array.from({ length: 31 }).map((_, i) => {
       const sec = i * 2;
       const progress = sec / 60;
-      let level = 2.00;
-      let phase = 'rising';
+      let level;
+      let phase;
       if (progress < 0.45) {
         level = 2.00 + (5.85 - 2.00) * (progress / 0.45);
         phase = 'rising';

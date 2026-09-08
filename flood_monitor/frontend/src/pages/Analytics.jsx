@@ -449,7 +449,7 @@ export default function Analytics() {
 
   const allSimPoints = useMemo(() => {
     return drillSessions.flatMap(s => {
-      const sessionDate = new Date(s.startedAt || Date.now());
+      const sessionDate = new Date(s.startedAt || 0);
       const sessionDateStr = sessionDate.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
       return (s.points || []).map((p, idx) => {
         const pointIso = p.isoDateTime || new Date(sessionDate.getTime() + (p.elapsedSec || idx * 2) * 1000).toISOString();
