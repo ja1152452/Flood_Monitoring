@@ -105,6 +105,93 @@ function getWeekRange(weekStr) {
   return { start, end };
 }
 
+function calculateReadingRate(readingsList, globalIdx) {
+  if (!Array.isArray(readingsList) || globalIdx < 0 || globalIdx >= readingsList.length) {
+    return { rate: 0, text: '0.00 m/hr', trend: 'STABLE' };
+  }
+
+  const current = readingsList[globalIdx];
+  if (!current || current.water_level_m == null) {
+    return { rate: 0, text: '—', trend: 'STABLE' };
+  }
+
+  const currentLevel = parseFloat(current.water_level_m);
+  const currentTime = new Date(current.captured_at || current.recorded_at || current.created_at).getTime();
+
+  if (isNaN(currentLevel) || isNaN(currentTime)) {
+    return { rate: 0, text: '—', trend: 'STABLE' };
+  }
+
+  // Look backward in time (larger index in DESC list = older reading)
+  let bestPrev = null;
+  let fallbackPrev = null;
+
+  const searchLimit = Math.min(readingsList.length, globalIdx + 50);
+  for (let j = globalIdx + 1; j < searchLimit; j++) {
+    const candidate = readingsList[j];
+    if (!candidate || candidate.water_level_m == null) continue;
+    const candTime = new Date(candidate.captured_at || candidate.recorded_at || candidate.created_at).getTime();
+    if (isNaN(candTime)) continue;
+
+    const diffMs = currentTime - candTime;
+    if (diffMs <= 0) continue; // Skip same millisecond or duplicate timestamp
+
+    if (!fallbackPrev) {
+      fallbackPrev = { candidate, diffMs };
+    }
+
+    // Prefer baseline reading from 15s to 2 hours ago
+    if (diffMs >= 15000 && diffMs <= 7200000) {
+      bestPrev = { candidate, diffMs };
+      break;
+    }
+  }
+
+  const chosen = bestPrev || fallbackPrev;
+  if (!chosen) {
+    if (current.rate_per_hour != null) {
+      const r = parseFloat(current.rate_per_hour);
+      const trend = r > 0.01 ? 'RISING' : r < -0.01 ? 'RECEDING' : 'STABLE';
+      const text = r > 0 ? `+${r.toFixed(2)} m/hr` : `${r.toFixed(2)} m/hr`;
+      return { rate: r, text, trend };
+    }
+    return { rate: 0, text: '0.00 m/hr', trend: current.trend || 'STABLE' };
+  }
+
+  // If time gap is more than 2 hours, rate cannot be reasonably calculated
+  if (chosen.diffMs > 7200000) {
+    return { rate: 0, text: '0.00 m/hr', trend: 'STABLE' };
+  }
+
+  const prevLevel = parseFloat(chosen.candidate.water_level_m);
+  const diffHours = chosen.diffMs / 3600000;
+  const deltaM = currentLevel - prevLevel;
+
+  let rate = diffHours > 0 ? deltaM / diffHours : 0;
+
+  // Suppress sensor flutter below 3mm
+  if (Math.abs(deltaM) < 0.003) {
+    rate = 0;
+  }
+
+  // Dampen rapid sub-5s bursts to avoid unrealistic rate spikes
+  if (chosen.diffMs < 5000 && Math.abs(rate) > 5.0) {
+    rate = Math.sign(rate) * 5.0;
+  }
+
+  rate = parseFloat(rate.toFixed(2));
+
+  let trend = 'STABLE';
+  if (rate > 0.01) trend = 'RISING';
+  else if (rate < -0.01) trend = 'RECEDING';
+  else if (current.trend && current.trend !== 'STABLE') trend = current.trend;
+
+  const sign = rate > 0 ? '+' : '';
+  const text = `${sign}${rate.toFixed(2)} m/hr`;
+
+  return { rate, text, trend, deltaM };
+}
+
 export default function Analytics() {
   const now = new Date();
 
@@ -275,20 +362,22 @@ export default function Analytics() {
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
     autoTable(doc, {
       startY: 39,
-      head: [['Date', 'Time', 'Water Level (m)', 'Status', 'Weather']],
-      body: rows.slice(0, 3000).map(r => {
+      head: [['Date', 'Time', 'Water Level (m)', 'Status', 'Rate of Rise', 'Weather']],
+      body: rows.slice(0, 3000).map((r, idx) => {
         const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
+        const rateInfo = calculateReadingRate(rows, idx);
         return [
           dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }),
           dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           r.water_level_m != null ? parseFloat(r.water_level_m).toFixed(3) : '—',
           r.flood_level || r.status || '—',
+          rateInfo.text,
           weatherLabel,
         ];
       }),
       styles: { fontSize: 8, textColor: [30, 41, 59] },
       headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
-      columnStyles: { 3: { fontStyle: 'bold' } },
+      columnStyles: { 3: { fontStyle: 'bold' }, 4: { fontStyle: 'bold' } },
     });
     return doc;
   };
@@ -1056,18 +1145,20 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      {['Date', 'Time', 'Water Level', 'Status', 'Weather'].map(h => (
+                      {['Date', 'Time', 'Water Level', 'Status', 'Rate of Rise', 'Weather'].map(h => (
                         <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                    {paginatedWlHistory.map(r => {
+                    {paginatedWlHistory.map((r, pageIdx) => {
                       const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
                       const config = getFloodConfig(r.flood_level || r.status);
                       const statusColor = STATUS_COLORS[r.flood_level || r.status] || '#64748b';
+                      const globalIdx = (tablePage - 1) * ROWS_PER_PAGE + pageIdx;
+                      const rateInfo = calculateReadingRate(wlHistory, globalIdx);
                       return (
-                        <tr key={r.id || r.captured_at} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <tr key={r.id ? `${r.id}-${globalIdx}` : `${r.captured_at}-${globalIdx}`} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                           <td className="px-5 py-3 text-xs font-semibold text-slate-800 dark:text-slate-200">
                             {dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                           </td>
@@ -1081,6 +1172,20 @@ export default function Analytics() {
                             <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
                               style={{ backgroundColor: statusColor + '22', color: statusColor }}>
                               {config.label}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex items-center gap-1 text-xs font-mono font-bold px-2.5 py-1 rounded-lg ${
+                              rateInfo.trend === 'RISING'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : rateInfo.trend === 'RECEDING'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20'
+                            }`}>
+                              {rateInfo.trend === 'RISING' && <span className="text-rose-500 font-sans text-[10px]">▲</span>}
+                              {rateInfo.trend === 'RECEDING' && <span className="text-emerald-500 font-sans text-[10px]">▼</span>}
+                              {rateInfo.trend === 'STABLE' && <span className="text-slate-400 font-sans text-[10px]">—</span>}
+                              {rateInfo.text}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
