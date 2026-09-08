@@ -247,6 +247,57 @@ export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields) =>
   }
 };
 
+export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) => {
+  try {
+    const current = getStoredDrillSessions();
+    const sessionIndex = current.findIndex((s) => s.id === sessionId);
+    if (sessionIndex === -1) return current;
+
+    const session = { ...current[sessionIndex] };
+    const points = [...(session.points || [])];
+
+    let targetIdx = pointIndex;
+    if (pointIso && (targetIdx < 0 || targetIdx >= points.length || points[targetIdx]?.isoDateTime !== pointIso)) {
+      const foundIdx = points.findIndex(p => p.isoDateTime === pointIso);
+      if (foundIdx !== -1) targetIdx = foundIdx;
+    }
+
+    if (targetIdx >= 0 && targetIdx < points.length) {
+      points.splice(targetIdx, 1);
+
+      if (points.length > 0) {
+        session.pointsCount = points.length;
+        if (points[0].isoDateTime) session.startedAt = points[0].isoDateTime;
+        if (points[points.length - 1].isoDateTime) session.finishedAt = points[points.length - 1].isoDateTime;
+
+        let maxLevel = -Infinity;
+        let peakCat = 'NORMAL';
+        points.forEach((pt) => {
+          const lvl = parseFloat(pt.waterLevelM || pt.water_level_m || 0);
+          if (lvl > maxLevel) {
+            maxLevel = lvl;
+            peakCat = pt.floodLevel || pt.flood_level || 'NORMAL';
+          }
+        });
+        if (maxLevel > -Infinity) {
+          session.peakLevelM = parseFloat(maxLevel.toFixed(2));
+          session.peakCategory = peakCat;
+        }
+      } else {
+        session.pointsCount = 0;
+      }
+
+      session.points = points;
+      current[sessionIndex] = session;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    }
+    return current;
+  } catch (err) {
+    console.error('Failed to delete drill session point:', err);
+    return getStoredDrillSessions();
+  }
+};
+
 export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTimeStr) => {
   try {
     const current = getStoredDrillSessions();

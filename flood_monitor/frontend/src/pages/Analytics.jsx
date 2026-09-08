@@ -9,7 +9,7 @@ import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
 import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Pencil, Check, Calendar } from 'lucide-react';
-import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, shiftDrillSessionDateTime } from '../utils/simulationRecorder';
+import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, deleteDrillSessionPoint, shiftDrillSessionDateTime } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../api/axios';
@@ -514,10 +514,11 @@ export default function Analytics() {
     return filteredSimPoints.slice(start, start + SIM_ROWS_PER_PAGE);
   }, [filteredSimPoints, simTablePage]);
 
-  // Editing state for Simulated Drill points
+  // Editing and Deleting state for Simulated Drill points
   const [editingPointId, setEditingPointId] = useState(null);
   const [editPointDate, setEditPointDate] = useState('');
   const [editPointTime, setEditPointTime] = useState('');
+  const [confirmDeletePoint, setConfirmDeletePoint] = useState(null);
   const [editNotification, setEditNotification] = useState(null);
 
   // Batch shift modal state
@@ -603,6 +604,25 @@ export default function Analytics() {
     setShiftModalOpen(false);
     const s = updated.find(x => x.id === batchSessionId);
     setEditNotification(`Shifted session "${s?.name || 'Drill'}" to ${batchStartDate} ${batchStartTime}`);
+  };
+
+  const handleDeleteRow = (p) => {
+    setConfirmDeletePoint(p);
+  };
+
+  const handleConfirmDeleteRow = () => {
+    if (!confirmDeletePoint) return;
+    const updated = deleteDrillSessionPoint(
+      confirmDeletePoint.sessionId,
+      confirmDeletePoint.pointIndex,
+      confirmDeletePoint.captured_at
+    );
+    setDrillSessions(updated);
+    if (editingPointId === confirmDeletePoint.id) {
+      setEditingPointId(null);
+    }
+    setEditNotification(`Deleted reading (${confirmDeletePoint.date} ${confirmDeletePoint.timestamp}) from "${confirmDeletePoint.sessionName}"`);
+    setConfirmDeletePoint(null);
   };
 
   const handleFilteredSimExport = () => {
@@ -1032,15 +1052,26 @@ export default function Analytics() {
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleStartRowEdit(p)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                                title="Edit Date & Time"
-                              >
-                                <Pencil className="w-3 h-3" />
-                                <span>Edit</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartRowEdit(p)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                  title="Edit Date & Time"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRow(p)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                                  title="Delete reading row"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -1182,6 +1213,47 @@ export default function Analytics() {
                     >
                       <Check className="w-4 h-4" /> Apply to All Points
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal for Simulated Drill Row */}
+            {confirmDeletePoint && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-sm overflow-hidden">
+                  <div className="p-5 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-500/20">
+                      <Trash2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Drill Reading?</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Are you sure you want to permanently delete this drill reading row?
+                      </p>
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 text-xs text-left space-y-1">
+                        <div>Session: <strong className="text-indigo-600 dark:text-indigo-400">{confirmDeletePoint.sessionName}</strong></div>
+                        <div>Date & Time: <strong className="text-slate-800 dark:text-slate-200">{confirmDeletePoint.date} {confirmDeletePoint.timestamp}</strong></div>
+                        <div>Water Level: <strong className="text-slate-800 dark:text-slate-200">{parseFloat(confirmDeletePoint.water_level_m).toFixed(2)}m ({confirmDeletePoint.water_level_cm} cm)</strong></div>
+                        <div>Status: <span className="font-bold px-1.5 py-0.5 rounded text-[10px] uppercase" style={{ color: STATUS_COLORS[confirmDeletePoint.flood_level] || '#64748b', backgroundColor: (STATUS_COLORS[confirmDeletePoint.flood_level] || '#64748b') + '22' }}>{confirmDeletePoint.flood_level}</span></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePoint(null)}
+                        className="flex-1 px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmDeleteRow}
+                        className="flex-1 px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition-colors"
+                      >
+                        Delete Row
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
