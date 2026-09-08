@@ -32,20 +32,30 @@ Process 2.0 depicts the automated hydrological surveillance pipeline. The on-sit
 
 ---
 
-### Process 3.0 Emergency SOS and Rescue Mission Dispatch Process Data Flow Diagram
+### Process 3.0 Approving Rescue Mission Process Data Flow Diagram
 
-Process 3.0 illustrates the real-time emergency dispatch workflow. A stranded **COMMUNITY RESIDENT** transmits an SOS beacon containing GPS coordinates, household headcounts, and medical flags to **3.1 PROCESS INCOMING SOS & TRIAGE VULNERABILITIES**. The distress ticket is saved in the **DATABASE** and flagged on the **MDRRMO COMMAND CENTER** console. The administrator initiates **3.2 DISPATCH RESCUE TEAM & MONITOR TELEMETRY**, assigning the incident to an active **EMERGENCY RESPONDER** who transmits real-time status transitions (`EN ROUTE`, `ON SCENE`, `RESCUED`).
+Process 3.0 illustrates the verification and authorization of emergency distress operations. The MDRRMO Administrator reviews the incoming distress incident and triggers the approval to dispatch a dedicated rescue team through the **3.0 RESCUE DISPATCH** process. Once approved, the system dispatches automated SMS and push notifications to the **COMMUNITY RESIDENT**, confirming the rescue unit deployment and providing estimated time of arrival (ETA).
 
-[Insert Figure 44: Process 3.0 Emergency SOS and Rescue Mission Dispatch Process Data Flow Diagram here]
+[Insert Figure 44: Process 3.0 Approving Rescue Mission Process Data Flow Diagram here]
 
-> **Figure 44.** This figure shows the data flow diagram of the emergency SOS and rescue mission dispatch process of Flood Monitoring and Disaster Response Management System.
+> **Figure 44.** This figure shows the data flow diagram of the approving rescue mission process of Flood Monitoring and Disaster Response Management System.
 
 ---
 
-### Process 4.0 Evacuation Shelter and Relief Goods Management Process Data Flow Diagram
+### Process 4.0 Evacuation Shelter and Relief Goods Allocation Process Data Flow Diagram
 
-Process 4.0 delineates evacuation shelter camp management. The **MSWDO OFFICER** conducts intake through **4.1 EVACUEE PROFILING & SHELTER CAPACITY TRACKING**, logging family headcounts and vulnerability tags into the **DATABASE**. If capacity reaches 100%, an automated overflow alert notifies the **MDRRMO COMMAND CENTER**. Concurrently, **4.2 RELIEF PACK DISTRIBUTION & DROMIC REPORT GENERATION** records distributed food packs and hygiene kits, generating official DROMIC disaster assistance reports.
+Process 4.0 outlines the dual-channel humanitarian assistance pipeline managed by the Municipal Social Welfare and Development Office (MSWDO). In the primary channel, the MSWDO Officer inputs shelter allocation directives into the **4.0 SHELTER ALLOCATION** module, assigning certified evacuee families to designated shelter rooms. Concurrently, the officer initiates relief pack distribution through **4.1 RELIEF GOODS DISTRIBUTION**, logging distributed family food packs and hygiene kits directly to the **COMMUNITY RESIDENT**.
 
-[Insert Figure 45: Process 4.0 Evacuation Shelter and Relief Goods Management Process Data Flow Diagram here]
+[Insert Figure 45: Process 4.0 Evacuation Shelter and Relief Goods Allocation Process Data Flow Diagram here]
 
-> **Figure 45.** This figure shows the data flow diagram of the evacuation shelter and relief goods management process of Flood Monitoring and Disaster Response Management System.
+> **Figure 45.** This figure shows the data flow diagram of the evacuation shelter and relief goods allocation process of Flood Monitoring and Disaster Response Management System.
+
+---
+
+### Process 5.0 Overall Flood Monitoring and Disaster Response Management System Process Data Flow Diagram
+
+Process 5.0 consolidates the entire end-to-end data communication infrastructure of the Flood Monitoring and Disaster Response Management System. The diagram unifies citizen registration (`1.0`), secure authentication (`1.2`), real-time river surveillance (`2.0`), early warning siren and alert broadcasting (`2.1`), emergency rescue mission dispatching (`3.0`), temporary evacuation shelter accommodation (`4.0`), and relief food pack distribution (`5.0`). The MDRRMO Administrator and MSWDO Officers serve as the centralized commanding entities executing operational directives, while the persistent central database guarantees transactional integrity and real-time bidirectional telemetry for community residents.
+
+[Insert Figure 46: Process 5.0 Overall Flood Monitoring and Disaster Response Management System Process Data Flow Diagram here]
+
+> **Figure 46.** This figure shows the overall data flow diagram of the Flood Monitoring and Disaster Response Management System.
