@@ -1,0 +1,1355 @@
+﻿<mxfile host="app.diagrams.net" modified="2026-09-08T12:22:00.000Z" agent="Antigravity" version="24.0.0" type="device">
+<diagram name="Admin Role Process Flowchart" id="admin-role-flowchart">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="ADMIN ROLE PROCESS FLOWCHART" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="365" y="10" width="400" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- TOP SPINE: START -> LOGIN -> DASHBOARD -->
+        <mxCell id="start" value="START" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="45" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login" value="LOGIN" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="505" y="110" width="120" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dashboard" value="DASHBOARD" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="175" width="140" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Top Spine -->
+        <mxCell id="e_start_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="start" target="login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_login_dash" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="login" target="dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- BUS DROP FROM DASHBOARD -->
+        <mxCell id="bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="245" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- HORIZONTAL DISTRIBUTION BUS (Y = 245) -->
+        <mxCell id="bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="165" y="245" as="sourcePoint" />
+            <mxPoint x="965" y="245" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 1: MANAGE ACCOUNTS (X_center = 165) ==================== -->
+        <mxCell id="c1_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c1_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c1_diamond" value="MANAGE&#xa;ACCOUNTS?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="105" y="275" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box1" value="ADMINISTRATOR&#xa;ACCOUNTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="360" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box2" value="RESPONDER&#xa;ACCOUNTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="420" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box3" value="CITIZEN &amp; MSWDO&#xa;ACCOUNTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c1_diamond" target="c1_box1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box1" target="c1_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box2" target="c1_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c1_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c1_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c1_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="75" y="303" />
+              <mxPoint x="75" y="730" />
+            </Array>
+            <mxPoint x="165" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 2: VIEW REPORTS (X_center = 325) ==================== -->
+        <mxCell id="c2_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c2_diamond" value="VIEW&#xa;REPORTS?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="265" y="275" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box1" value="WATER LEVEL &amp;&#xa;RATE OF RISE" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="360" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box2" value="SIMULATED DRILL&#xa;READINGS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="420" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box3" value="SOS DISPATCH&#xa;AUDIT LOGS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box4" value="EXPORT PDF&#xa;SUMMARY REPORTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="540" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond" target="c2_box1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box1" target="c2_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box2" target="c2_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_3_4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box3" target="c2_box4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_4_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c2_box4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c2_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="303" />
+              <mxPoint x="245" y="730" />
+            </Array>
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 3: SENSORS & FLOOD (X_center = 485) ==================== -->
+        <mxCell id="c3_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c3_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c3_box1" value="MONITOR SENSORS&#xa;&amp; CCTV" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="280" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_diamond" value="WATER LEVEL&#xa;CRITICAL?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="425" y="350" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box2" value="TRIGGER AUDIBLE&#xa;SIREN ALARM" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="435" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box3" value="BROADCAST PUBLIC&#xa;WARNING" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="495" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box1" target="c3_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond" target="c3_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box2" target="c3_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c3_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c3_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="378" />
+              <mxPoint x="405" y="730" />
+            </Array>
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 4: SOS & RESCUE DISPATCH (X_center = 645) ==================== -->
+        <mxCell id="c4_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c4_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c4_box1" value="SOS &amp; RESCUE&#xa;DISPATCH" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="280" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_diamond1" value="INCOMING&#xa;SOS ALERT?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="585" y="350" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box2" value="LOCATE VICTIM&#xa;ON GIS MAP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="435" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box3" value="DISPATCH PRIMARY&#xa;RESPONDER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="495" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_diamond2" value="BACKUP&#xa;REQUIRED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="585" y="560" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box4" value="DISPATCH INTER-AGENCY&#xa;BACKUP (PNP/BFP/RHU)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="645" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_1_d1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box1" target="c4_diamond1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_yes1" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c4_diamond1" target="c4_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box2" target="c4_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_3_d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box3" target="c4_diamond2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_yes2" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c4_diamond2" target="c4_box4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_4_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c4_box4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c4_no1" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c4_diamond1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="565" y="378" />
+              <mxPoint x="565" y="730" />
+            </Array>
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c4_no2" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c4_diamond2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="565" y="588" />
+              <mxPoint x="565" y="730" />
+            </Array>
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 5: EVACUATION & COMMUNITY (X_center = 805) ==================== -->
+        <mxCell id="c5_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c5_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c5_box1" value="EVACUATION &amp;&#xa;COMMUNITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="280" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_diamond" value="MANAGE&#xa;EVACUATION?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="745" y="350" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_box2" value="UPDATE CENTER&#xa;STATUS &amp; CAPACITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="435" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_box3" value="POST COMMUNITY&#xa;FLOOD ADVISORY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="495" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c5_box1" target="c5_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c5_diamond" target="c5_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c5_box2" target="c5_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c5_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c5_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c5_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="725" y="378" />
+              <mxPoint x="725" y="730" />
+            </Array>
+            <mxPoint x="805" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 6: LOG OFF (X_center = 965) ==================== -->
+        <mxCell id="c6_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c6_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="245" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c6_box1" value="LOG OFF&#xa;APPLICATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="280" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_diamond" value="CONFIRM&#xa;LOGOUT?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="905" y="350" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_box2" value="TERMINATE SESSION&#xa;&amp; RETURN TO LOGIN" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="435" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c6_box1" target="c6_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="c6_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c6_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- NO branch loops cleanly back up to DASHBOARD right port -->
+        <mxCell id="e_c6_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1055" y="378" />
+              <mxPoint x="1055" y="195" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== BOTTOM COLLECTION BUS & LOGOUT ==================== -->
+        <!-- Horizontal Bottom Collection Bus (Y = 730) -->
+        <mxCell id="bottom_bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="75" y="730" as="sourcePoint" />
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Terminator: LOGOUT (X_center = 565, Y = 760) -->
+        <mxCell id="logout" value="LOGOUT" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="760" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Final Arrow from Bottom Bus to Logout -->
+        <mxCell id="e_bus_to_logout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="logout">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="730" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+<diagram name="Resident Role Process Flowchart" id="resident-role-flowchart">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="COMMUNITY RESIDENT / CITIZEN ROLE PROCESS FLOWCHART" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="320" y="10" width="530" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- TOP SPINE: START -> OPEN APP -> REGISTER? -> LOGIN -> DASHBOARD -->
+        <mxCell id="start" value="START" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="45" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="open_app" value="OPEN RESQCONNECT&#xa;MOBILE APP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="500" y="100" width="130" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="is_registered" value="IS RESIDENT&#xa;REGISTERED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="505" y="155" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- REGISTRATION BRANCH (LEFT) -->
+        <mxCell id="reg_form" value="FILL REGISTRATION FORM&#xa;&amp; VERIFY OTP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="320" y="165" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login" value="LOGIN (PHONE /&#xa;EMAIL &amp; PASSWORD)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="500" y="235" width="130" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dashboard" value="RESIDENT DASHBOARD" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="295" width="140" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Top Spine -->
+        <mxCell id="e_start_open" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="start" target="open_app">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_open_reg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="open_app" target="is_registered">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_reg_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="is_registered" target="reg_form">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_reg_to_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="reg_form" target="login">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="252" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_reg_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="is_registered" target="login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_login_dash" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="login" target="dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- HORIZONTAL DISTRIBUTION BUS UNDER DASHBOARD (Y = 360) -->
+        <mxCell id="bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="165" y="360" as="sourcePoint" />
+            <mxPoint x="965" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 1: WATER & SENSORS (X_center = 165) ==================== -->
+        <mxCell id="c1_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c1_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c1_box1" value="MONITOR RIVER WATER&#xa;LEVEL &amp; CCTV FEED" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="390" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box2" value="VIEW RAIN RADAR &amp;&#xa;LUMBAN FLOOD MAP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="455" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box1" target="c1_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c1_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 2: EMERGENCY SOS (X_center = 325) ==================== -->
+        <mxCell id="c2_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c2_diamond" value="EMERGENCY /&#xa;FLOOD THREAT?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="265" y="385" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box1" value="PRESS ONE-TAP&#xa;EMERGENCY SOS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="465" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box2" value="TRANSMIT GPS, HEADCOUNT&#xa;&amp; MEDICAL NEEDS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="525" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box3" value="LIVE RESCUE DISPATCH&#xa;TRACKING ON MAP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="585" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box4" value="CONFIRM RESCUED /&#xa;EVACUATED TO SHELTER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="645" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond" target="c2_box1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box1" target="c2_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box2" target="c2_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_3_4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box3" target="c2_box4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_4_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c2_box4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c2_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="413" />
+              <mxPoint x="245" y="730" />
+            </Array>
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 3: EVACUATION SHELTER (X_center = 485) ==================== -->
+        <mxCell id="c3_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c3_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c3_box1" value="SEARCH NEAREST OPEN&#xa;EVACUATION SHELTER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="390" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_diamond" value="SHELTER OPEN&#xa;&amp; AVAILABLE?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="425" y="460" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box2" value="VIEW SAFE EVACUATION&#xa;ROUTE &amp; MAP DIRECTIONS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="545" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box1" target="c3_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond" target="c3_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c3_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c3_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="488" />
+              <mxPoint x="405" y="730" />
+            </Array>
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 4: ADVISORIES & ALERTS (X_center = 645) ==================== -->
+        <mxCell id="c4_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c4_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c4_box1" value="RECEIVE EMERGENCY&#xa;BROADCAST NOTIFICATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="390" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box2" value="VIEW MDRRMO FLOOD&#xa;ADVISORY &amp; GUIDELINES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="455" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box1" target="c4_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c4_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 5: HOTLINES DIRECTORY (X_center = 805) ==================== -->
+        <mxCell id="c5_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c5_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c5_box1" value="ACCESS EMERGENCY&#xa;HOTLINES DIRECTORY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="390" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_box2" value="ONE-TAP CALL TO&#xa;MDRRMO / PNP / BFP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="455" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c5_box1" target="c5_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c5_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 6: LOG OFF / STANDBY (X_center = 965) ==================== -->
+        <mxCell id="c6_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c6_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="360" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c6_box1" value="USER PROFILE /&#xa;SETTINGS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="390" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_diamond" value="LOGOUT OR&#xa;CLOSE APP?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="905" y="460" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_box2" value="TERMINATE SESSION &amp;&#xa;CLOSE APPLICATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="545" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c6_box1" target="c6_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="c6_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c6_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c6_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1055" y="488" />
+              <mxPoint x="1055" y="315" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== BOTTOM COLLECTION BUS & LOGOUT ==================== -->
+        <mxCell id="bottom_bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="75" y="730" as="sourcePoint" />
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="logout" value="LOGOUT / END" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="760" width="110" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_bus_to_logout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="logout">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="730" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+<diagram name="Responder Role Process Flowchart" id="responder-role-flowchart">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="EMERGENCY RESPONDER / RESCUE TEAM ROLE PROCESS FLOWCHART" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="300" y="10" width="570" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- TOP SPINE: START -> LOGIN -> VERIFY -> DASHBOARD -->
+        <mxCell id="start" value="START" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="45" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login" value="RESPONDER LOGIN&#xa;(CREDENTIALS &amp; ROLE)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="105" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="verify" value="ARE CREDENTIALS&#xa;VALID &amp; AUTHORIZED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="165" width="140" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dashboard" value="RESPONDER DASHBOARD" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="250" width="140" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Top Spine -->
+        <mxCell id="e_start_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="start" target="login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_login_verify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="login" target="verify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_verify_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="verify" target="dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_verify_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="verify" target="login">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="193" />
+              <mxPoint x="450" y="123" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BUS DROP FROM DASHBOARD -->
+        <mxCell id="bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- HORIZONTAL DISTRIBUTION BUS (Y = 315) -->
+        <mxCell id="bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="165" y="315" as="sourcePoint" />
+            <mxPoint x="965" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 1: TELEMETRY & ON-DUTY (X_center = 165) ==================== -->
+        <mxCell id="c1_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c1_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c1_box1" value="SET DUTY STATUS&#xa;TO 'ACTIVE / ON-DUTY'" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box2" value="STREAM LIVE GPS&#xa;TELEMETRY TO MDRRMO" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box3" value="MONITOR HIGH-RISK&#xa;ZONES ON MAP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box1" target="c1_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box2" target="c1_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c1_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 2: MISSION DISPATCH (X_center = 325) ==================== -->
+        <mxCell id="c2_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c2_diamond" value="EMERGENCY SOS&#xa;MISSION RECEIVED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="265" y="345" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box1" value="REVIEW CITIZEN SOS&#xa;PROFILE &amp; MEDICAL NEEDS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="430" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box2" value="ACCEPT MISSION &amp; UPDATE&#xa;STATUS TO 'EN ROUTE'" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="495" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond" target="c2_box1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box1" target="c2_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c2_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c2_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="373" />
+              <mxPoint x="245" y="730" />
+            </Array>
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 3: BACKUP COORDINATION (X_center = 485) ==================== -->
+        <mxCell id="c3_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c3_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c3_box1" value="ASSESS RESCUE SCENE&#xa;&amp; FLOOD SEVERITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_diamond" value="BACKUP FORCE&#xa;REQUIRED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="425" y="420" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box2" value="REQUEST BACKUP (PNP,&#xa;BFP, PCG, OR RHU)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="505" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box1" target="c3_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond" target="c3_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c3_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c3_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="448" />
+              <mxPoint x="405" y="730" />
+            </Array>
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 4: RESCUE & RESOLUTION (X_center = 645) ==================== -->
+        <mxCell id="c4_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c4_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c4_box1" value="ARRIVE AT INCIDENT SCENE&#xa;(UPDATE 'ON SCENE')" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box2" value="PERFORM FIRST AID / BOAT&#xa;EXTRACTION / EVACUATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box3" value="MARK INCIDENT STATUS AS&#xa;'RESCUED / RESOLVED'" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box4" value="SUBMIT POST-INCIDENT&#xa;ACTION REPORT TO HQ" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="545" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box1" target="c4_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box2" target="c4_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_3_4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box3" target="c4_box4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_4_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c4_box4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 5: WEATHER & GAUGES (X_center = 805) ==================== -->
+        <mxCell id="c5_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c5_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c5_box1" value="CHECK REAL-TIME RIVER&#xa;WATER ELEVATION &amp; TREND" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_box2" value="VIEW LIVE CCTV VIDEO&#xa;GAUGE SURVEILLANCE" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c5_box1" target="c5_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c5_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 6: LOG OFF / END SHIFT (X_center = 965) ==================== -->
+        <mxCell id="c6_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c6_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c6_box1" value="UPDATE DUTY STATUS&#xa;TO 'OFF-DUTY'" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_diamond" value="CONFIRM LOGOUT&#xa;&amp; END SHIFT?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="905" y="420" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_box2" value="TERMINATE SESSION &amp;&#xa;RETURN TO LOGIN" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="505" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c6_box1" target="c6_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="c6_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c6_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c6_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1055" y="448" />
+              <mxPoint x="1055" y="270" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== BOTTOM COLLECTION BUS & LOGOUT ==================== -->
+        <mxCell id="bottom_bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="75" y="730" as="sourcePoint" />
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="logout" value="LOGOUT / END" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="760" width="110" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_bus_to_logout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="logout">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="730" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+<diagram name="MSWDO Role Process Flowchart" id="mswdo-role-flowchart">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="MSWDO OFFICER / EVACUATION CAMP MANAGER ROLE PROCESS FLOWCHART" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="270" y="10" width="630" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- TOP SPINE: START -> LOGIN -> VERIFY -> DASHBOARD -->
+        <mxCell id="start" value="START" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="45" width="100" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login" value="LOGIN (MSWDO PORTAL&#xa;EMAIL &amp; PASSWORD)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="105" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="verify" value="ARE CREDENTIALS&#xa;VALID &amp; AUTHORIZED?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="165" width="140" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dashboard" value="MSWDO RELIEF &amp;&#xa;EVACUATION DASHBOARD" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="485" y="250" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: Top Spine -->
+        <mxCell id="e_start_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="start" target="login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_login_verify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="login" target="verify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_verify_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="verify" target="dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_verify_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="verify" target="login">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="193" />
+              <mxPoint x="450" y="123" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BUS DROP FROM DASHBOARD -->
+        <mxCell id="bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- HORIZONTAL DISTRIBUTION BUS (Y = 315) -->
+        <mxCell id="bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="165" y="315" as="sourcePoint" />
+            <mxPoint x="965" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 1: EVACUEE PROFILING (X_center = 165) ==================== -->
+        <mxCell id="c1_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c1_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c1_box1" value="SELECT DESIGNATED&#xa;EVACUATION CENTER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box2" value="RECORD &amp; PROFILE&#xa;INCOMING FAMILIES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_box3" value="TAG VULNERABLE SECTOR&#xa;(SENIORS, PWDS, INFANTS)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="100" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box1" target="c1_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c1_box2" target="c1_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c1_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c1_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 2: RELIEF DISTRIBUTION (X_center = 325) ==================== -->
+        <mxCell id="c2_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c2_diamond" value="DISTRIBUTE RELIEF&#xa;PACKS &amp; KITS?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="265" y="345" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box1" value="LOG DISTRIBUTION PER&#xa;FAMILY (RECIPIENT ID)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="430" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2_box2" value="DEDUCT &amp; UPDATE REMAINING&#xa;GOODS INVENTORY COUNT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="495" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond" target="c2_box1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c2_box1" target="c2_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c2_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c2_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c2_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c2_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="245" y="373" />
+              <mxPoint x="245" y="730" />
+            </Array>
+            <mxPoint x="325" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 3: CAPACITY & OVERFLOW (X_center = 485) ==================== -->
+        <mxCell id="c3_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c3_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c3_box1" value="MONITOR CENTER BED /&#xa;SPACE CAPACITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_diamond" value="CENTER REACHED&#xa;MAX CAPACITY?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="425" y="420" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box2" value="UPDATE STATUS TO&#xa;'FULL / OCCUPIED'" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="505" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3_box3" value="ALERT MDRRMO COMMAND&#xa;FOR OVERFLOW REROUTING" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="420" y="565" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box1" target="c3_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond" target="c3_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c3_box2" target="c3_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c3_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c3_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c3_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c3_diamond">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="448" />
+              <mxPoint x="405" y="730" />
+            </Array>
+            <mxPoint x="485" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 4: DROMIC & REPORTS (X_center = 645) ==================== -->
+        <mxCell id="c4_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c4_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c4_box1" value="GENERATE DROMIC DISASTER&#xa;ASSISTANCE SUMMARY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box2" value="EXPORT EVACUEE MASTERLIST&#xa;TO PDF / EXCEL REPORT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c4_box3" value="SUBMIT OFFICIAL RELIEF&#xa;AUDIT TO LGU / DSWD" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="480" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box1" target="c4_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_2_3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c4_box2" target="c4_box3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c4_3_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c4_box3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="645" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 5: NOTIFICATIONS (X_center = 805) ==================== -->
+        <mxCell id="c5_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c5_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c5_box1" value="VIEW MDRRMO FLOOD ALERTS&#xa;&amp; WEATHER BULLETINS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c5_box2" value="COORDINATE RELIEF&#xa;TRANSPORT LOGISTICS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="740" y="415" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_1_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c5_box1" target="c5_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c5_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c5_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== COLUMN 6: LOG OFF APPLICATION (X_center = 965) ==================== -->
+        <mxCell id="c6_bus_drop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="c6_box1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="315" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="c6_box1" value="USER ACCOUNT &amp;&#xa;OFFICER PROFILE" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="350" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_diamond" value="CONFIRM LOGOUT&#xa;FROM PORTAL?" style="rhombus;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="905" y="420" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c6_box2" value="TERMINATE SESSION &amp;&#xa;RETURN TO LOGIN" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="900" y="505" width="130" height="38" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_1_d" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" source="c6_box1" target="c6_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="c6_box2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_c6_2_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=none;" edge="1" parent="1" source="c6_box2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_c6_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="c6_diamond" target="dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1055" y="448" />
+              <mxPoint x="1055" y="270" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== BOTTOM COLLECTION BUS & LOGOUT ==================== -->
+        <mxCell id="bottom_bus_bar" value="" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="75" y="730" as="sourcePoint" />
+            <mxPoint x="965" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="logout" value="LOGOUT / END" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="515" y="760" width="110" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_bus_to_logout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;endArrow=block;endFill=1;" edge="1" parent="1" target="logout">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="730" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

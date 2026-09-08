@@ -1,0 +1,319 @@
+<mxfile host="app.diagrams.net" modified="2026-09-08T12:15:00.000Z" agent="Antigravity" version="24.0.0" type="device">
+  <!-- PAGE 1: Process 1.0 Registration & Authentication -->
+  <diagram name="Process 1.0 Registration" id="dfd-process-1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Header Title -->
+        <mxCell id="p1_section" value="DATA FLOW DIAGRAM" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="385" y="30" width="400" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1_intro" value="This section shows and demonstrates the data flow diagram of Flood Monitoring and Disaster Response Management System." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="60" width="700" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1_subtitle" value="Process 1.0 Registration and Authentication Process Data Flow Diagram" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="105" width="550" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== ENTITY: RESIDENT ==================== -->
+        <mxCell id="ent_user" value="RESIDENT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="280" y="170" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== PROCESS 1.0: REGISTRATION ==================== -->
+        <!-- Process Box (Split header) -->
+        <mxCell id="proc_1_0_num" value="1.0" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="170" width="160" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_1_0_name" value="REGISTRATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="580" y="190" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== DATA STORE: DATABASE ==================== -->
+        <mxCell id="store_db" value="DATABASE" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="590" y="320" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== PROCESS 1.2: SIGN IN ==================== -->
+        <mxCell id="proc_1_2_num" value="1.2" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="270" y="420" width="160" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_1_2_name" value="SIGN IN" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="270" y="440" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== CONNECTORS & DATA FLOWS ==================== -->
+        <!-- Resident -> Registration: RESIDENT INFO -->
+        <mxCell id="e_user_reg" value="RESIDENT INFO" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent_user" target="proc_1_0_name">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Registration -> Database: SAVE -->
+        <mxCell id="e_reg_db" value="SAVE" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_1_0_name" target="store_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Resident -> Sign In: Straight Down -->
+        <mxCell id="e_user_signin" value="" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;" edge="1" parent="1" source="ent_user" target="proc_1_2_num">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Figure Caption -->
+        <mxCell id="p1_caption" value="Figure 42. This figure shows the data flow diagram of the registration process of Flood Monitoring and Disaster Response Management System." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=0;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="135" y="550" width="900" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- PAGE 2: Process 2.0 Flood Monitoring & Siren Alert -->
+  <diagram name="Process 2.0 Flood Monitoring" id="dfd-process-2">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="p2_subtitle" value="Process 2.0 Water Level Monitoring and Emergency Siren Process Data Flow Diagram" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="600" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Entities -->
+        <mxCell id="ent_cctv" value="CCTV / SENSORS&#xa;(TAPO C310)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent_admin" value="MDRRMO&#xa;ADMINISTRATOR" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="880" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent_resident2" value="COMMUNITY&#xa;RESIDENTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="880" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 2.1: Image Processing & Gauge Detection -->
+        <mxCell id="proc_2_1_num" value="2.1" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="140" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_2_1_name" value="AI WATER LEVEL DETECTION&#xa;&amp; RATE OF RISE ANALYSIS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="160" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Data Store: Database -->
+        <mxCell id="store_db2" value="DATABASE&#xa;(tbl_readings)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="470" y="280" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 2.2: Siren & Alarm Broadcasting -->
+        <mxCell id="proc_2_2_num" value="2.2" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="440" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_2_2_name" value="EMERGENCY SIREN &amp;&#xa;WARNING BROADCAST" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="460" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Connectors -->
+        <mxCell id="e2_cctv_proc" value="RTSP VIDEO STREAM" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent_cctv" target="proc_2_1_name">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2_proc_db" value="SAVE WATER LEVEL &amp; RATE" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_2_1_name" target="store_db2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2_proc_admin" value="LIVE GAUGES &amp; VIDEO" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_2_1_name" target="ent_admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2_admin_siren" value="TRIGGER SIREN COMMAND" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent_admin" target="proc_2_2_name">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="380" />
+              <mxPoint x="540" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e2_siren_res" value="AUDIBLE ALARM &amp; PUSH NOTIFICATION" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_2_2_name" target="ent_resident2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2_caption" value="Figure 43. This figure shows the data flow diagram of the water level monitoring and emergency siren warning process of Flood Monitoring and Disaster Response Management System." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=0;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="110" y="550" width="950" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- PAGE 3: Process 3.0 Emergency SOS & Dispatch -->
+  <diagram name="Process 3.0 SOS & Dispatch" id="dfd-process-3">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="p3_subtitle" value="Process 3.0 Emergency SOS and Rescue Mission Dispatch Process Data Flow Diagram" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="600" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Entities -->
+        <mxCell id="ent3_resident" value="COMMUNITY&#xa;RESIDENT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent3_admin" value="MDRRMO&#xa;COMMAND CENTER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="880" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent3_responder" value="EMERGENCY&#xa;RESPONDER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="880" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 3.1: Receive SOS -->
+        <mxCell id="proc_3_1_num" value="3.1" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="140" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_3_1_name" value="PROCESS INCOMING SOS&#xa;&amp; TRIAGE VULNERABILITIES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="160" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Database -->
+        <mxCell id="store_db3" value="DATABASE&#xa;(tbl_sos_requests &amp; dispatches)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="280" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 3.2: Dispatch Unit -->
+        <mxCell id="proc_3_2_num" value="3.2" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="440" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_3_2_name" value="DISPATCH RESCUE TEAM&#xa;&amp; MONITOR TELEMETRY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="460" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Connectors -->
+        <mxCell id="e3_res_proc" value="SOS GPS, HEADCOUNT, MEDICAL NEEDS" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent3_resident" target="proc_3_1_name">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3_proc_db" value="SAVE SOS INCIDENT" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_3_1_name" target="store_db3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3_proc_admin" value="NOTIFY INCOMING SOS" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_3_1_name" target="ent3_admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3_admin_disp" value="ASSIGN RESCUE UNIT" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent3_admin" target="proc_3_2_name">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="380" />
+              <mxPoint x="540" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e3_disp_resp" value="MISSION DISPATCH &amp; VICTIM GPS" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_3_2_name" target="ent3_responder">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3_resp_status" value="STATUS (EN ROUTE / RESCUED)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent3_responder" target="store_db3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="750" y="470" />
+              <mxPoint x="750" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="p3_caption" value="Figure 44. This figure shows the data flow diagram of the emergency SOS and rescue mission dispatch process of Flood Monitoring and Disaster Response Management System." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=0;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="110" y="550" width="950" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- PAGE 4: Process 4.0 Evacuation & Relief Management -->
+  <diagram name="Process 4.0 Evacuation & Relief" id="dfd-process-4">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="p4_subtitle" value="Process 4.0 Evacuation Shelter and Relief Goods Management Process Data Flow Diagram" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="240" y="40" width="600" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Entities -->
+        <mxCell id="ent4_mswdo" value="MSWDO&#xa;OFFICER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent4_resident" value="EVACUEE&#xa;FAMILIES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="120" y="440" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ent4_admin" value="MDRRMO&#xa;COMMAND CENTER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="880" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 4.1: Profile Evacuees -->
+        <mxCell id="proc_4_1_num" value="4.1" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="140" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_4_1_name" value="EVACUEE PROFILING &amp;&#xa;SHELTER CAPACITY TRACKING" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="160" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Database -->
+        <mxCell id="store_db4" value="DATABASE&#xa;(tbl_evacuees &amp; tbl_relief)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="280" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process 4.2: Relief Goods Distribution -->
+        <mxCell id="proc_4_2_num" value="4.2" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="440" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="proc_4_2_name" value="RELIEF PACK DISTRIBUTION&#xa;&amp; DROMIC REPORT GENERATION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="450" y="460" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Connectors -->
+        <mxCell id="e4_mswdo_prof" value="INTAKE DEMOGRAPHICS &amp; VULNERABILITY" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent4_mswdo" target="proc_4_1_name">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4_proc_db" value="UPDATE HEADCOUNT &amp; OCCUPANCY" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_4_1_name" target="store_db4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4_proc_overflow" value="OVERFLOW REROUTE ALERT" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_4_1_name" target="ent4_admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4_mswdo_dist" value="LOG FOOD PACK / RELIEF DISTRIBUTION" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ent4_mswdo" target="proc_4_2_name">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="380" />
+              <mxPoint x="540" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4_dist_res" value="FOOD PACKS, HYGIENE &amp; SLEEPING KITS" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;fontSize=8;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="proc_4_2_name" target="ent4_resident">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4_caption" value="Figure 45. This figure shows the data flow diagram of the evacuation shelter and relief goods management process of Flood Monitoring and Disaster Response Management System." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=0;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="110" y="550" width="950" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

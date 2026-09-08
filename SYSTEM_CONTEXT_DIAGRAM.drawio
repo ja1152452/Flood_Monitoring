@@ -1,0 +1,217 @@
+<mxfile host="app.diagrams.net" modified="2026-09-08T12:00:00.000Z" agent="Antigravity" version="24.0.0" type="device">
+  <diagram name="System Context Diagram" id="system-context-diagram">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Top Page Number (Manuscript Style) -->
+        <mxCell id="page_num" value="119" style="text;html=1;align=right;verticalAlign=middle;fontSize=10;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="20" width="50" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Main Title -->
+        <mxCell id="title" value="SYSTEM CONTEXT DIAGRAM" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="385" y="40" width="400" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Introductory Narrative -->
+        <mxCell id="intro_text" value="These diagrams show the system's diagram and illustrates the process as well as who the process' users are." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="285" y="70" width="600" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== CENTRAL SYSTEM BOX ==================== -->
+        <mxCell id="center_system" value="FLOOD MONITORING AND&#xa;DISASTER RESPONSE&#xa;MANAGEMENT SYSTEM:&#xa;RESQCONNECT WEB APP&#xa;AND MOBILE APPLICATION&#xa;LUMBAN, LAGUNA" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=9;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="325" width="220" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 1. TOP ACTOR: MDRRMO ADMINISTRATOR ==================== -->
+        <mxCell id="actor_mdrrmo" value="MDRRMO&#xa;ADMINISTRATOR" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="115" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- MDRRMO Feature Strips (Between Top Actor and Center Box) -->
+        <mxCell id="top_strip1" value="MONITOR AI WATER LEVEL &amp; RATE OF RISE" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="195" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="top_strip2" value="TRIGGER AUDIBLE FLOOD SIREN ALARM" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="220" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="top_strip3" value="DISPATCH &amp; COORDINATE UNITS ON GIS MAP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="245" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="top_strip4" value="BROADCAST PUBLIC FLOOD ADVISORIES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="270" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="top_strip5" value="MANAGE USER ACCOUNTS &amp; EXPORT PDF REPORTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="295" width="220" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Top Connectors -->
+        <mxCell id="e_mdrrmo_down" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1" source="actor_mdrrmo" target="top_strip1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_top_to_center" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1" source="top_strip5" target="center_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== 2. LEFT ACTOR: COMMUNITY RESIDENT ==================== -->
+        <mxCell id="actor_resident" value="COMMUNITY&#xa;RESIDENT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="60" y="325" width="140" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Left Top Stack (Outputs to Resident) -->
+        <mxCell id="left_top1" value="VIEW REAL-TIME WATER LEVEL" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="330" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="left_top2" value="VIEW CCTV VIDEO LIVESTREAM" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="352" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="left_top3" value="SEARCH EVACUATION SHELTERS &amp; ROUTES" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="374" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="left_top4" value="RECEIVE FLOOD ADVISORIES &amp; SIREN ALERTS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="396" width="205" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Left Bottom Stack (Inputs from Resident) -->
+        <mxCell id="left_bot1" value="REGISTER ACCOUNT &amp; VERIFY OTP" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="425" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="left_bot2" value="TRIGGER ONE-TAP EMERGENCY SOS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="447" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="left_bot3" value="TRANSMIT GPS &amp; HOUSEHOLD HEADCOUNT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="235" y="469" width="205" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Left Connectors -->
+        <!-- Center to Resident (Outputs) -->
+        <mxCell id="e_c_to_lt" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=none;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="475" y="365" as="sourcePoint" />
+            <mxPoint x="440" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_lt_to_res" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="235" y="365" as="sourcePoint" />
+            <mxPoint x="200" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Resident to Center (Inputs) -->
+        <mxCell id="e_res_to_lb" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=none;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="200" y="455" as="sourcePoint" />
+            <mxPoint x="235" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_lb_to_c" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="455" as="sourcePoint" />
+            <mxPoint x="475" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== 3. RIGHT ACTOR: EMERGENCY RESPONDER ==================== -->
+        <mxCell id="actor_responder" value="EMERGENCY&#xa;RESPONDER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="970" y="325" width="140" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Right Top Stack (Outputs to Responder) -->
+        <mxCell id="right_top1" value="RECEIVE EMERGENCY SOS DISPATCH" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="330" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_top2" value="ACCEPT RESCUE MISSION ASSIGNMENT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="352" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_top3" value="VIEW VICTIM GPS &amp; MEDICAL FLAGS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="374" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_top4" value="REQUEST BACKUP (PNP/BFP/RHU)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="396" width="205" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Right Bottom Stack (Inputs from Responder) -->
+        <mxCell id="right_bot1" value="SET ACTIVE ON-DUTY STATUS" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="425" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_bot2" value="STREAM LIVE GPS TELEMETRY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="447" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_bot3" value="UPDATE MISSION STATUS (ON SCENE)" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="469" width="205" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="right_bot4" value="SUBMIT FIELD RESCUE REPORT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="730" y="491" width="205" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Right Connectors -->
+        <!-- Center to Responder (Outputs) -->
+        <mxCell id="e_c_to_rt" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=none;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="695" y="365" as="sourcePoint" />
+            <mxPoint x="730" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_rt_to_resp" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="935" y="365" as="sourcePoint" />
+            <mxPoint x="970" y="365" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Responder to Center (Inputs) -->
+        <mxCell id="e_resp_to_rb" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=none;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="970" y="455" as="sourcePoint" />
+            <mxPoint x="935" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_rb_to_c" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="730" y="455" as="sourcePoint" />
+            <mxPoint x="695" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== 4. BOTTOM ACTOR: MSWDO OFFICER ==================== -->
+        <mxCell id="actor_mswdo" value="MSWDO&#xa;OFFICER" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;strokeWidth=1.5;fillColor=#ffffff;fontFamily=Arial;fontSize=10;fontStyle=1;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="495" y="655" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- MSWDO Feature Strips (Between Center Box and Bottom Actor) -->
+        <mxCell id="bot_strip1" value="PROFILE EVACUEE FAMILIES &amp; VULNERABILITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="525" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bot_strip2" value="LOG RELIEF GOODS INVENTORY DISTRIBUTION" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="550" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bot_strip3" value="MONITOR EVACUATION SHELTER BED CAPACITY" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="575" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bot_strip4" value="TRIGGER FULL-CAPACITY OVERFLOW ALERT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="600" width="220" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bot_strip5" value="GENERATE DROMIC DISASTER REPORT &amp; EXPORT" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#ffffff;fontFamily=Arial;fontSize=8;fontStyle=0;align=center;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="475" y="625" width="220" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Bottom Connectors -->
+        <mxCell id="e_center_to_bot" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1" source="center_system" target="bot_strip1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_bot_to_mswdo" style="edgeStyle=straight;rounded=0;html=1;strokeColor=#000000;strokeWidth=1;endArrow=block;endFill=1;" edge="1" parent="1" source="bot_strip5" target="actor_mswdo">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FIGURE CAPTION ==================== -->
+        <mxCell id="caption" value="Figure 41. This figure shows the system context diagram which demonstrates the process of the system and also the users who interact with the developed system." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=0;fontFamily=Arial;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="185" y="750" width="800" height="25" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
