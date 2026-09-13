@@ -265,9 +265,38 @@ export const runAutoMigrations = async () => {
       console.warn('[DB] Warning updating flood_risk_areas table:', err.message);
     }
 
-    // 9. Performance Indexes
+    // 9. Simulation Drill Sessions table
     try {
       await client.query(`
+        CREATE TABLE IF NOT EXISTS simulation_drill_sessions (
+          id VARCHAR(100) PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          scenario_type VARCHAR(50),
+          started_at TIMESTAMPTZ,
+          finished_at TIMESTAMPTZ,
+          duration_sec INTEGER,
+          start_level_m NUMERIC(6,3),
+          target_level_m NUMERIC(6,3),
+          peak_level_m NUMERIC(6,3),
+          peak_category VARCHAR(50),
+          points_count INTEGER,
+          time_to_monitor_sec INTEGER,
+          time_to_alert_sec INTEGER,
+          time_to_evacuation_sec INTEGER,
+          time_to_critical_sec INTEGER,
+          points JSONB NOT NULL DEFAULT '[]',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+    } catch (err) {
+      console.warn('[DB] Warning updating simulation_drill_sessions table:', err.message);
+    }
+
+    // 10. Performance Indexes
+    try {
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_sim_drill_started      ON simulation_drill_sessions (started_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sos_pending            ON sos_requests (created_at DESC) WHERE status = 'PENDING';
         CREATE INDEX IF NOT EXISTS idx_sos_barangay           ON sos_requests (barangay_id, status);
         CREATE INDEX IF NOT EXISTS idx_sos_dispatches_sos     ON sos_dispatches (sos_id);

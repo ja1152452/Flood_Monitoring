@@ -75,3 +75,19 @@ export const getReadingTrend = asyncHandler(async (req, res) => {
   const data = await service.getReadingTrend(cameraId, parseInt(minutes || '60', 10));
   res.json({ success: true, data });
 });
+
+export const getDrillSessions = asyncHandler(async (_req, res) => {
+  const data = await service.getDrillSessions();
+  res.json({ success: true, data });
+});
+
+export const saveDrillSession = asyncHandler(async (req, res) => {
+  const data = await service.saveDrillSession(req.body);
+  res.status(201).json({ success: true, data });
+});
+
+export const deleteDrillSession = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const data = await service.deleteDrillSession(id);
+  res.json({ success: true, data });
+});

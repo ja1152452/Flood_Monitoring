@@ -268,13 +268,51 @@ export const getAuditLogs = async (params = {}) => {
   const limit  = Math.min(100, parseInt(params.limit || '50', 10));
   const offset = Math.max(0,   parseInt(params.offset || '0',  10));
 
+  const conditions = [];
+  const values = [];
+
+  // Category filter: 'live' vs 'simulation'
+  if (params.category === 'live') {
+    conditions.push(`(a.action NOT ILIKE '%SIMULATION%' AND a.action NOT ILIKE '%DRILL%' AND (a.entity_type IS NULL OR a.entity_type NOT ILIKE '%SIMULATION%'))`);
+  } else if (params.category === 'simulation') {
+    conditions.push(`(a.action ILIKE '%SIMULATION%' OR a.action ILIKE '%DRILL%' OR a.entity_type ILIKE '%SIMULATION%')`);
+  }
+
+  // Action filter
+  if (params.action && params.action.trim()) {
+    values.push(`%${params.action.trim()}%`);
+    conditions.push(`a.action ILIKE $${values.length}`);
+  }
+
+  // Search filter (searches action, description, entity_type, entity_id, user_email, full_name)
+  if (params.search && params.search.trim()) {
+    values.push(`%${params.search.trim()}%`);
+    const p = `$${values.length}`;
+    conditions.push(`(
+      a.action ILIKE ${p} OR
+      a.description ILIKE ${p} OR
+      a.entity_type ILIKE ${p} OR
+      a.entity_id ILIKE ${p} OR
+      u.email ILIKE ${p} OR
+      u.full_name ILIKE ${p}
+    )`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  values.push(limit);
+  const limitIdx = values.length;
+  values.push(offset);
+  const offsetIdx = values.length;
+
   const { rows } = await query(
     `SELECT a.*, u.email AS user_email, u.role AS user_role, u.full_name AS user_full_name
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.user_id
+     ${whereClause}
      ORDER BY a.created_at DESC
-     LIMIT $1 OFFSET $2`,
-    [limit, offset]
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    values
   );
 
   // Collect any responder IDs and barangay IDs to resolve names
@@ -523,4 +561,90 @@ export const getReadingTrend = async (cameraId, minutes = 60) => {
     [cameraId, minutes]
   );
   return rows;
+};
+
+export const getDrillSessions = async () => {
+  const { rows } = await query(
+    `SELECT * FROM simulation_drill_sessions ORDER BY started_at DESC NULLS LAST, created_at DESC`
+  );
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    scenarioType: r.scenario_type,
+    startedAt: r.started_at,
+    finishedAt: r.finished_at,
+    durationSec: r.duration_sec,
+    startLevelM: r.start_level_m != null ? parseFloat(r.start_level_m) : null,
+    targetLevelM: r.target_level_m != null ? parseFloat(r.target_level_m) : null,
+    peakLevelM: r.peak_level_m != null ? parseFloat(r.peak_level_m) : null,
+    peakCategory: r.peak_category,
+    pointsCount: r.points_count,
+    timeToMonitorSec: r.time_to_monitor_sec,
+    timeToAlertSec: r.time_to_alert_sec,
+    timeToEvacuationSec: r.time_to_evacuation_sec,
+    timeToCriticalSec: r.time_to_critical_sec,
+    points: r.points || [],
+  }));
+};
+
+export const saveDrillSession = async (session) => {
+  if (!session || !session.id || !session.name) {
+    throw ApiError.badRequest('Session ID and Name are required');
+  }
+
+  const { rows } = await query(
+    `INSERT INTO simulation_drill_sessions (
+       id, name, scenario_type, started_at, finished_at, duration_sec,
+       start_level_m, target_level_m, peak_level_m, peak_category,
+       points_count, time_to_monitor_sec, time_to_alert_sec, time_to_evacuation_sec,
+       time_to_critical_sec, points, updated_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       scenario_type = EXCLUDED.scenario_type,
+       started_at = EXCLUDED.started_at,
+       finished_at = EXCLUDED.finished_at,
+       duration_sec = EXCLUDED.duration_sec,
+       start_level_m = EXCLUDED.start_level_m,
+       target_level_m = EXCLUDED.target_level_m,
+       peak_level_m = EXCLUDED.peak_level_m,
+       peak_category = EXCLUDED.peak_category,
+       points_count = EXCLUDED.points_count,
+       time_to_monitor_sec = EXCLUDED.time_to_monitor_sec,
+       time_to_alert_sec = EXCLUDED.time_to_alert_sec,
+       time_to_evacuation_sec = EXCLUDED.time_to_evacuation_sec,
+       time_to_critical_sec = EXCLUDED.time_to_critical_sec,
+       points = EXCLUDED.points,
+       updated_at = NOW()
+     RETURNING *`,
+    [
+      session.id,
+      session.name,
+      session.scenarioType || 'manual',
+      safeTimestamp(session.startedAt) || new Date().toISOString(),
+      safeTimestamp(session.finishedAt) || null,
+      session.durationSec || 0,
+      session.startLevelM || 2.0,
+      session.targetLevelM || 5.5,
+      session.peakLevelM || 2.0,
+      session.peakCategory || 'NORMAL',
+      session.pointsCount || (session.points ? session.points.length : 0),
+      session.timeToMonitorSec || null,
+      session.timeToAlertSec || null,
+      session.timeToEvacuationSec || null,
+      session.timeToCriticalSec || null,
+      JSON.stringify(session.points || []),
+    ]
+  );
+  return rows[0];
+};
+
+export const deleteDrillSession = async (id) => {
+  if (!id) throw ApiError.badRequest('Session ID is required');
+  const { rows } = await query(
+    `DELETE FROM simulation_drill_sessions WHERE id = $1 RETURNING id`,
+    [id]
+  );
+  return rows[0] || null;
 };

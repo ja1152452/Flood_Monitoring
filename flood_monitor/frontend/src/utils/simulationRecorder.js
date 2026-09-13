@@ -5,6 +5,7 @@
  */
 
 import { calculateDynamicRate } from './waterSimulationUtils.js';
+import { getDrillSessionsApi, saveDrillSessionApi, deleteDrillSessionApi } from '../api/analytics';
 
 const STORAGE_KEY = 'flood_simulation_drill_sessions_v1';
 const DELETED_SESSIONS_KEY = 'flood_simulation_drill_deleted_ids_v1';
@@ -219,11 +220,30 @@ export const getStoredDrillSessions = () => {
   }
 };
 
+export const syncDrillSessionsFromBackend = async () => {
+  try {
+    const remote = await getDrillSessionsApi();
+    if (Array.isArray(remote) && remote.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      return remote;
+    } else {
+      const local = getStoredDrillSessions();
+      for (const s of local) {
+        saveDrillSessionApi(s).catch(() => {});
+      }
+      return local;
+    }
+  } catch {
+    return getStoredDrillSessions();
+  }
+};
+
 export const saveDrillSession = (session) => {
   try {
     const current = getStoredDrillSessions();
     const updated = [session, ...current.filter((s) => s.id !== session.id)].slice(0, 20);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    saveDrillSessionApi(session).catch(() => {});
     return updated;
   } catch (err) {
     console.error('Failed to save drill session:', err);
@@ -246,6 +266,7 @@ export const deleteDrillSession = (id) => {
       }
     } catch {}
 
+    deleteDrillSessionApi(id).catch(() => {});
     return filtered;
   } catch {
     return [];
@@ -316,6 +337,7 @@ export const updateDrillSessionPoint = (sessionId, pointIndex, updatedFields, po
       session.points = points;
       current[sessionIndex] = session;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+      saveDrillSessionApi(session).catch(() => {});
     }
     return current;
   } catch (err) {
@@ -392,6 +414,7 @@ export const deleteDrillSessionPoint = (sessionId, pointIndex, pointIso = null) 
       session.points = points;
       current[sessionIndex] = session;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+      saveDrillSessionApi(session).catch(() => {});
     }
     return current;
   } catch (err) {
@@ -446,6 +469,7 @@ export const shiftDrillSessionDateTime = (sessionId, newStartDateStr, newStartTi
     session.points = updatedPoints;
     current[sessionIndex] = session;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+    saveDrillSessionApi(session).catch(() => {});
     return current;
   } catch (err) {
     console.error('Failed to shift drill session date/time:', err);
@@ -562,6 +586,7 @@ export const deleteDrillSessionPointsByDate = (sessionId, targetDateStr) => {
     });
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(modified));
+    modified.forEach(s => { saveDrillSessionApi(s).catch(() => {}); });
     return { updatedSessions: modified, deletedCount: totalDeleted };
   } catch (err) {
     console.error('Failed to delete drill session points by date:', err);

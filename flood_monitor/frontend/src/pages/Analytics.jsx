@@ -9,7 +9,7 @@ import { getEvacuationCenters } from '../api/evacuation';
 import { WaterLevelChart } from '../components/dashboard/WaterLevelChart';
 import { formatDateTime, getFloodConfig } from '../utils/floodUtils';
 import { FileDown, X, Users, Activity, Waves, Clock, CheckCircle2, Trash2, RefreshCw, ChevronLeft, ChevronRight, Pencil, Check, Calendar } from 'lucide-react';
-import { getStoredDrillSessions, deleteDrillSession, updateDrillSessionPoint, deleteDrillSessionPoint, shiftDrillSessionDateTime, deleteDrillSessionPointsByDate, matchesPointDate } from '../utils/simulationRecorder';
+import { getStoredDrillSessions, syncDrillSessionsFromBackend, deleteDrillSession, updateDrillSessionPoint, deleteDrillSessionPoint, shiftDrillSessionDateTime, deleteDrillSessionPointsByDate, matchesPointDate } from '../utils/simulationRecorder';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../api/axios';
@@ -214,6 +214,15 @@ export default function Analytics() {
     refreshDrills();
   }, [dataSource]);
 
+  useEffect(() => {
+    syncDrillSessionsFromBackend().then(updated => {
+      if (Array.isArray(updated) && updated.length > 0) {
+        setDrillSessions(updated);
+        setSelectedDrillId(prev => updated.some(s => s.id === prev) ? prev : (updated[0]?.id || ''));
+      }
+    }).catch(() => {});
+  }, []);
+
   const selectedDrill = useMemo(() => {
     return drillSessions.find(s => s.id === selectedDrillId) || drillSessions[0] || null;
   }, [drillSessions, selectedDrillId]);
@@ -224,9 +233,13 @@ export default function Analytics() {
     year: now.getFullYear(),
     date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     week: `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0')}`,
+    startDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    endDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     flood_level: '',
   });
   const [pdfPreview, setPdfPreview] = useState(null);
+  const [isGeneratingWlPdf, setIsGeneratingWlPdf] = useState(false);
+  const [isGeneratingSimPdf, setIsGeneratingSimPdf] = useState(false);
 
   const { data: stats } = useQuery({
     queryKey: ['user-stats'],
@@ -262,11 +275,19 @@ export default function Analytics() {
         flood_level: wlFilter.flood_level || undefined,
       };
     }
+    if (wlFilter.type === 'range') {
+      return {
+        from: wlFilter.startDate ? `${wlFilter.startDate}T00:00:00+08:00` : undefined,
+        to: wlFilter.endDate ? `${wlFilter.endDate}T23:59:59.999+08:00` : undefined,
+        limit: 50000,
+        flood_level: wlFilter.flood_level || undefined,
+      };
+    }
     if (wlFilter.type === 'date') {
       return {
         from: `${wlFilter.date}T00:00:00+08:00`,
-        to: `${wlFilter.date}T23:59:59+08:00`,
-        limit: 5000,
+        to: `${wlFilter.date}T23:59:59.999+08:00`,
+        limit: 50000,
         flood_level: wlFilter.flood_level || undefined,
       };
     }
@@ -274,8 +295,8 @@ export default function Analytics() {
       const { start, end } = getWeekRange(wlFilter.week);
       return {
         from: `${start.toISOString().slice(0, 10)}T00:00:00+08:00`,
-        to: `${end.toISOString().slice(0, 10)}T23:59:59+08:00`,
-        limit: 5000,
+        to: `${end.toISOString().slice(0, 10)}T23:59:59.999+08:00`,
+        limit: 50000,
         flood_level: wlFilter.flood_level || undefined,
       };
     }
@@ -284,8 +305,8 @@ export default function Analytics() {
     const lastDay = new Date(y, wlFilter.month + 1, 0).getDate();
     return {
       from: `${y}-${m}-01T00:00:00+08:00`,
-      to: `${y}-${m}-${String(lastDay).padStart(2, '0')}T23:59:59+08:00`,
-      limit: 5000,
+      to: `${y}-${m}-${String(lastDay).padStart(2, '0')}T23:59:59.999+08:00`,
+      limit: 50000,
       flood_level: wlFilter.flood_level || undefined,
     };
   }, [wlFilter]);
@@ -354,18 +375,24 @@ export default function Analytics() {
     doc.text('Water Level History & Flood Monitoring Report', 14, 16);
     doc.setFontSize(9); doc.setTextColor(100);
     const label = wlFilter.type === 'all' ? 'All-Time Historical Database Records'
+      : wlFilter.type === 'range' ? `Date Range: ${wlFilter.startDate || 'Start'} to ${wlFilter.endDate || 'End'}`
       : wlFilter.type === 'date' ? wlFilter.date
-        : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
-          : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
-    doc.text(`Period: ${label}`, 14, 23);
+      : wlFilter.type === 'week' ? `Week ${wlFilter.week}`
+      : `${MONTHS[wlFilter.month]} ${wlFilter.year}`;
+    doc.text(`Period: ${label} | Records: ${rows.length}`, 14, 23);
     doc.text(`Weather: ${weatherLabel}`, 14, 28);
     doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
+
+    // For customized date selections (range, date, week, month), include 100% of data.
+    // For 'all' with extreme row counts (>10000), cap at 10,000 for PDF stability and note it.
+    const exportRows = (wlFilter.type === 'all' && rows.length > 10000) ? rows.slice(0, 10000) : rows;
+
     autoTable(doc, {
       startY: 39,
       head: [['Date', 'Time', 'Water Level (m)', 'Status', 'Rate of Rise', 'Weather']],
-      body: rows.slice(0, 3000).map((r, idx) => {
+      body: exportRows.map((r, idx) => {
         const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
-        const rateInfo = calculateReadingRate(rows, idx);
+        const rateInfo = calculateReadingRate(exportRows, idx);
         return [
           dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }),
           dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -383,14 +410,55 @@ export default function Analytics() {
   };
 
   const handleWlExport = () => {
-    const doc = buildWlPdf();
-    const label = wlFilter.type === 'all' ? 'all-time'
-      : wlFilter.type === 'date' ? wlFilter.date
-        : wlFilter.type === 'week' ? wlFilter.week
+    setIsGeneratingWlPdf(true);
+    setTimeout(() => {
+      try {
+        const doc = buildWlPdf();
+        const label = wlFilter.type === 'all' ? 'all-time'
+          : wlFilter.type === 'range' ? `${wlFilter.startDate || 'start'}_to_${wlFilter.endDate || 'end'}`
+          : wlFilter.type === 'date' ? wlFilter.date
+          : wlFilter.type === 'week' ? wlFilter.week
           : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2, '0')}`;
-    const filename = `water-level-history-${label}.pdf`;
-    const url = doc.output('bloburl');
-    setPdfPreview({ url, filename });
+        const filename = `water-level-history-${label}.pdf`;
+        const url = doc.output('bloburl');
+        setPdfPreview({ url, filename });
+      } catch (err) {
+        console.error('Failed to generate PDF:', err);
+      } finally {
+        setIsGeneratingWlPdf(false);
+      }
+    }, 50);
+  };
+
+  const handleWlExportCsv = () => {
+    const rows = Array.isArray(wlHistory) ? wlHistory : [];
+    if (!rows.length) return;
+    const header = ['Date', 'Time', 'Water Level (m)', 'Status', 'Rate of Rise', 'Captured At'];
+    const csvLines = rows.map((r, idx) => {
+      const dt = new Date(r.captured_at || r.recorded_at || r.created_at);
+      const d = dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+      const t = dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const wl = r.water_level_m != null ? parseFloat(r.water_level_m).toFixed(3) : '';
+      const fl = r.flood_level || r.status || '';
+      const rateInfo = calculateReadingRate(rows, idx);
+      const iso = r.captured_at || r.recorded_at || r.created_at || '';
+      return `"${d}","${t}","${wl}","${fl}","${rateInfo.text}","${iso}"`;
+    });
+    const csvContent = [header.join(','), ...csvLines].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const label = wlFilter.type === 'all' ? 'all-time'
+      : wlFilter.type === 'range' ? `${wlFilter.startDate || 'start'}_to_${wlFilter.endDate || 'end'}`
+      : wlFilter.type === 'date' ? wlFilter.date
+      : wlFilter.type === 'week' ? wlFilter.week
+      : `${wlFilter.year}-${String(wlFilter.month + 1).padStart(2, '0')}`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', `water-level-history-${label}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const buildDrillPdf = () => {
@@ -442,6 +510,8 @@ export default function Analytics() {
     year: now.getFullYear(),
     date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     week: `${now.getFullYear()}-W${String(Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0')}`,
+    startDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    endDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     flood_level: '',
   });
 
@@ -492,7 +562,14 @@ export default function Analytics() {
     }
 
     // 3. Filter by time range
-    if (simWlFilter.type === 'date') {
+    if (simWlFilter.type === 'range') {
+      const startMs = simWlFilter.startDate ? new Date(`${simWlFilter.startDate}T00:00:00+08:00`).getTime() : 0;
+      const endMs = simWlFilter.endDate ? new Date(`${simWlFilter.endDate}T23:59:59.999+08:00`).getTime() : Infinity;
+      list = list.filter(p => {
+        const ms = new Date(p.captured_at || p.isoDateTime || 0).getTime();
+        return ms >= startMs && ms <= endMs;
+      });
+    } else if (simWlFilter.type === 'date') {
       list = list.filter(p => matchesPointDate(p, simWlFilter.date));
     } else if (simWlFilter.type === 'month') {
       list = list.filter(p => {
@@ -692,37 +769,80 @@ export default function Analytics() {
 
   const handleFilteredSimExport = () => {
     if (!filteredSimPoints.length) return;
-    const doc = new jsPDF();
-    doc.setFontSize(16); doc.setTextColor(79, 70, 229);
-    doc.text('MDRRMO Flood Simulation Drill Evaluation Report', 14, 16);
-    doc.setFontSize(9); doc.setTextColor(100);
-    const label = simWlFilter.type === 'all' ? 'All-Time Simulation Drill Records'
-      : simWlFilter.type === 'date' ? simWlFilter.date
-        : simWlFilter.type === 'week' ? `Week ${simWlFilter.week}`
+    setIsGeneratingSimPdf(true);
+    setTimeout(() => {
+      try {
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.setTextColor(79, 70, 229);
+        doc.text('MDRRMO Flood Simulation Drill Evaluation Report', 14, 16);
+        doc.setFontSize(9); doc.setTextColor(100);
+        const label = simWlFilter.type === 'all' ? 'All-Time Simulation Drill Records'
+          : simWlFilter.type === 'range' ? `Date Range: ${simWlFilter.startDate || 'Start'} to ${simWlFilter.endDate || 'End'}`
+          : simWlFilter.type === 'date' ? simWlFilter.date
+          : simWlFilter.type === 'week' ? `Week ${simWlFilter.week}`
           : `${MONTHS[simWlFilter.month]} ${simWlFilter.year}`;
-    doc.text(`Period: ${label} | Level Filter: ${simWlFilter.flood_level || 'All Levels'}`, 14, 23);
-    doc.text(`Total Logged Points: ${filteredSimPoints.length} entries`, 14, 28);
-    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
-    autoTable(doc, {
-      startY: 39,
-      head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
-      body: filteredSimPoints.slice(0, 3000).map(p => [
-        p.date || '—',
-        p.timestamp || '—',
-        p.sessionName || '—',
-        (parseFloat(p.water_level_m) || 0).toFixed(2),
-        p.water_level_cm != null ? `${p.water_level_cm} cm` : '—',
-        p.flood_level || 'NORMAL',
-        p.phase || '—',
-        p.rate_per_hour != null ? `${p.rate_per_hour} m/hr` : '—',
-      ]),
-      styles: { fontSize: 8, textColor: [30, 41, 59] },
-      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
-      columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
+        doc.text(`Period: ${label} | Level Filter: ${simWlFilter.flood_level || 'All Levels'}`, 14, 23);
+        doc.text(`Total Logged Points: ${filteredSimPoints.length} entries`, 14, 28);
+        doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, 14, 33);
+
+        const exportSimPoints = (simWlFilter.type === 'all' && filteredSimPoints.length > 10000)
+          ? filteredSimPoints.slice(0, 10000)
+          : filteredSimPoints;
+
+        autoTable(doc, {
+          startY: 39,
+          head: [['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)']],
+          body: exportSimPoints.map(p => [
+            p.date || '—',
+            p.timestamp || '—',
+            p.sessionName || '—',
+            (parseFloat(p.water_level_m) || 0).toFixed(2),
+            p.water_level_cm != null ? `${p.water_level_cm} cm` : '—',
+            p.flood_level || 'NORMAL',
+            p.phase || '—',
+            p.rate_per_hour != null ? `${p.rate_per_hour} m/hr` : '—',
+          ]),
+          styles: { fontSize: 8, textColor: [30, 41, 59] },
+          headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+          columnStyles: { 0: { fontStyle: 'bold' }, 5: { fontStyle: 'bold' } },
+        });
+        const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.type === 'range' ? `${simWlFilter.startDate}_to_${simWlFilter.endDate}` : simWlFilter.date || simWlFilter.week || 'records'}.pdf`;
+        const url = doc.output('bloburl');
+        setPdfPreview({ url, filename });
+      } catch (err) {
+        console.error('Failed to generate simulation PDF:', err);
+      } finally {
+        setIsGeneratingSimPdf(false);
+      }
+    }, 50);
+  };
+
+  const handleFilteredSimExportCsv = () => {
+    if (!filteredSimPoints.length) return;
+    const header = ['Date', 'Time', 'Drill Session', 'Water Level (m)', 'Level (cm)', 'Status', 'Phase', 'Rate (m/hr)', 'Captured At'];
+    const csvLines = filteredSimPoints.map(p => {
+      const d = p.date || '';
+      const t = p.timestamp || '';
+      const s = p.sessionName || '';
+      const m = p.water_level_m != null ? (parseFloat(p.water_level_m) || 0).toFixed(2) : '';
+      const cm = p.water_level_cm != null ? p.water_level_cm : '';
+      const fl = p.flood_level || 'NORMAL';
+      const ph = p.phase || '';
+      const rate = p.rate_per_hour != null ? p.rate_per_hour : '';
+      const iso = p.captured_at || '';
+      return `"${d}","${t}","${s}","${m}","${cm}","${fl}","${ph}","${rate}","${iso}"`;
     });
-    const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.date || simWlFilter.week || 'records'}.pdf`;
-    const url = doc.output('bloburl');
-    setPdfPreview({ url, filename });
+    const csvContent = [header.join(','), ...csvLines].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filename = `simulation-drill-report-${simWlFilter.type === 'all' ? 'all-time' : simWlFilter.type === 'range' ? `${simWlFilter.startDate}_to_${simWlFilter.endDate}` : simWlFilter.date || simWlFilter.week || 'records'}.csv`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const byBarangay = stats?.by_barangay || [];
@@ -901,6 +1021,7 @@ export default function Analytics() {
 
                 {[
                   { id: 'all', label: 'All Time' },
+                  { id: 'range', label: 'Range' },
                   { id: 'month', label: 'Month' },
                   { id: 'date', label: 'Date' },
                   { id: 'week', label: 'Week' },
@@ -916,6 +1037,25 @@ export default function Analytics() {
                     {t.label}
                   </button>
                 ))}
+
+                {simWlFilter.type === 'range' && (
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1 shadow-sm">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">From:</span>
+                    <input
+                      type="date"
+                      value={simWlFilter.startDate}
+                      onChange={e => setSimWlFilter(f => ({ ...f, startDate: e.target.value }))}
+                      className="bg-transparent text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                    />
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium ml-1">To:</span>
+                    <input
+                      type="date"
+                      value={simWlFilter.endDate}
+                      onChange={e => setSimWlFilter(f => ({ ...f, endDate: e.target.value }))}
+                      className="bg-transparent text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 {simWlFilter.type === 'month' && (
                   <>
@@ -965,11 +1105,19 @@ export default function Analytics() {
                 </select>
 
                 <button
-                  onClick={handleFilteredSimExport}
+                  onClick={handleFilteredSimExportCsv}
                   disabled={filteredSimPoints.length === 0}
+                  className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <FileDown size={13} />
+                  Export CSV
+                </button>
+
+                <button
+                  onClick={handleFilteredSimExport}
+                  disabled={filteredSimPoints.length === 0 || isGeneratingSimPdf}
                   className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 px-3.5 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
                   <FileDown size={13} />
-                  Export PDF Report
+                  {isGeneratingSimPdf ? 'Generating PDF...' : 'Export PDF Report'}
                 </button>
               </div>
             </div>
@@ -980,11 +1128,13 @@ export default function Analytics() {
               title={`SIMULATED WATER LEVEL HISTORY — ${
                 simWlFilter.type === 'all'
                   ? 'ALL-TIME HISTORICAL SIMULATION DRILL RECORDS'
-                  : simWlFilter.type === 'date'
-                    ? `DATE: ${simWlFilter.date}`
-                    : simWlFilter.type === 'week'
-                      ? `WEEK: ${simWlFilter.week}`
-                      : `${MONTHS[simWlFilter.month]} ${simWlFilter.year}`
+                  : simWlFilter.type === 'range'
+                    ? `DATE RANGE: ${simWlFilter.startDate || 'Start'} to ${simWlFilter.endDate || 'End'}`
+                    : simWlFilter.type === 'date'
+                      ? `DATE: ${simWlFilter.date}`
+                      : simWlFilter.type === 'week'
+                        ? `WEEK: ${simWlFilter.week}`
+                        : `${MONTHS[simWlFilter.month]} ${simWlFilter.year}`
               }`}
             />
 
@@ -1653,6 +1803,7 @@ export default function Analytics() {
               <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: 'all', label: 'All Time' },
+                  { id: 'range', label: 'Range' },
                   { id: 'month', label: 'Month' },
                   { id: 'date', label: 'Date' },
                   { id: 'week', label: 'Week' },
@@ -1666,6 +1817,26 @@ export default function Analytics() {
                     {t.label}
                   </button>
                 ))}
+
+                {wlFilter.type === 'range' && (
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1 shadow-sm">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">From:</span>
+                    <input
+                      type="date"
+                      value={wlFilter.startDate}
+                      onChange={e => setWlFilter(f => ({ ...f, startDate: e.target.value }))}
+                      className="bg-transparent text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                    />
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium ml-1">To:</span>
+                    <input
+                      type="date"
+                      value={wlFilter.endDate}
+                      onChange={e => setWlFilter(f => ({ ...f, endDate: e.target.value }))}
+                      className="bg-transparent text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                )}
+
                 {wlFilter.type === 'month' && (
                   <>
                     <select value={wlFilter.month} onChange={e => setWlFilter(f => ({ ...f, month: +e.target.value }))}
@@ -1697,10 +1868,21 @@ export default function Analytics() {
                   <option value="EVACUATION">Evacuation</option>
                   <option value="CRITICAL">Critical</option>
                 </select>
-                <button onClick={handleWlExport} disabled={wlLoading}
+
+                <button
+                  onClick={handleWlExportCsv}
+                  disabled={wlLoading || !wlHistory?.length}
+                  className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
+                  <FileDown size={13} />
+                  Export CSV
+                </button>
+
+                <button
+                  onClick={handleWlExport}
+                  disabled={wlLoading || isGeneratingWlPdf || !wlHistory?.length}
                   className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 px-3.5 py-1.5 rounded-lg transition-colors font-bold shadow-sm">
                   <FileDown size={13} />
-                  {wlLoading ? 'Loading...' : 'Export PDF Report'}
+                  {isGeneratingWlPdf ? 'Generating PDF...' : wlLoading ? 'Loading...' : 'Export PDF Report'}
                 </button>
               </div>
             </div>
@@ -1708,7 +1890,17 @@ export default function Analytics() {
             <WaterLevelChart
               data={processedWlHistory}
               floodLevel={wlFilter.flood_level}
-              title={`Water Level History — ${wlFilter.type === 'all' ? 'All-Time Historical Records' : wlFilter.type === 'date' ? wlFilter.date : wlFilter.type === 'week' ? `Week ${wlFilter.week}` : `${MONTHS[wlFilter.month]} ${wlFilter.year}`}`}
+              title={`Water Level History — ${
+                wlFilter.type === 'all'
+                  ? 'All-Time Historical Records'
+                  : wlFilter.type === 'range'
+                    ? `Date Range: ${wlFilter.startDate || 'Start'} to ${wlFilter.endDate || 'End'}`
+                    : wlFilter.type === 'date'
+                      ? wlFilter.date
+                      : wlFilter.type === 'week'
+                        ? `Week ${wlFilter.week}`
+                        : `${MONTHS[wlFilter.month]} ${wlFilter.year}`
+              }`}
             />
 
             {/* Detailed Water Level Readings Table */}

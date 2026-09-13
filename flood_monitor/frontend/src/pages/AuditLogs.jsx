@@ -336,8 +336,14 @@ export default function AuditLogs() {
   const { user: currentUser } = useAuthStore();
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['audit-logs', page],
-    queryFn:  () => getAuditLogs({ limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+    queryKey: ['audit-logs', page, categoryTab, actionFilter, search],
+    queryFn:  () => getAuditLogs({
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+      category: categoryTab !== 'all' ? categoryTab : undefined,
+      action: actionFilter || undefined,
+      search: search.trim() || undefined,
+    }),
     refetchInterval: 30000,
     keepPreviousData: true,
   });
@@ -476,23 +482,7 @@ export default function AuditLogs() {
     }
   };
 
-  const filtered = logs.filter(log => {
-    const isSim = (log.action || '').includes('SIMULATION') || (log.action || '').includes('DRILL') || (log.entity_type || '').includes('SIMULATION');
-    if (categoryTab === 'live' && isSim) return false;
-    if (categoryTab === 'simulation' && !isSim) return false;
-
-    const queryStr = search.toLowerCase();
-    const cleanDesc = (log.description || '').toLowerCase();
-    const matchSearch = !search ||
-      (log.user_email   || '').toLowerCase().includes(queryStr) ||
-      (log.user_full_name || '').toLowerCase().includes(queryStr) ||
-      (log.action       || '').toLowerCase().includes(queryStr) ||
-      (log.entity_type  || '').toLowerCase().includes(queryStr) ||
-      cleanDesc.includes(queryStr) ||
-      (log.entity_id    || '').toLowerCase().includes(queryStr);
-    const matchAction = !actionFilter || (log.action || '').includes(actionFilter);
-    return matchSearch && matchAction;
-  });
+  const filtered = logs;
 
   const inputCls = "w-full text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm transition-all";
 

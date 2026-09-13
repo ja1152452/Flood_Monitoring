@@ -17,3 +17,12 @@ export const updateAuditLog = (id, data) =>
 
 export const deleteAuditLog = (id) =>
   api.delete(`/analytics/audit-logs/${id}`).then(r => r.data);
+
+export const getDrillSessionsApi = () =>
+  api.get('/analytics/drill-sessions').then(r => r.data.data);
+
+export const saveDrillSessionApi = (session) =>
+  api.post('/analytics/drill-sessions', session).then(r => r.data.data);
+
+export const deleteDrillSessionApi = (id) =>
+  api.delete(`/analytics/drill-sessions/${id}`).then(r => r.data.data);
