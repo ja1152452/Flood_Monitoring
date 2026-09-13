@@ -22,6 +22,7 @@ import { ResponderDashboard, BarangayDashboard } from '../../components/dashboar
 import { SOSTrackingMap } from '../../components/FloodMap';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 const RESPONDER_ROLES = ['PNP', 'RHU', 'BFP', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'RESCUE'];
 
@@ -83,10 +84,16 @@ export default function SOSScreen() {
   const qc = useQueryClient();
   const role = user?.role || 'CITIZEN';
 
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN') return <AdminEvacuationView qc={qc} />;
-  if (RESPONDER_ROLES.includes(role)) return <ResponderDashboard user={user} />;
-  if (role === 'BARANGAY_OFFICIAL') return <BarangayDashboard user={user} />;
-  return <CitizenSOSView qc={qc} user={user} />;
+  return (
+    <ErrorBoundary>
+      {(role === 'ADMIN' || role === 'SUPER_ADMIN') && <AdminEvacuationView qc={qc} />}
+      {RESPONDER_ROLES.includes(role) && <ResponderDashboard user={user} />}
+      {role === 'BARANGAY_OFFICIAL' && <BarangayDashboard user={user} />}
+      {!['ADMIN', 'SUPER_ADMIN', 'BARANGAY_OFFICIAL', ...RESPONDER_ROLES].includes(role) && (
+        <CitizenSOSView qc={qc} user={user} />
+      )}
+    </ErrorBoundary>
+  );
 }
 
 function AdminEvacuationView({ qc }) {
@@ -202,11 +209,73 @@ function AdminEvacuationView({ qc }) {
 
 function CitizenSOSView({ qc, user }) {
   const router = useRouter();
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] = useState(
+    user?.last_lat && user?.last_lng
+      ? { latitude: Number(user.last_lat), longitude: Number(user.last_lng) }
+      : null
+  );
+  const [locating, setLocating] = useState(false);
   const [sending, setSending] = useState(false);
   const [recommended, setRecommended] = useState([]);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
   const lastSosSentAt = useRef(0);
+
+  const fetchCurrentLocation = async () => {
+    try {
+      setLocating(true);
+      const { status } = await Location.getForegroundPermissionsAsync();
+      let granted = status === 'granted';
+      if (!granted) {
+        const req = await Location.requestForegroundPermissionsAsync();
+        granted = req.status === 'granted';
+      }
+      if (!granted) {
+        Alert.alert(
+          'Location Permission Required',
+          'Please allow location access to pinpoint your emergency coordinates for rescue teams.'
+        );
+        return;
+      }
+
+      // Fast fetch with 6-second timeout race
+      const fresh = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('GPS timeout')), 6000))
+      ]);
+
+      if (fresh?.coords) {
+        setLocation(fresh.coords);
+        Toast.show({
+          type: 'success',
+          text1: '📍 GPS Location Updated',
+          text2: `${fresh.coords.latitude.toFixed(4)}, ${fresh.coords.longitude.toFixed(4)}`,
+          visibilityTime: 2500,
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('fetchCurrentLocation error:', err);
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (lastKnown?.coords) {
+          setLocation(lastKnown.coords);
+          Toast.show({
+            type: 'info',
+            text1: 'Using last known GPS position',
+            visibilityTime: 2500,
+          });
+          return;
+        }
+      } catch (_) {}
+      Toast.show({
+        type: 'error',
+        text1: 'Could not fetch GPS location',
+        text2: 'Please ensure GPS is enabled on your device.',
+      });
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const { data: myRequests = [] } = useQuery({
     queryKey: ['my-sos'],
@@ -242,7 +311,10 @@ function CitizenSOSView({ qc, user }) {
         } catch (_) {}
 
         try {
-          const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const fresh = await Promise.race([
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+          ]);
           if (fresh?.coords && isMounted) {
             setLocation(fresh.coords);
           }
@@ -390,11 +462,19 @@ function CitizenSOSView({ qc, user }) {
             <Text style={styles.locationValue}>
               {location
                 ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
-                : 'Getting GPS location...'}
+                : (locating ? 'Acquiring GPS...' : 'Getting GPS location...')}
             </Text>
           </View>
-          <TouchableOpacity onPress={fetchCurrentLocation} style={styles.targetBtn}>
-            <Ionicons name="locate-outline" size={18} color="#dc2626" />
+          <TouchableOpacity
+            onPress={fetchCurrentLocation}
+            style={styles.targetBtn}
+            disabled={locating}
+            activeOpacity={0.7}>
+            {locating ? (
+              <ActivityIndicator size="small" color="#dc2626" />
+            ) : (
+              <Ionicons name="locate-outline" size={18} color="#dc2626" />
+            )}
           </TouchableOpacity>
         </View>
 

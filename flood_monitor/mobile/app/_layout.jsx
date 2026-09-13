@@ -11,6 +11,7 @@ import { useResponderLocation } from '../hooks/useResponderLocation';
 import { useEmergencyNotifications } from '../hooks/useEmergencyNotifications';
 import { useRescueStatusNotifications } from '../hooks/useRescueStatusNotifications';
 import { queryClient } from '../utils/queryClient';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const toastConfig = {
   error: (props) => (
@@ -118,7 +119,9 @@ export default function RootLayout() {
       <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
         <StatusBar style="light" />
         <AppInit />
-        <Stack screenOptions={{ headerShown: false }} />
+        <ErrorBoundary>
+          <Stack screenOptions={{ headerShown: false }} />
+        </ErrorBoundary>
         <Toast config={toastConfig} topOffset={60} />
       </View>
     </QueryClientProvider>
