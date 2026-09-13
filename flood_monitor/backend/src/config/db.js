@@ -293,9 +293,20 @@ export const runAutoMigrations = async () => {
       console.warn('[DB] Warning updating simulation_drill_sessions table:', err.message);
     }
 
-    // 10. Performance Indexes
+    // 10. Water Level Readings is_simulated column & isolation
     try {
       await client.query(`
+        ALTER TABLE water_level_readings ADD COLUMN IF NOT EXISTS is_simulated BOOLEAN NOT NULL DEFAULT FALSE;
+        UPDATE water_level_readings SET is_simulated = TRUE WHERE confidence IS NULL AND waterline_pixel_y IS NULL AND is_simulated = FALSE;
+      `);
+    } catch (err) {
+      console.warn('[DB] Warning updating water_level_readings is_simulated column:', err.message);
+    }
+
+    // 11. Performance Indexes
+    try {
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_readings_live          ON water_level_readings (camera_id, captured_at DESC) WHERE is_simulated = FALSE;
         CREATE INDEX IF NOT EXISTS idx_sim_drill_started      ON simulation_drill_sessions (started_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sos_pending            ON sos_requests (created_at DESC) WHERE status = 'PENDING';
         CREATE INDEX IF NOT EXISTS idx_sos_barangay           ON sos_requests (barangay_id, status);

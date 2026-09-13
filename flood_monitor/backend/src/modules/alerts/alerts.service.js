@@ -81,7 +81,10 @@ export const evaluateAndDispatch = async (reading, client) => {
   const { rows: trendRows } = await db.query(
     `SELECT water_level_m, captured_at
      FROM water_level_readings
-     WHERE camera_id = $1 AND captured_at >= NOW() - INTERVAL '30 minutes'
+     WHERE camera_id = $1
+       AND (is_simulated = FALSE OR is_simulated IS NULL)
+       AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
+       AND captured_at >= NOW() - INTERVAL '30 minutes'
      ORDER BY captured_at ASC LIMIT 10`,
     [reading.camera_id]
   );
@@ -247,7 +250,7 @@ export const getActive = async () => {
   const { rows } = await query(
     `SELECT a.*, c.location_name, c.lat, c.lng,
             b.name AS barangay_name, b.risk_level,
-            COALESCE(r.water_level_m, (SELECT water_level_m FROM water_level_readings WHERE camera_id = a.camera_id ORDER BY captured_at DESC LIMIT 1), 2.00) AS current_water_level_m
+            COALESCE(r.water_level_m, (SELECT water_level_m FROM water_level_readings WHERE camera_id = a.camera_id AND (is_simulated = FALSE OR is_simulated IS NULL) AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL) ORDER BY captured_at DESC LIMIT 1), 2.00) AS current_water_level_m
      FROM flood_alerts a
      JOIN cameras c ON c.id = a.camera_id
      LEFT JOIN barangays b ON b.id = c.barangay_id
@@ -264,7 +267,10 @@ export const getActive = async () => {
         const { rows: trend } = await query(
           `SELECT water_level_m, captured_at
            FROM water_level_readings
-           WHERE camera_id = $1 AND captured_at >= NOW() - INTERVAL '1 hour'
+           WHERE camera_id = $1
+             AND (is_simulated = FALSE OR is_simulated IS NULL)
+             AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
+             AND captured_at >= NOW() - INTERVAL '1 hour'
            ORDER BY captured_at ASC LIMIT 20`,
           [alert.camera_id]
         );

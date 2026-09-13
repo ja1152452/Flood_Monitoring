@@ -74,24 +74,8 @@ router.post('/simulation', asyncHandler(async (req, res) => {
     });
   }
 
-  // Automatically persist simulation readings to PostgreSQL database
-  if (updated.active && updated.water_level_m != null) {
-    try {
-      const { rows: cams } = await query('SELECT id FROM cameras LIMIT 1');
-      if (cams.length) {
-        await query(
-          `INSERT INTO water_level_readings (camera_id, water_level_m, flood_level, trend, captured_at, processed_at)
-           VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-          [
-            cams[0].id,
-            parseFloat(updated.water_level_m),
-            updated.flood_level || 'NORMAL',
-            updated.is_rising ? 'RISING' : 'STABLE',
-          ]
-        );
-      }
-    } catch (_) {}
-  }
+  // Simulation readings are strictly isolated from the real live river readings table (water_level_readings).
+  // Drill runs and simulation points are stored in simulation_drill_sessions via the Simulation Recorder.
 
   // Emit Real-time Socket & Push notification events when simulation flood level changes
   if (updated.active && previousState.flood_level !== updated.flood_level) {

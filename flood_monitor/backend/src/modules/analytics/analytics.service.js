@@ -9,6 +9,8 @@ export const getSummary = async () => {
     query(
       `SELECT water_level_m, flood_level, captured_at
        FROM water_level_readings
+       WHERE (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        ORDER BY captured_at DESC LIMIT 1`
     ),
   ]);
@@ -31,6 +33,8 @@ export const getHourlyData = async (cameraId, hours = 24) => {
        COUNT(*) AS sample_count
      FROM water_level_readings
      WHERE camera_id = $1
+       AND (is_simulated = FALSE OR is_simulated IS NULL)
+       AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        AND captured_at >= NOW() - ($2 || ' hours')::interval
      GROUP BY date_trunc('hour', captured_at)
      ORDER BY hour ASC`,
@@ -556,6 +560,8 @@ export const getReadingTrend = async (cameraId, minutes = 60) => {
        captured_at
      FROM water_level_readings
      WHERE camera_id = $1
+       AND (is_simulated = FALSE OR is_simulated IS NULL)
+       AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        AND captured_at >= NOW() - ($2 || ' minutes')::interval
      ORDER BY captured_at ASC`,
     [cameraId, minutes]

@@ -67,7 +67,9 @@ router.get('/rate-of-rise',
     const { rows } = await query(
       `SELECT water_level_m, captured_at
        FROM water_level_readings
-       WHERE captured_at >= NOW() - INTERVAL '1 hour'
+       WHERE (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
+         AND captured_at >= NOW() - INTERVAL '1 hour'
        ORDER BY captured_at ASC`
     );
     if (rows.length < 2) {
@@ -122,7 +124,9 @@ router.get('/trend',
     const { rows } = await query(
       `SELECT water_level_m, captured_at
        FROM water_level_readings
-       WHERE captured_at >= NOW() - INTERVAL '1 hour'
+       WHERE (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
+         AND captured_at >= NOW() - INTERVAL '1 hour'
        ORDER BY captured_at ASC
        LIMIT 20`
     );
@@ -186,7 +190,11 @@ router.get('/:cameraId/history',
   asyncHandler(async (req, res) => {
     const limit = Math.min(50000, parseInt(req.query.limit || '48', 10));
     const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
-    const conditions = ['camera_id = $1'];
+    const conditions = [
+      'camera_id = $1',
+      '(is_simulated = FALSE OR is_simulated IS NULL)',
+      '(confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)',
+    ];
     const params = [req.params.cameraId];
     let i = 2;
 
@@ -243,6 +251,8 @@ router.get('/:cameraId/trend',
       `SELECT water_level_m, captured_at, flood_level
        FROM water_level_readings
        WHERE camera_id = $1
+         AND (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        ORDER BY captured_at DESC
        LIMIT 5`,
       [req.params.cameraId]
@@ -283,6 +293,8 @@ router.get('/:cameraId/rate-of-rise',
       `SELECT water_level_m, captured_at
        FROM water_level_readings
        WHERE camera_id = $1
+         AND (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
          AND captured_at >= NOW() - INTERVAL '1 hour'
        ORDER BY captured_at ASC`,
       [req.params.cameraId]

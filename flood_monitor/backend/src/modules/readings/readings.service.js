@@ -56,6 +56,8 @@ export const getLatest = async (cameraId) => {
        JOIN cameras c ON c.id = r.camera_id
        LEFT JOIN barangays b ON b.id = c.barangay_id
        WHERE r.camera_id = $1
+         AND (r.is_simulated = FALSE OR r.is_simulated IS NULL)
+         AND (r.confidence IS NOT NULL OR r.waterline_pixel_y IS NOT NULL)
        ORDER BY r.captured_at DESC
        LIMIT 1`,
       [cameraId]
@@ -71,6 +73,8 @@ export const getLatest = async (cameraId) => {
      FROM water_level_readings r
      JOIN cameras c ON c.id = r.camera_id
      LEFT JOIN barangays b ON b.id = c.barangay_id
+     WHERE (r.is_simulated = FALSE OR r.is_simulated IS NULL)
+       AND (r.confidence IS NOT NULL OR r.waterline_pixel_y IS NOT NULL)
      ORDER BY r.captured_at DESC
      LIMIT 1`
   );
@@ -81,7 +85,11 @@ export const getLatest = async (cameraId) => {
 export const getHistory = async (cameraId, queryParams) => {
   const { page, limit, offset } = parsePagination(queryParams);
   const { from, to, date, flood_level } = queryParams;
-  const conditions = ['camera_id = $1'];
+  const conditions = [
+    'camera_id = $1',
+    '(is_simulated = FALSE OR is_simulated IS NULL)',
+    '(confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)',
+  ];
   const params = [cameraId];
   let i = 2;
   if (date) {
@@ -156,6 +164,8 @@ export const getWaterLevelInterpretation = async (cameraId) => {
     `SELECT water_level_m, flood_level, captured_at
      FROM water_level_readings
      WHERE camera_id = $1
+       AND (is_simulated = FALSE OR is_simulated IS NULL)
+       AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
      ORDER BY captured_at DESC
      LIMIT 1`,
     [cameraId]
@@ -190,6 +200,8 @@ export const getWaterLevelInterpretation = async (cameraId) => {
     `SELECT water_level_m, flood_level, captured_at
      FROM water_level_readings
      WHERE camera_id = $1
+       AND (is_simulated = FALSE OR is_simulated IS NULL)
+       AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        AND captured_at <= $2::timestamp - INTERVAL '2 minutes'
      ORDER BY captured_at DESC
      LIMIT 1`,
@@ -204,6 +216,8 @@ export const getWaterLevelInterpretation = async (cameraId) => {
       `SELECT water_level_m, flood_level, captured_at
        FROM water_level_readings
        WHERE camera_id = $1
+         AND (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        ORDER BY captured_at DESC
        LIMIT 1 OFFSET 1`,
       [cameraId]
@@ -330,6 +344,8 @@ export const calculatePredictiveForecast = async (cameraId, currentLevelM, rateP
              LAG(captured_at) OVER (ORDER BY captured_at) as prev_time
            FROM water_level_readings
            WHERE camera_id = $1
+             AND (is_simulated = FALSE OR is_simulated IS NULL)
+             AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
          ) t
          WHERE prev_level = $2 AND flood_level = $3
            AND EXTRACT(EPOCH FROM (captured_at - prev_time)) BETWEEN 60 AND 86400`,

@@ -62,6 +62,8 @@ export const getAll = async () => {
        SELECT water_level_m, flood_level, captured_at
        FROM water_level_readings
        WHERE camera_id = c.id
+         AND (is_simulated = FALSE OR is_simulated IS NULL)
+         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
        ORDER BY captured_at DESC
        LIMIT 1
      ) r ON TRUE
