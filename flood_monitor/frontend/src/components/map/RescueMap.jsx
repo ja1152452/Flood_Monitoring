@@ -524,7 +524,7 @@ export function RescueMap({ sosList = [], evacuationCenters = [], responders = [
 
           return (
             <Marker
-              key={`${r.id}-${r.last_lat}-${r.last_lng}`}
+              key={r.id}
               position={[r.last_lat, r.last_lng]}
               icon={responderIcon(r.role, r.responder_status)}>
             <Popup>

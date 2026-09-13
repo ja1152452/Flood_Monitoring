@@ -53,33 +53,35 @@ io.on('connection', (socket) => {
     socket.join('admins');
   }
 
-  // Responder sends their location
+  // Responder sends their location via socket
   socket.on('responder:location', async ({ lat, lng }) => {
     if (!RESPONDER_ROLES.includes(socket.userRole)) return;
-    if (!lat || !lng) return;
+    if (lat === undefined || lng === undefined || isNaN(Number(lat)) || isNaN(Number(lng))) return;
 
     try {
       // Persist to DB
       await query(
         `UPDATE users SET last_lat = $2, last_lng = $3, last_location_at = NOW() WHERE id = $1`,
-        [socket.userId, lat, lng]
+        [socket.userId, Number(lat), Number(lng)]
       );
 
-      // Fetch full name and role to broadcast
+      // Fetch full details to broadcast
       const { rows } = await query(
-        `SELECT id, full_name, role, last_lat, last_lng, last_location_at FROM users WHERE id = $1`,
+        `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,
+                COALESCE(responder_status, 'AVAILABLE') AS responder_status
+         FROM users WHERE id = $1`,
         [socket.userId]
       );
       if (rows.length) {
-        io.to('admins').emit('responder:location', rows[0]);
+        io.emit('responder:location', rows[0]);
       }
     } catch (_) {}
   });
 
   socket.on('disconnect', () => {
-    // Notify admins this responder went offline
+    // Notify all connected clients this responder went offline
     if (RESPONDER_ROLES.includes(socket.userRole)) {
-      io.to('admins').emit('responder:offline', { id: socket.userId });
+      io.emit('responder:offline', { id: socket.userId });
     }
   });
 });

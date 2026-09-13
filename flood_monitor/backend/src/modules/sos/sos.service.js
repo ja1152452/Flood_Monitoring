@@ -1019,3 +1019,33 @@ export const resolveBackup = async (backupId, userId) => {
 
   return backup;
 };
+
+export const updateSOSLocation = async (userId, sosId, lat, lng) => {
+  const { rows } = await query(
+    `UPDATE sos_requests
+     SET lat = $1, lng = $2
+     WHERE id = $3 
+       AND (user_id = $4 OR $4 IN (SELECT id FROM users WHERE role IN ('ADMIN', 'SUPER_ADMIN', 'MDRRMO')))
+       AND status IN ('PENDING', 'ACKNOWLEDGED', 'DISPATCHED', 'RESPONDING')
+     RETURNING *`,
+    [lat, lng, sosId, userId]
+  );
+  if (!rows.length) {
+    throw ApiError.notFound('Active SOS request not found or unauthorized to update location');
+  }
+
+  const updatedSos = rows[0];
+
+  const io = getIO();
+  if (io) {
+    io.emit('sos:location', {
+      id: updatedSos.id,
+      lat: Number(lat),
+      lng: Number(lng),
+      user_id: updatedSos.user_id,
+      status: updatedSos.status,
+    });
+  }
+
+  return updatedSos;
+};

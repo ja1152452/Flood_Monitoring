@@ -29,8 +29,21 @@ export default function Login() {
   const [showPwd, setShowPwd]       = useState(false);
   const [errorMsg, setErrorMsg]     = useState('');
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
-  const { setAuth }                 = useAuthStore();
+  const { user, token, logout, setAuth } = useAuthStore();
   const navigate                    = useNavigate();
+
+  // If already authenticated, route Admin/Super Admin to /, MSWDO to /mswdo, and log out unauthorized roles
+  useEffect(() => {
+    if (token && user) {
+      if (user.role === 'MSWDO') {
+        navigate('/mswdo', { replace: true });
+      } else if (['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
+        navigate('/', { replace: true });
+      } else {
+        logout();
+      }
+    }
+  }, [token, user, navigate, logout]);
 
   const [fpOpen,    setFpOpen]    = useState(false);
   const [fpStep,    setFpStep]    = useState(1);
@@ -72,13 +85,17 @@ export default function Login() {
       const data = await login(form);
       const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'MSWDO'];
       if (!allowedRoles.includes(data.user?.role)) {
-        const roleMsg = 'Access Restricted: Responders and citizens must use the ResQConnect mobile app.';
+        const roleMsg = 'Access Restricted: Only Admin, Super Admin, and MSWDO accounts can access the web system. Responders and citizens must use the mobile application.';
         setErrorMsg(roleMsg);
-        toast.error(roleMsg);
+        toast.error(roleMsg, { duration: 6000 });
         return;
       }
       setAuth(data.user, data.accessToken, data.refreshToken);
-      navigate(data.user?.role === 'MSWDO' ? '/mswdo' : '/');
+      if (data.user?.role === 'MSWDO') {
+        navigate('/mswdo');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       const msg =
         err.response?.data?.errors?.[0]?.message?.replace(/"/g, '') ||
@@ -231,7 +248,10 @@ export default function Login() {
                   <img src={logo} alt="logo" className="w-9 h-9 object-contain" />
                 </div>
                 <h2 className="text-xl font-bold text-white">Welcome Back</h2>
-                <p className="text-slate-500 text-xs mt-1">Sign in to your MDRRMO account</p>
+                <p className="text-slate-400 text-xs mt-1">MDRRMO &amp; MSWDO Portals</p>
+                <span className="mt-2 text-[10px] font-bold text-red-300 bg-red-950/80 px-2.5 py-0.5 rounded-full border border-red-500/30 uppercase tracking-wider">
+                  Admin &amp; MSWDO Access
+                </span>
               </div>
 
               {/* Inline Error / Lockout Alert Box */}
@@ -331,6 +351,13 @@ export default function Login() {
                 }}>
                 {loading ? 'Signing in...' : lockoutSeconds > 0 ? `Locked (${formatTime(lockoutSeconds)})` : 'Sign In'}
               </button>
+
+              {/* Mobile app notice for responders & citizens */}
+              <div className="pt-2 border-t border-white/5 text-center">
+                <p className="text-[11px] text-slate-400">
+                  Responders &amp; Citizens: please sign in via the <span className="text-red-400 font-semibold">Mobile App</span>.
+                </p>
+              </div>
             </form>
 
             <p className="text-center text-xs mt-5" style={{ color: 'rgba(255,255,255,0.25)' }}>

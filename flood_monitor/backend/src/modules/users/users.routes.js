@@ -12,24 +12,30 @@ import { validate } from '../../middleware/validate.js';
 
 const router = Router();
 
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE', 'ADMIN', 'SUPER_ADMIN'];
+
 // Responder updates their own location (no admin required)
 router.post('/location', authenticate, asyncHandler(async (req, res) => {
   const { lat, lng } = req.body;
-  if (!lat || !lng) throw ApiError.badRequest('lat and lng required');
+  if (lat === undefined || lng === undefined || isNaN(Number(lat)) || isNaN(Number(lng))) {
+    throw ApiError.badRequest('Valid numeric lat and lng required');
+  }
 
   await query(
     `UPDATE users SET last_lat = $2, last_lng = $3, last_location_at = NOW() WHERE id = $1`,
-    [req.user.id, lat, lng]
+    [req.user.id, Number(lat), Number(lng)]
   );
 
   const io = getIO();
-  if (io) {
+  if (io && RESPONDER_ROLES.includes(req.user.role)) {
     io.emit('responder:location', {
       id: req.user.id,
       full_name: req.user.full_name,
       role: req.user.role,
-      last_lat: lat,
-      last_lng: lng,
+      phone_number: req.user.phone_number,
+      responder_status: req.user.responder_status || 'AVAILABLE',
+      last_lat: Number(lat),
+      last_lng: Number(lng),
       last_location_at: new Date().toISOString(),
     });
   }
@@ -39,17 +45,18 @@ router.post('/location', authenticate, asyncHandler(async (req, res) => {
 
 // Admin gets all active responder locations & status — accessible by any authenticated user
 router.get('/responder-locations', authenticate, asyncHandler(async (req, res) => {
-  const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE', 'ADMIN', 'SUPER_ADMIN'];
-  const { role, status } = req.query;
+  const { role, status, with_coords } = req.query;
 
   let queryText = `SELECT id, full_name, role, phone_number, last_lat, last_lng, last_location_at,
             COALESCE(responder_status, 'AVAILABLE') AS responder_status
      FROM users
      WHERE role::text = ANY($1::text[]) 
-       AND is_active = TRUE
-       AND last_lat IS NOT NULL 
-       AND last_lng IS NOT NULL`;
+       AND is_active = TRUE`;
   const params = [RESPONDER_ROLES];
+
+  if (with_coords === 'true') {
+    queryText += ` AND last_lat IS NOT NULL AND last_lng IS NOT NULL`;
+  }
 
   if (role) {
     params.push(role);
@@ -95,8 +102,6 @@ router.get('/responder-locations/:userId', authenticate, asyncHandler(async (req
 
 // All routes below require ADMIN or SUPER_ADMIN
 router.use(authenticate, authorize('ADMIN', 'SUPER_ADMIN'));
-
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
 
 const createSchema = Joi.object({
   email: Joi.string().email().required(),

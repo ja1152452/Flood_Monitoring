@@ -151,13 +151,27 @@ export default function Rescue() {
 
     socket.on('responder:location', (data) => {
       setResponders(prev => {
-        const idx = prev.findIndex(r => r.id === data.id);
+        const targetId = String(data.id || '').toLowerCase();
+        const idx = prev.findIndex(r => String(r.id || '').toLowerCase() === targetId);
         if (idx >= 0) {
           const updated = [...prev];
           updated[idx] = { ...updated[idx], ...data };
           return updated;
         }
         return [...prev, data];
+      });
+    });
+
+    socket.on('sos:location', (data) => {
+      qc.setQueriesData({ queryKey: ['sos-pending'] }, (old) => {
+        if (!Array.isArray(old)) return old;
+        const targetId = String(data.id || '').toLowerCase();
+        return old.map(s => {
+          if (String(s.id || '').toLowerCase() === targetId) {
+            return { ...s, lat: data.lat, lng: data.lng };
+          }
+          return s;
+        });
       });
     });
 
@@ -205,6 +219,7 @@ export default function Rescue() {
     return () => {
       clearInterval(interval);
       socket.off('responder:location');
+      socket.off('sos:location');
       socket.off('sos:created');
       socket.off('sos:dispatched');
       socket.off('sos:updated');
@@ -1011,7 +1026,7 @@ export default function Rescue() {
                     const roleCfg = ROLE_CONFIG[r.role] || ROLE_CONFIG.RESCUE;
 
                     return (
-                      <label
+                      <div
                         key={r.id}
                         onClick={() => toggleResponderSelection(r)}
                         className={`flex items-center justify-between p-2.5 rounded-xl border border-l-4 ${roleCfg.cardBorder} cursor-pointer transition-all ${
@@ -1026,8 +1041,8 @@ export default function Rescue() {
                             type="checkbox"
                             checked={isChecked}
                             disabled={isBusy}
-                            onChange={() => {}}
-                            className="rounded border-slate-300 text-red-600 focus:ring-red-500 w-4 h-4"
+                            readOnly
+                            className="rounded border-slate-300 text-red-600 focus:ring-red-500 w-4 h-4 pointer-events-none"
                           />
                           <div>
                             <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1045,7 +1060,7 @@ export default function Rescue() {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusCfg.color}`}>
                           {isBusy ? (['DISPATCHED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(r.responder_status) ? 'Rescuing' : 'Unavailable') : 'Available'}
                         </span>
-                      </label>
+                      </div>
                     );
                   })
                 )}
@@ -1305,7 +1320,7 @@ export default function Rescue() {
                       const distKm = getDistanceKm(r.last_lat, r.last_lng, dispatchBackupModalRequest.lat, dispatchBackupModalRequest.lng);
                       const isSelected = selectedBackupResponderId === r.id;
                       return (
-                        <label
+                        <div
                           key={r.id}
                           onClick={() => setSelectedBackupResponderId(r.id)}
                           className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
@@ -1318,8 +1333,8 @@ export default function Rescue() {
                               type="radio"
                               name="backup_responder"
                               checked={isSelected}
-                              onChange={() => setSelectedBackupResponderId(r.id)}
-                              className="text-amber-600 focus:ring-amber-500 w-4 h-4"
+                              readOnly
+                              className="text-amber-600 focus:ring-amber-500 w-4 h-4 pointer-events-none"
                             />
                             <div>
                               <div className="text-xs font-bold">{r.full_name} ({r.role})</div>
@@ -1331,7 +1346,7 @@ export default function Rescue() {
                           <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md font-bold">
                             AVAILABLE
                           </span>
-                        </label>
+                        </div>
                       );
                     })
                 )}

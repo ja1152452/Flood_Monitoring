@@ -27,27 +27,35 @@ const queryClient = new QueryClient({
   },
 });
 
-function Protected({ children }) {
-  const { token } = useAuthStore();
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+
+function AdminProtected({ children }) {
+  const { token, user, logout } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
+  // If MSWDO user lands on an admin route, route them to their dedicated MSWDO dashboard
+  if (user?.role === 'MSWDO') {
+    return <Navigate to="/mswdo" replace />;
+  }
+  if (!ADMIN_ROLES.includes(user?.role)) {
+    logout?.();
+    return <Navigate to="/login" replace />;
+  }
   return children;
 }
 
 function MswdoProtected({ children }) {
-  const { token, user } = useAuthStore();
+  const { token, user, logout } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
-  if (user?.role !== 'MSWDO') return <Navigate to="/" replace />;
+  const allowed = ['MSWDO', ...ADMIN_ROLES];
+  if (!allowed.includes(user?.role)) {
+    logout?.();
+    return <Navigate to="/login" replace />;
+  }
   return children;
 }
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
-
-function AdminProtected({ children }) {
-  const { token, user } = useAuthStore();
-  if (!token) return <Navigate to="/login" replace />;
-  if (user?.role === 'MSWDO') return <Navigate to="/mswdo" replace />;
-  if (!ADMIN_ROLES.includes(user?.role)) return <Navigate to="/login" replace />;
-  return children;
+function Protected({ children }) {
+  return <AdminProtected>{children}</AdminProtected>;
 }
 
 export default function App() {

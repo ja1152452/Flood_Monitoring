@@ -18,6 +18,7 @@ export const authenticate = asyncHandler(async (req, _res, next) => {
   const { rows } = await query(
     `SELECT u.id, u.email, u.role, u.full_name, u.is_active,
             u.phone_number, u.avatar_url, u.barangay_id,
+            COALESCE(u.responder_status, 'AVAILABLE') AS responder_status,
             b.name AS barangay_name
      FROM users u
      LEFT JOIN barangays b ON b.id = u.barangay_id

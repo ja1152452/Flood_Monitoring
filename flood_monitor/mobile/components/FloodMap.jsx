@@ -384,7 +384,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
     }
   }, [updateDataPayload, mapReady, isFullScreen]);
 
-  const html = `<!DOCTYPE html><html><head>
+  const html = useMemo(() => `<!DOCTYPE html><html><head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -395,7 +395,7 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
     @keyframes pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(2.2);opacity:0}}
   </style>
   </head><body><div id="map"></div><script>
-    var map=L.map('map',{zoomControl:true});
+    var map=L.map('map',{zoomControl:true}).setView([${LUMBAN_CENTER.lat},${LUMBAN_CENTER.lng}],15);
     var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
     var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
     var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
@@ -571,17 +571,10 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
     });
     new RecenterControl().addTo(map);
 
-    // Initial render with embedded initial data
-    window.updateRescueData(${JSON.stringify({
-      responders: validResponders,
-      sosLocation,
-      assignedIds: assignedIdsArr
-    })});
-
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
     }
-  </script></html>`;
+  </script></html>`, []);
 
   return (
     <View style={{ height, borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
@@ -597,6 +590,8 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
         onLoad={() => {
           setLoading(false);
           setMapReady(true);
+          const jsCode = `if (typeof window.updateRescueData === 'function') { window.updateRescueData(${updateDataPayload}); } true;`;
+          webViewRef.current?.injectJavaScript(jsCode);
         }}
         onMessage={(event) => {
           try {
@@ -604,6 +599,8 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
             if (msg.type === 'MAP_READY') {
               setMapReady(true);
               setLoading(false);
+              const jsCode = `if (typeof window.updateRescueData === 'function') { window.updateRescueData(${updateDataPayload}); } true;`;
+              webViewRef.current?.injectJavaScript(jsCode);
             }
           } catch(e) {}
         }}
@@ -654,10 +651,11 @@ export function SOSTrackingMap({ sosLocation = null, responders = [], assignedRe
 export function ResponderMap({ responders = [], sosList = [], height = 320, currentUser = null, userLocation = null }) {
   const [loading, setLoading] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const myLoc = userLocation || (currentUser?.last_lat && currentUser?.last_lng ? { lat: currentUser.last_lat, lng: currentUser.last_lng } : null);
+  const [mapReady, setMapReady] = useState(false);
+  const webViewRef = useRef(null);
+  const modalWebViewRef = useRef(null);
 
-  const currentUserId = String(currentUser?.id || '').toLowerCase();
-  const isMDRRMO = ['ADMIN', 'SUPER_ADMIN', 'MDRRMO'].includes(String(currentUser?.role || '').toUpperCase());
+  const myLoc = userLocation || (currentUser?.last_lat && currentUser?.last_lng ? { lat: currentUser.last_lat, lng: currentUser.last_lng } : null);
 
   // Merge responder locations from responders prop and dispatched_responders in sosList
   const respondersMap = new Map();
@@ -704,161 +702,29 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
 
   const allResponders = Array.from(respondersMap.values());
 
-  const activeAssignedSOS = sosList.find(s => {
-    if (!currentUserId) return false;
-    let dResponders = s.dispatched_responders;
-    if (typeof dResponders === 'string') {
-      try { dResponders = JSON.parse(dResponders); } catch (e) { dResponders = []; }
+  const updateResponderPayload = useMemo(() => {
+    return JSON.stringify({
+      myLoc,
+      currentUser: currentUser ? {
+        id: currentUser.id,
+        full_name: currentUser.full_name,
+        role: currentUser.role
+      } : null,
+      responders: allResponders,
+      sosList: sosList || [],
+    });
+  }, [myLoc, currentUser, allResponders, sosList]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const jsCode = `if (typeof window.updateResponderData === 'function') { window.updateResponderData(${updateResponderPayload}); } true;`;
+    webViewRef.current?.injectJavaScript(jsCode);
+    if (isFullScreen && modalWebViewRef.current) {
+      modalWebViewRef.current?.injectJavaScript(jsCode);
     }
-    const isExplicitlyAssigned = (Array.isArray(dResponders) && dResponders.some(dr => String(dr.responder_id || dr.id).toLowerCase() === currentUserId && dr.status !== 'DECLINED'))
-      || (!isMDRRMO && String(s.assigned_rescue_id).toLowerCase() === currentUserId);
-    return isExplicitlyAssigned && !['RESOLVED', 'CANCELLED'].includes(s.status);
-  });
+  }, [updateResponderPayload, mapReady, isFullScreen]);
 
-  const currentUserMarkerJS = myLoc
-    ? `
-      L.marker([${myLoc.lat},${myLoc.lng}],{
-        icon:L.divIcon({
-          html:'<div style="position:relative;width:44px;height:44px;"><div style="position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:rgba(37,99,235,0.35);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:32px;height:32px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 12px rgba(37,99,235,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;">📍</div></div>',
-          className:'custom-div-icon',iconSize:[44,44],iconAnchor:[22,22]
-        }),zIndexOffset:900
-      }).addTo(map).bindPopup(
-        '<div style="min-width:160px;font-size:13px;line-height:1.6">'+
-        '<b style="color:#2563eb">📍 YOUR LOCATION (You)</b><br/>'+
-        '<span style="font-weight:700;color:#0f172a">${(currentUser?.full_name || 'Responder Unit').replace(/'/g, "\\'")}</span><br/>'+
-        '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700">${currentUser?.role || 'RESPONDER'}</span>'+
-        '</div>'
-      );
-    `
-    : '';
-
-  const navigationLinesArr = [];
-  sosList.forEach(s => {
-    if (s.status === 'RESOLVED' || s.status === 'CANCELLED') return;
-    const sLat = Number(s.lat);
-    const sLng = Number(s.lng);
-    if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) return;
-
-    let dResponders = s.dispatched_responders;
-    if (typeof dResponders === 'string') {
-      try { dResponders = JSON.parse(dResponders); } catch (e) { dResponders = []; }
-    }
-
-    if (Array.isArray(dResponders) && dResponders.length > 0) {
-      dResponders.forEach(dr => {
-        if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
-        // User Requirement: Line appears and updates ONLY when the responder accepts
-        const hasAccepted = ['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.status) ||
-          ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].includes(dr.responder_duty_status);
-        if (!hasAccepted) return;
-
-        const drId = String(dr.responder_id || dr.id || '').toLowerCase();
-        const isMe = currentUserId && drId === currentUserId;
-
-        let resLat = null, resLng = null;
-        if (isMe && myLoc && myLoc.lat && myLoc.lng) {
-          resLat = Number(myLoc.lat);
-          resLng = Number(myLoc.lng);
-        } else {
-          const rObj = respondersMap.get(drId);
-          if (rObj && rObj.last_lat && rObj.last_lng) {
-            resLat = Number(rObj.last_lat);
-            resLng = Number(rObj.last_lng);
-          } else if (dr.last_lat && dr.last_lng) {
-            resLat = Number(dr.last_lat);
-            resLng = Number(dr.last_lng);
-          }
-        }
-
-        if (resLat && resLng && !isNaN(resLat) && !isNaN(resLng) && resLat !== 0 && resLng !== 0) {
-          const isBackup = String(dr.dispatch_type).toUpperCase() === 'BACKUP';
-          const lineCol = isBackup ? '#f59e0b' : '#dc2626';
-          const dashArr = isBackup ? '8, 8' : '12, 12';
-          const weight = isBackup ? 4 : 5;
-          navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${sLat}, ${sLng}]], { color: '${lineCol}', weight: ${weight}, opacity: 0.95, dashArray: '${dashArr}', lineCap: 'round' }).addTo(map);`);
-        }
-      });
-    } else if (s.assigned_rescue_id && !isMDRRMO && s.status === 'RESPONDING') {
-      const assignId = String(s.assigned_rescue_id).toLowerCase();
-      const isMe = currentUserId && assignId === currentUserId;
-      let resLat = null, resLng = null;
-      if (isMe && myLoc && myLoc.lat && myLoc.lng) {
-        resLat = Number(myLoc.lat);
-        resLng = Number(myLoc.lng);
-      } else {
-        const rObj = respondersMap.get(assignId);
-        if (rObj && rObj.last_lat && rObj.last_lng) {
-          resLat = Number(rObj.last_lat);
-          resLng = Number(rObj.last_lng);
-        }
-      }
-      if (resLat && resLng && !isNaN(resLat) && !isNaN(resLng) && resLat !== 0 && resLng !== 0) {
-        navigationLinesArr.push(`L.polyline([[${resLat}, ${resLng}], [${sLat}, ${sLng}]], { color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round' }).addTo(map);`);
-      }
-    }
-  });
-
-  const sosMarkersJS = sosList.filter(s => s.lat && s.lng).map(s => {
-    const isTarget = activeAssignedSOS && activeAssignedSOS.id === s.id;
-    const markerBg = isTarget ? '#dc2626' : '#ef4444';
-    const labelBadge = isTarget ? '🎯 YOUR ASSIGNED RESCUE TARGET' : '🆘 SOS Request';
-    const citizenNameClean = (s.citizen_name || 'Resident').replace(/'/g, "\\'");
-    return `
-      L.marker([${s.lat},${s.lng}],{
-        icon:L.divIcon({
-          html:'<div style="position:relative;width:44px;height:44px;"><div style="position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:${isTarget ? 'rgba(220,38,38,0.5)' : 'rgba(239,68,68,0.3)'};animation:pulse 1s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:28px;height:28px;border-radius:50%;background:${markerBg};border:3px solid #fff;box-shadow:0 0 12px rgba(220,38,38,0.9);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;">${isTarget ? '🎯' : '🆘'}</div></div>',
-          className:'custom-div-icon',iconSize:[44,44],iconAnchor:[22,22]
-        }),zIndexOffset:${isTarget ? 1000 : 600}
-      }).addTo(map).bindPopup(
-        '<div style="min-width:170px;font-size:13px;line-height:1.6">'+
-        '<b style="color:#dc2626">${labelBadge}</b><br/>'+
-        '<span style="font-weight:700;font-size:14px">${citizenNameClean}</span><br/>'+
-        '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800">${s.status}</span>'+
-        '</div>'
-      );
-    `;
-  }).join('\n');
-
-  const markersJS = allResponders.filter(r => {
-    if (!r.last_lat || !r.last_lng || r.responder_status === 'OFF_DUTY') return false;
-    if (currentUser && String(r.id).toLowerCase() === currentUserId && myLoc) return false;
-    return true;
-  }).map(r => {
-    const cfg = RESPONDER_ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
-    const fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
-    let dispatchBadge = '';
-    for (const sosItem of sosList) {
-      let dList = sosItem.dispatched_responders;
-      if (typeof dList === 'string') {
-        try { dList = JSON.parse(dList); } catch (e) { dList = []; }
-      }
-      if (Array.isArray(dList)) {
-        const matchDr = dList.find(dr => String(dr.responder_id || dr.id).toLowerCase() === String(r.id).toLowerCase());
-        if (matchDr) {
-          const isBackup = String(matchDr.dispatch_type).toUpperCase() === 'BACKUP';
-          dispatchBadge = `<span style="background:${isBackup ? '#fef3c7' : '#dbeafe'};color:${isBackup ? '#b45309' : '#1d4ed8'};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid ${isBackup ? '#fcd34d' : '#93c5fd'}">🚨 ${matchDr.dispatch_type || (isBackup ? 'BACKUP' : 'PRIMARY')}</span><br/>`;
-          break;
-        }
-      }
-    }
-    return `
-      L.marker([${r.last_lat},${r.last_lng}],{
-        icon:L.divIcon({
-          html:'<div style="width:36px;height:36px;border-radius:50%;background:${cfg.color};border:3px solid white;box-shadow:0 0 0 3px ${cfg.color}55,0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;">${cfg.emoji}</div>',
-          className:'custom-div-icon',iconSize:[36,36],iconAnchor:[18,18]
-        }),zIndexOffset:400
-      }).addTo(map).bindPopup('<div style="min-width:160px;font-size:13px;line-height:1.6"><b style="color:${cfg.color}">${fullNameClean}</b><br/>${dispatchBadge}<span style="background:${cfg.color}22;color:${cfg.color};padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid ${cfg.color}">${r.role}</span></div>');
-    `;
-  }).join('\n');
-
-  const boundsPoints = [];
-  if (myLoc) boundsPoints.push([myLoc.lat, myLoc.lng]);
-  sosList.forEach(s => { if (s.lat && s.lng) boundsPoints.push([s.lat, s.lng]); });
-  allResponders.forEach(r => { if (r.last_lat && r.last_lng) boundsPoints.push([r.last_lat, r.last_lng]); });
-  let fitBoundsJS = `map.setView([${myLoc?.lat || LUMBAN_CENTER.lat},${myLoc?.lng || LUMBAN_CENTER.lng}], 14);`;
-  if (boundsPoints.length > 1) fitBoundsJS = `var bounds = L.latLngBounds(${JSON.stringify(boundsPoints)}); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });`;
-
-  const html = `<!DOCTYPE html><html><head>
+  const html = useMemo(() => `<!DOCTYPE html><html><head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -869,10 +735,10 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
     @keyframes pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(2.2);opacity:0}}
   </style>
   </head><body><div id="map"></div><script>
-    var map=L.map('map',{zoomControl:true});
-    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
-    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
-    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    var map = L.map('map', { zoomControl: true }).setView([${LUMBAN_CENTER.lat}, ${LUMBAN_CENTER.lng}], 14);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 });
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 19 });
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 17 });
     streetLayer.addTo(map);
 
     var baseMaps = {
@@ -881,12 +747,224 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
       "⛰️ Topographic": topoLayer
     };
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
-    ${currentUserMarkerJS}
-    ${sosMarkersJS}
-    ${markersJS}
-    ${navigationLinesArr.join('\n')}
-    ${fitBoundsJS}
-  </script></html>`;
+
+    window.myMarker = null;
+    window.sosMarkers = {};
+    window.responderMarkers = {};
+    window.navigationLines = [];
+    window.hasAutoFitted = false;
+
+    var ROLE_CFG = {
+      PNP: { color: '#1d4ed8', emoji: '👮' },
+      BFP: { color: '#ea580c', emoji: '🚒' },
+      COAST_GUARD: { color: '#0284c7', emoji: '⚓' },
+      RHU: { color: '#16a34a', emoji: '🏥' },
+      MDRRMO: { color: '#dc2626', emoji: '🚨' },
+      MDRRMO_RESPONDER: { color: '#dc2626', emoji: '🚨' },
+      BARANGAY_OFFICIAL: { color: '#7e22ce', emoji: '🏢' },
+      RESCUE: { color: '#0ea5e9', emoji: '⛑️' }
+    };
+
+    window.updateResponderData = function(data) {
+      try {
+        if (!data) return;
+        var myLoc = data.myLoc;
+        var currentUser = data.currentUser;
+        var myId = currentUser && currentUser.id ? String(currentUser.id).toLowerCase() : '';
+        var responders = data.responders || [];
+        var sosList = data.sosList || [];
+
+        var boundsPoints = [];
+
+        // 1. My Location Marker
+        if (myLoc && myLoc.lat && myLoc.lng) {
+          boundsPoints.push([myLoc.lat, myLoc.lng]);
+          var myPopup = '<div style="min-width:160px;font-size:13px;line-height:1.6">'+
+            '<b style="color:#2563eb">📍 YOUR LOCATION (You)</b><br/>'+
+            '<span style="font-weight:700;color:#0f172a">' + ((currentUser && currentUser.full_name) || 'Responder Unit').replace(/'/g, "\\'") + '</span><br/>'+
+            '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700">' + ((currentUser && currentUser.role) || 'RESPONDER') + '</span>'+
+            '</div>';
+
+          if (window.myMarker) {
+            window.myMarker.setLatLng([myLoc.lat, myLoc.lng]);
+            window.myMarker.setPopupContent(myPopup);
+          } else {
+            window.myMarker = L.marker([myLoc.lat, myLoc.lng], {
+              icon: L.divIcon({
+                html: '<div style="position:relative;width:44px;height:44px;"><div style="position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:rgba(37,99,235,0.35);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:32px;height:32px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 12px rgba(37,99,235,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;">📍</div></div>',
+                className: 'custom-div-icon',
+                iconSize: [44, 44],
+                iconAnchor: [22, 22]
+              }),
+              zIndexOffset: 950
+            }).addTo(map).bindPopup(myPopup);
+          }
+        }
+
+        // 2. SOS Incident Markers
+        var activeSosIds = {};
+        sosList.forEach(function(s) {
+          if (!s.lat || !s.lng) return;
+          var sid = String(s.id);
+          activeSosIds[sid] = true;
+          boundsPoints.push([s.lat, s.lng]);
+
+          var isTarget = false;
+          var dList = s.dispatched_responders;
+          if (typeof dList === 'string') {
+            try { dList = JSON.parse(dList); } catch (_) { dList = []; }
+          }
+          if (Array.isArray(dList)) {
+            isTarget = dList.some(function(dr) {
+              return String(dr.responder_id || dr.id || '').toLowerCase() === myId && dr.status !== 'DECLINED';
+            });
+          }
+
+          var markerBg = isTarget ? '#dc2626' : '#ef4444';
+          var labelBadge = isTarget ? '🎯 YOUR ASSIGNED RESCUE TARGET' : '🆘 SOS Request';
+          var citizenNameClean = (s.citizen_name || 'Resident').replace(/'/g, "\\'");
+          var sosPopup = '<div style="min-width:170px;font-size:13px;line-height:1.6">' +
+            '<b style="color:#dc2626">' + labelBadge + '</b><br/>' +
+            '<span style="font-weight:700;font-size:14px">' + citizenNameClean + '</span><br/>' +
+            '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800">' + (s.status || 'PENDING') + '</span>' +
+            '</div>';
+
+          if (window.sosMarkers[sid]) {
+            window.sosMarkers[sid].setLatLng([s.lat, s.lng]);
+            window.sosMarkers[sid].setPopupContent(sosPopup);
+          } else {
+            window.sosMarkers[sid] = L.marker([s.lat, s.lng], {
+              icon: L.divIcon({
+                html: '<div style="position:relative;width:44px;height:44px;"><div style="position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:' + (isTarget ? 'rgba(220,38,38,0.5)' : 'rgba(239,68,68,0.3)') + ';animation:pulse 1s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:28px;height:28px;border-radius:50%;background:' + markerBg + ';border:3px solid #fff;box-shadow:0 0 12px rgba(220,38,38,0.9);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;">' + (isTarget ? '🎯' : '🆘') + '</div></div>',
+                className: 'custom-div-icon',
+                iconSize: [44, 44],
+                iconAnchor: [22, 22]
+              }),
+              zIndexOffset: isTarget ? 1000 : 600
+            }).addTo(map).bindPopup(sosPopup);
+          }
+        });
+
+        // Prune resolved SOS
+        Object.keys(window.sosMarkers).forEach(function(sid) {
+          if (!activeSosIds[sid]) {
+            map.removeLayer(window.sosMarkers[sid]);
+            delete window.sosMarkers[sid];
+          }
+        });
+
+        // 3. Other Responder Markers
+        var activeRIds = {};
+        responders.forEach(function(r) {
+          var rid = String(r.id).toLowerCase();
+          if (rid === myId && myLoc) return; // Don't duplicate self
+          if (!r.last_lat || !r.last_lng || r.responder_status === 'OFF_DUTY') return;
+
+          activeRIds[rid] = true;
+          var rLat = parseFloat(r.last_lat);
+          var rLng = parseFloat(r.last_lng);
+          if (isNaN(rLat) || isNaN(rLng)) return;
+
+          boundsPoints.push([rLat, rLng]);
+
+          var cfg = ROLE_CFG[r.role] || { color: '#64748b', emoji: '👤' };
+          var fullNameClean = (r.full_name || 'Responder').replace(/'/g, "\\'");
+          var rPopup = '<div style="min-width:160px;font-size:13px;line-height:1.6"><b style="color:' + cfg.color + '">' + fullNameClean + '</b><br/><span style="background:' + cfg.color + '22;color:' + cfg.color + ';padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid ' + cfg.color + '">' + (r.role || 'Rescue') + '</span><br/><span style="color:#16a34a;font-size:11px;font-weight:700">● ' + (r.responder_status || 'AVAILABLE') + '</span></div>';
+
+          if (window.responderMarkers[rid]) {
+            window.responderMarkers[rid].setLatLng([rLat, rLng]);
+            window.responderMarkers[rid].setPopupContent(rPopup);
+          } else {
+            window.responderMarkers[rid] = L.marker([rLat, rLng], {
+              icon: L.divIcon({
+                html: '<div style="width:36px;height:36px;border-radius:50%;background:' + cfg.color + ';border:3px solid white;box-shadow:0 0 0 3px ' + cfg.color + '55,0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;">' + cfg.emoji + '</div>',
+                className: 'custom-div-icon',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+              }),
+              zIndexOffset: 400
+            }).addTo(map).bindPopup(rPopup);
+          }
+        });
+
+        // Prune offline responders
+        Object.keys(window.responderMarkers).forEach(function(rid) {
+          if (!activeRIds[rid]) {
+            map.removeLayer(window.responderMarkers[rid]);
+            delete window.responderMarkers[rid];
+          }
+        });
+
+        // 4. Navigation lines to SOS
+        if (window.navigationLines && window.navigationLines.length > 0) {
+          window.navigationLines.forEach(function(l) { map.removeLayer(l); });
+        }
+        window.navigationLines = [];
+
+        sosList.forEach(function(s) {
+          if (s.status === 'RESOLVED' || s.status === 'CANCELLED') return;
+          var sLat = Number(s.lat);
+          var sLng = Number(s.lng);
+          if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) return;
+
+          var dResponders = s.dispatched_responders;
+          if (typeof dResponders === 'string') {
+            try { dResponders = JSON.parse(dResponders); } catch (_) { dResponders = []; }
+          }
+          if (Array.isArray(dResponders)) {
+            dResponders.forEach(function(dr) {
+              if (dr.status === 'DECLINED' || dr.status === 'COMPLETED') return;
+              var hasAccepted = ['ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS'].indexOf(dr.status) !== -1 ||
+                ['EN_ROUTE', 'RESCUE_IN_PROGRESS'].indexOf(dr.responder_duty_status) !== -1;
+              if (!hasAccepted) return;
+
+              var drId = String(dr.responder_id || dr.id || '').toLowerCase();
+              var isMe = myId && drId === myId;
+              var resLat = null, resLng = null;
+
+              if (isMe && myLoc && myLoc.lat && myLoc.lng) {
+                resLat = Number(myLoc.lat);
+                resLng = Number(myLoc.lng);
+              } else {
+                var found = responders.find(function(item) { return String(item.id).toLowerCase() === drId; });
+                if (found && found.last_lat && found.last_lng) {
+                  resLat = Number(found.last_lat);
+                  resLng = Number(found.last_lng);
+                } else if (dr.last_lat && dr.last_lng) {
+                  resLat = Number(dr.last_lat);
+                  resLng = Number(dr.last_lng);
+                }
+              }
+
+              if (resLat && resLng && !isNaN(resLat) && !isNaN(resLng) && resLat !== 0 && resLng !== 0) {
+                var isBackup = String(dr.dispatch_type).toUpperCase() === 'BACKUP';
+                var poly = L.polyline([[resLat, resLng], [sLat, sLng]], {
+                  color: isBackup ? '#f59e0b' : '#dc2626',
+                  weight: isBackup ? 4 : 5,
+                  opacity: 0.95,
+                  dashArray: isBackup ? '8, 8' : '12, 12',
+                  lineCap: 'round'
+                }).addTo(map);
+                window.navigationLines.push(poly);
+              }
+            });
+          }
+        });
+
+        // 5. Initial auto-fit bounds
+        if (!window.hasAutoFitted && boundsPoints.length > 0) {
+          if (boundsPoints.length > 1) {
+            map.fitBounds(L.latLngBounds(boundsPoints), { padding: [40, 40], maxZoom: 16 });
+          } else {
+            map.setView(boundsPoints[0], 15);
+          }
+          window.hasAutoFitted = true;
+        }
+      } catch (err) {
+        console.error("updateResponderData error:", err);
+      }
+    };
+  </script></body></html>`, []);
 
   return (
     <View style={{ height, borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
@@ -896,9 +974,13 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
         </View>
       )}
       <WebView
+        ref={webViewRef}
         source={{ html }}
         style={{ flex: 1 }}
-        onLoad={() => setLoading(false)}
+        onLoad={() => {
+          setLoading(false);
+          setMapReady(true);
+        }}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}
@@ -934,8 +1016,13 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
           </View>
           <View style={{ flex: 1 }}>
             <WebView
+              ref={modalWebViewRef}
               source={{ html }}
               style={{ flex: 1 }}
+              onLoad={() => {
+                const jsCode = `if (typeof window.updateResponderData === 'function') { window.updateResponderData(${updateResponderPayload}); } true;`;
+                modalWebViewRef.current?.injectJavaScript(jsCode);
+              }}
               javaScriptEnabled
               domStorageEnabled
               nestedScrollEnabled
@@ -951,69 +1038,41 @@ export function ResponderMap({ responders = [], sosList = [], height = 320, curr
 export function BarangaySosMap({ sosList = [], userLocation = null, height = 320 }) {
   const [loading, setLoading] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const webViewRef = useRef(null);
+  const modalWebViewRef = useRef(null);
 
-  const center = sosList.length > 0 && sosList[0].lat
-    ? { lat: sosList[0].lat, lng: sosList[0].lng }
-    : userLocation || LUMBAN_CENTER;
+  const updatePayload = useMemo(() => {
+    return JSON.stringify({
+      userLocation,
+      sosList: sosList || [],
+    });
+  }, [userLocation, sosList]);
 
-  const sosMarkersJS = sosList
-    .filter(s => s.lat && s.lng)
-    .map(s => `
-  L.marker([${ s.lat }, ${ s.lng }], {
-    icon: L.divIcon({
-      html: '<div style="position:relative;width:48px;height:48px;"><div style="position:absolute;top:0;left:0;width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.3);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.5);animation:pulse 1.2s ease-out infinite 0.2s;"></div><div style="position:absolute;top:14px;left:14px;width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.9);"></div></div>',
-      className: '', iconSize: [48, 48], iconAnchor: [24, 24]
-    }), zIndexOffset: 600
-  }).addTo(map).bindPopup(
-    '<div style="min-width:170px;font-size:13px;line-height:1.7">' +
-    '<b style="color:#dc2626">🆘 SOS Request</b><br/>' +
-    '<b>${s.citizen_name || 'Unknown'}</b><br/>' +
-  '${s.citizen_phone ? `<span style="color:#64748b">${s.citizen_phone}</span><br/>` : ''}' +
-  '${s.message ? `<i style="color:#64748b">${s.message}</i><br/>` : ''}' +
-  '<span style="background:#fee2e2;color:#dc2626;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700">${s.status}</span>' +
-  '</div>'
-  );
-  `).join('\n');
+  useEffect(() => {
+    if (!mapReady) return;
+    const jsCode = `if (typeof window.updateBarangaySosData === 'function') { window.updateBarangaySosData(${updatePayload}); } true;`;
+    webViewRef.current?.injectJavaScript(jsCode);
+    if (isFullScreen && modalWebViewRef.current) {
+      modalWebViewRef.current?.injectJavaScript(jsCode);
+    }
+  }, [updatePayload, mapReady, isFullScreen]);
 
-  const userMarkerJS = userLocation
-    ? `L.marker([${userLocation.lat}, ${userLocation.lng}], {
-    icon: L.divIcon({
-      html: '<div style="width:18px;height:18px;border-radius:50%;background:#7c3aed;border:3px solid white;box-shadow:0 0 0 5px rgba(124,58,237,0.3);"></div>',
-      className: '', iconSize: [18, 18], iconAnchor: [9, 9]
-    }), zIndexOffset: 500
-  }).addTo(map).bindPopup('<div style="font-size:13px"><b>🏛️ Your Location</b></div>');`
-    : '';
-
-  const boundsPoints = [];
-  if (userLocation) boundsPoints.push([userLocation.lat, userLocation.lng]);
-  sosList.forEach(s => { if (s.lat && s.lng) boundsPoints.push([s.lat, s.lng]); });
-
-  let fitBoundsJS = `map.setView([${center.lat},${center.lng}], 15);`;
-  if (boundsPoints.length > 1) {
-    fitBoundsJS = `var bounds = L.latLngBounds(${JSON.stringify(boundsPoints)}); map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });`;
-  }
-
-  const linesJS = (userLocation && sosList.length > 0)
-    ? sosList
-        .filter(s => s.lat && s.lng && ['ACCEPTED', 'RESPONDING'].includes(s.status))
-        .map(s => `L.polyline([[${userLocation.lat}, ${userLocation.lng}], [${s.lat}, ${s.lng}]], { color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round' }).addTo(map);`)
-        .join('\n')
-    : '';
-
-  const html = `<!DOCTYPE html><html><head>
+  const html = useMemo(() => `<!DOCTYPE html><html><head>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body,#map{height:100%;width:100%;background:#f2efe9;touch-action:none}
+    .leaflet-marker-icon, .leaflet-marker-shadow{position:absolute !important;}
     @keyframes pulse{0%{transform:scale(1);opacity:0.8}100%{transform:scale(2.2);opacity:0}}
   </style>
   </head><body><div id="map"></div><script>
-    var map=L.map('map',{zoomControl:true});
-    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
-    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19});
-    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+    var map = L.map('map', { zoomControl: true }).setView([${LUMBAN_CENTER.lat}, ${LUMBAN_CENTER.lng}], 15);
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 });
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 19 });
+    var topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 17 });
     streetLayer.addTo(map);
 
     var baseMaps = {
@@ -1022,16 +1081,100 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
       "⛰️ Topographic": topoLayer
     };
     L.control.layers(baseMaps, null, { position: 'topleft', collapsed: true }).addTo(map);
-    ${userMarkerJS}
-    ${sosMarkersJS}
-    ${linesJS}
-    ${fitBoundsJS}
-    ${sosList.length === 0 ? `
-      var noSos=L.control({position:'topright'});
-      noSos.onAdd=function(){var d=L.DomUtil.create('div');d.style.cssText='background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:12px;color:#64748b;font-family:sans-serif';d.innerHTML='✅ No active SOS in your barangay';return d;};
-      noSos.addTo(map);
-    ` : ''}
-  </script></body></html>`;
+
+    window.userMarker = null;
+    window.sosMarkers = {};
+    window.sosLines = [];
+    window.hasAutoFitted = false;
+
+    window.updateBarangaySosData = function(data) {
+      try {
+        if (!data) return;
+        var uLoc = data.userLocation;
+        var sList = data.sosList || [];
+
+        // 1. User Marker
+        if (uLoc && uLoc.lat && uLoc.lng) {
+          if (!window.userMarker) {
+            var userIcon = L.divIcon({
+              html: '<div style="width:18px;height:18px;border-radius:50%;background:#7c3aed;border:3px solid white;box-shadow:0 0 0 5px rgba(124,58,237,0.3);"></div>',
+              className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+            });
+            window.userMarker = L.marker([uLoc.lat, uLoc.lng], { icon: userIcon, zIndexOffset: 500 })
+              .addTo(map)
+              .bindPopup('<div style="font-size:13px"><b>🏛️ Your Location</b></div>');
+          } else {
+            window.userMarker.setLatLng([uLoc.lat, uLoc.lng]);
+          }
+        }
+
+        // 2. Clear previous polylines
+        window.sosLines.forEach(function(l) { map.removeLayer(l); });
+        window.sosLines = [];
+
+        var activeKeys = {};
+        var boundsPoints = [];
+        if (uLoc && uLoc.lat && uLoc.lng) boundsPoints.push([uLoc.lat, uLoc.lng]);
+
+        sList.forEach(function(s) {
+          if (!s || !s.lat || !s.lng) return;
+          var sid = String(s.id);
+          activeKeys[sid] = true;
+          boundsPoints.push([s.lat, s.lng]);
+
+          var popupContent = '<div style="min-width:170px;font-size:13px;line-height:1.7">' +
+            '<b style="color:#dc2626">🆘 SOS Request</b><br/>' +
+            '<b>' + (s.citizen_name || 'Unknown') + '</b><br/>' +
+            (s.citizen_phone ? '<span style="color:#64748b">' + s.citizen_phone + '</span><br/>' : '') +
+            (s.message ? '<i style="color:#64748b">' + s.message + '</i><br/>' : '') +
+            '<span style="background:#fee2e2;color:#dc2626;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700">' + s.status + '</span>' +
+            '</div>';
+
+          if (window.sosMarkers[sid]) {
+            window.sosMarkers[sid].setLatLng([s.lat, s.lng]);
+            window.sosMarkers[sid].setPopupContent(popupContent);
+          } else {
+            var marker = L.marker([s.lat, s.lng], {
+              icon: L.divIcon({
+                html: '<div style="position:relative;width:48px;height:48px;"><div style="position:absolute;top:0;left:0;width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.3);animation:pulse 1.2s ease-out infinite;"></div><div style="position:absolute;top:8px;left:8px;width:32px;height:32px;border-radius:50%;background:rgba(239,68,68,0.5);animation:pulse 1.2s ease-out infinite 0.2s;"></div><div style="position:absolute;top:14px;left:14px;width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid #fff;box-shadow:0 0 8px rgba(239,68,68,0.9);"></div></div>',
+                className: '', iconSize: [48, 48], iconAnchor: [24, 24]
+              }),
+              zIndexOffset: 600
+            }).addTo(map).bindPopup(popupContent);
+            window.sosMarkers[sid] = marker;
+          }
+
+          // Polylines if responding
+          if (uLoc && uLoc.lat && uLoc.lng && ['ACCEPTED', 'RESPONDING'].includes(s.status)) {
+            var line = L.polyline([[uLoc.lat, uLoc.lng], [s.lat, s.lng]], {
+              color: '#dc2626', weight: 5, opacity: 0.95, dashArray: '12, 12', lineCap: 'round'
+            }).addTo(map);
+            window.sosLines.push(line);
+          }
+        });
+
+        // Prune stale markers
+        Object.keys(window.sosMarkers).forEach(function(existingId) {
+          if (!activeKeys[existingId]) {
+            map.removeLayer(window.sosMarkers[existingId]);
+            delete window.sosMarkers[existingId];
+          }
+        });
+
+        // Frame bounds once
+        if (!window.hasAutoFitted && boundsPoints.length > 1) {
+          map.fitBounds(L.latLngBounds(boundsPoints), { padding: [40, 40], maxZoom: 16 });
+          window.hasAutoFitted = true;
+        }
+      } catch (err) {
+        console.error("updateBarangaySosData error:", err);
+      }
+    };
+
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+    }
+  </script></body></html>`, []);
 
   return (
     <View style={{ height, borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
@@ -1041,9 +1184,26 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
         </View>
       )}
       <WebView
+        ref={webViewRef}
         source={{ html }}
         style={{ flex: 1 }}
-        onLoad={() => setLoading(false)}
+        onLoad={() => {
+          setLoading(false);
+          setMapReady(true);
+          const jsCode = `if (typeof window.updateBarangaySosData === 'function') { window.updateBarangaySosData(${updatePayload}); } true;`;
+          webViewRef.current?.injectJavaScript(jsCode);
+        }}
+        onMessage={(event) => {
+          try {
+            const msg = JSON.parse(event.nativeEvent.data);
+            if (msg.type === 'MAP_READY') {
+              setMapReady(true);
+              setLoading(false);
+              const jsCode = `if (typeof window.updateBarangaySosData === 'function') { window.updateBarangaySosData(${updatePayload}); } true;`;
+              webViewRef.current?.injectJavaScript(jsCode);
+            }
+          } catch(e) {}
+        }}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}
@@ -1077,8 +1237,16 @@ export function BarangaySosMap({ sosList = [], userLocation = null, height = 320
           </View>
           <View style={{ flex: 1 }}>
             <WebView
+              ref={modalWebViewRef}
               source={{ html }}
               style={{ flex: 1 }}
+              onLoad={() => {
+                if (modalWebViewRef.current) {
+                  modalWebViewRef.current.injectJavaScript(
+                    `if (typeof window.updateBarangaySosData === 'function') { window.updateBarangaySosData(${updatePayload}); } true;`
+                  );
+                }
+              }}
               javaScriptEnabled
               domStorageEnabled
               nestedScrollEnabled

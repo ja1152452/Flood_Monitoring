@@ -3,12 +3,12 @@ import {
   Alert, ActivityIndicator, ScrollView, Linking,
   TextInput,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
 import {
-  sendSOS, getMySOS, cancelSOS,
+  sendSOS, getMySOS, cancelSOS, updateSOSLocation,
   getPendingSOS, respondSOS, completeSOS,
   getResponderLocations, getResponderLocation,
 } from '../../api/sos';
@@ -206,18 +206,7 @@ function CitizenSOSView({ qc, user }) {
   const [sending, setSending] = useState(false);
   const [recommended, setRecommended] = useState([]);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
-
-  const fetchCurrentLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setLocation(loc.coords);
-    }
-  };
-
-  useEffect(() => {
-    fetchCurrentLocation();
-  }, []);
+  const lastSosSentAt = useRef(0);
 
   const { data: myRequests = [] } = useQuery({
     queryKey: ['my-sos'],
@@ -229,10 +218,76 @@ function CitizenSOSView({ qc, user }) {
     ['PENDING', 'ACKNOWLEDGED', 'DISPATCHED', 'RESPONDING'].includes(r.status)
   );
 
+  const activeReqId = activeRequest?.id;
+
+  // Initial fast acquisition & continuous live GPS tracking
+  useEffect(() => {
+    let sub = null;
+    let isMounted = true;
+
+    async function initLocationTracking() {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        const granted = status === 'granted'
+          ? true
+          : (await Location.requestForegroundPermissionsAsync()).status === 'granted';
+        if (!granted || !isMounted) return;
+
+        // Fast initial fix
+        try {
+          const lastKnown = await Location.getLastKnownPositionAsync();
+          if (lastKnown?.coords && isMounted) {
+            setLocation(lastKnown.coords);
+          }
+        } catch (_) {}
+
+        try {
+          const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          if (fresh?.coords && isMounted) {
+            setLocation(fresh.coords);
+          }
+        } catch (_) {}
+
+        // Watch position continuously
+        sub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2500,
+            distanceInterval: 2,
+          },
+          (loc) => {
+            if (!isMounted || !loc?.coords) return;
+            setLocation(loc.coords);
+
+            // Automatically update emergency SOS coords if citizen moved
+            if (activeReqId) {
+              const now = Date.now();
+              if (now - lastSosSentAt.current >= 3000) {
+                lastSosSentAt.current = now;
+                updateSOSLocation(activeReqId, loc.coords.latitude, loc.coords.longitude)
+                  .then(() => qc.invalidateQueries(['my-sos']))
+                  .catch(() => {});
+              }
+            }
+          }
+        );
+      } catch (err) {
+        console.warn('CitizenSOSView location error:', err);
+      }
+    }
+
+    initLocationTracking();
+
+    return () => {
+      isMounted = false;
+      if (sub) sub.remove();
+    };
+  }, [activeReqId, qc]);
+
   const { data: responders = [] } = useQuery({
     queryKey: ['responder-locations'],
     queryFn: getResponderLocations,
-    refetchInterval: 2500,
+    refetchInterval: 2000,
     enabled: !!activeRequest,
   });
 
@@ -488,7 +543,11 @@ function CitizenSOSView({ qc, user }) {
                     </View>
 
                     <SOSTrackingMap
-                      sosLocation={activeRequest.lat ? { lat: activeRequest.lat, lng: activeRequest.lng } : null}
+                      sosLocation={
+                        location?.latitude != null && location?.longitude != null
+                          ? { lat: location.latitude, lng: location.longitude, status: activeRequest.status }
+                          : (activeRequest.lat ? { lat: activeRequest.lat, lng: activeRequest.lng, status: activeRequest.status } : null)
+                      }
                       responders={responders}
                       assignedResponders={assignedList}
                       assignedRescueId={activeRequest.assigned_rescue_id}

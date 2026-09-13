@@ -4,6 +4,7 @@ export const getResponderLocation     = (userId) => api.get(`/users/responder-lo
 export const sendSOS                  = (data) => api.post('/sos', data).then(r => r.data.data);
 export const getMySOS                 = ()     => api.get('/sos/mine').then(r => r.data.data);
 export const cancelSOS                = (id)   => api.patch(`/sos/${id}/cancel`).then(r => r.data.data);
+export const updateSOSLocation         = (id, lat, lng) => api.patch(`/sos/${id}/location`, { lat, lng }).then(r => r.data.data);
 export const getPendingSOS            = ()     => api.get('/sos/pending').then(r => r.data.data);
 export const getBarangaySOS           = (bid)  => api.get(`/sos/pending?barangay_id=${bid}`).then(r => r.data.data);
 export const respondSOS               = (id, statusType) => api.patch(`/sos/${id}/respond`, { status_type: statusType }).then(r => r.data.data);

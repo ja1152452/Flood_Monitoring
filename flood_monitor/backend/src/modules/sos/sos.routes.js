@@ -88,6 +88,21 @@ router.patch('/:id/cancel',
   })
 );
 
+const locationSchema = Joi.object({
+  lat: Joi.number().min(-90).max(90).required(),
+  lng: Joi.number().min(-180).max(180).required(),
+});
+
+router.patch('/:id/location',
+  authorize('CITIZEN','RESCUE','RHU','PNP','BFP','COAST_GUARD','BARANGAY_OFFICIAL','ADMIN','SUPER_ADMIN','MDRRMO','MDRRMO_RESPONDER','MSWDO'),
+  validate(locationSchema),
+  asyncHandler(async (req, res) => {
+    const data = await service.updateSOSLocation(req.user.id, req.params.id, req.body.lat, req.body.lng);
+    res.json({ success: true, data });
+  })
+);
+
+
 const backupSchema = Joi.object({
   sos_id:      Joi.string().uuid().optional().allow('', null),
   lat:         Joi.number().min(-90).max(90).required(),

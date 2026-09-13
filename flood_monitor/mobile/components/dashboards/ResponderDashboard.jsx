@@ -421,26 +421,61 @@ export function ResponderDashboard({ user, onLogout }) {
   const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
+    let sub = null;
+    let active = true;
+
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      } catch (_) { }
+        const { status } = await Location.getForegroundPermissionsAsync();
+        const granted = status === 'granted'
+          ? true
+          : (await Location.requestForegroundPermissionsAsync()).status === 'granted';
+        if (!granted || !active) return;
+
+        try {
+          const last = await Location.getLastKnownPositionAsync();
+          if (last?.coords && active) {
+            setUserLocation({ lat: last.coords.latitude, lng: last.coords.longitude });
+          }
+        } catch (_) {}
+
+        try {
+          const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          if (fresh?.coords && active) {
+            setUserLocation({ lat: fresh.coords.latitude, lng: fresh.coords.longitude });
+          }
+        } catch (_) {}
+
+        sub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 1,
+          },
+          (loc) => {
+            if (!active || !loc?.coords) return;
+            setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+          }
+        );
+      } catch (_) {}
     })();
+
+    return () => {
+      active = false;
+      if (sub) sub.remove();
+    };
   }, []);
 
   const { data: all = [] } = useQuery({
     queryKey: ['sos-pending'],
     queryFn: getPendingSOS,
-    refetchInterval: 5000,
+    refetchInterval: 2500,
   });
 
   const { data: responders = [] } = useQuery({
     queryKey: ['responder-locations'],
     queryFn: getResponderLocations,
-    refetchInterval: 5000,
+    refetchInterval: 2500,
   });
 
   const statusMutation = useMutation({
@@ -742,25 +777,62 @@ export function BarangayDashboard({ user, onLogout }) {
   const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
+    let sub = null;
+    let active = true;
+
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        const granted = status === 'granted'
+          ? true
+          : (await Location.requestForegroundPermissionsAsync()).status === 'granted';
+        if (!granted || !active) return;
+
+        try {
+          const last = await Location.getLastKnownPositionAsync();
+          if (last?.coords && active) {
+            setUserLocation({ lat: last.coords.latitude, lng: last.coords.longitude });
+          }
+        } catch (_) {}
+
+        try {
+          const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          if (fresh?.coords && active) {
+            setUserLocation({ lat: fresh.coords.latitude, lng: fresh.coords.longitude });
+          }
+        } catch (_) {}
+
+        sub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 1,
+          },
+          (loc) => {
+            if (!active || !loc?.coords) return;
+            setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+          }
+        );
+      } catch (_) {}
     })();
+
+    return () => {
+      active = false;
+      if (sub) sub.remove();
+    };
   }, []);
 
   const { data: requests = [] } = useQuery({
     queryKey: ['sos-pending'],
     queryFn: getPendingSOS,
-    refetchInterval: 5000,
+    refetchInterval: 2500,
     enabled: !!barangayId,
   });
 
   const { data: responders = [] } = useQuery({
     queryKey: ['responder-locations'],
     queryFn: getResponderLocations,
-    refetchInterval: 5000,
+    refetchInterval: 2500,
   });
 
   const respond = useMutation({
