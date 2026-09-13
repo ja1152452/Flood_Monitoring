@@ -1,6 +1,6 @@
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, Linking, Alert,
+  TouchableOpacity, Linking, Alert, Modal, ActivityIndicator,
 } from 'react-native';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -250,6 +250,7 @@ const ROLE_COLORS = {
 function BackupView({ user }) {
   const qc = useQueryClient();
   const [sending, setSending] = useState(null);
+  const [confirmTargetRole, setConfirmTargetRole] = useState(null);
 
   const OTHER_ROLES = ['PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'BARANGAY_OFFICIAL', 'RESCUE'].filter(r => r !== user?.role);
 
@@ -264,11 +265,13 @@ function BackupView({ user }) {
     onSuccess: (_, vars) => {
       Toast.show({ type: 'success', text1: `🚨 Backup requested from ${vars.target_role}` });
       setSending(null);
+      setConfirmTargetRole(null);
       qc.invalidateQueries(['active-backups']);
     },
-    onError: () => {
-      Toast.show({ type: 'error', text1: 'Failed to send backup request' });
+    onError: (err) => {
+      Toast.show({ type: 'error', text1: err?.response?.data?.message || 'Failed to send backup request' });
       setSending(null);
+      setConfirmTargetRole(null);
     },
   });
 
@@ -314,32 +317,36 @@ function BackupView({ user }) {
   });
 
   const handleSend = (targetRole) => {
-    Alert.alert(
-      `🚨 Request Backup from ${targetRole}`,
-      `Your GPS coordinates will be dispatched to active ${targetRole} responders.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send Request',
-          style: 'destructive',
-          onPress: async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-              Toast.show({ type: 'error', text1: 'Location permission required' });
-              return;
-            }
-            setSending(targetRole);
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-            requestMutation.mutate({
-              lat: loc.coords.latitude,
-              lng: loc.coords.longitude,
-              target_role: targetRole,
-              message: `${user?.role} (${user?.full_name}) requests field backup at this position.`,
-            });
-          },
-        },
-      ]
-    );
+    setConfirmTargetRole(targetRole);
+  };
+
+  const executeSendBackup = async (targetRole) => {
+    setSending(targetRole);
+
+    let lat = Number(user?.last_lat || 14.3006);
+    let lng = Number(user?.last_lng || 121.4619);
+
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const locPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('GPS timeout')), 5000));
+        const loc = await Promise.race([locPromise, timeoutPromise]);
+        if (loc?.coords?.latitude && loc?.coords?.longitude) {
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
+      }
+    } catch (locErr) {
+      console.warn('[BackupView] GPS location retrieval fallback:', locErr?.message);
+    }
+
+    requestMutation.mutate({
+      lat,
+      lng,
+      target_role: targetRole,
+      message: `${user?.role || 'Responder'} (${user?.full_name || 'Unit'}) requests field backup at this position.`,
+    });
   };
 
   const myBackups = backups.filter(b => b.requester_id === user?.id);
@@ -488,13 +495,65 @@ function BackupView({ user }) {
           )}
         </View>
       </ScrollView>
+
+      {/* Confirm Backup Dispatch Modal */}
+      <Modal visible={!!confirmTargetRole} transparent animationType="fade" onRequestClose={() => setConfirmTargetRole(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 24, padding: 22, maxWidth: 400, width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="alert-circle" size={26} color="#dc2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a' }}>
+                  Request Backup from {confirmTargetRole}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#64748b' }}>
+                  Emergency Dispatch Order
+                </Text>
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#334155', lineHeight: 20, marginBottom: 16 }}>
+              Your real-time GPS position will be immediately dispatched to active <Text style={{ fontWeight: '800', color: '#dc2626' }}>{confirmTargetRole}</Text> units and logged in the MDRRMO Command Center.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center' }}
+                onPress={() => setConfirmTargetRole(null)}
+                disabled={!!sending}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flex: 1.5, paddingVertical: 12, borderRadius: 12, backgroundColor: '#dc2626', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+                onPress={() => executeSendBackup(confirmTargetRole)}
+                disabled={!!sending}
+                activeOpacity={0.85}>
+                {sending ? (
+                  <>
+                    <ActivityIndicator size="small" color="#ffffff" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>Sending...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="radio" size={16} color="#ffffff" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>Send Request 🚨</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 // ─── Root export ──────────────────────────────────────────────────────────────
 
-const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE'];
+const RESPONDER_ROLES = ['PNP', 'BFP', 'RHU', 'COAST_GUARD', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE', 'ADMIN', 'SUPER_ADMIN'];
 
 export default function ContactsOrBackupScreen() {
   const { user } = useAuthStore();
