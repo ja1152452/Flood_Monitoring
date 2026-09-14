@@ -383,7 +383,9 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
           onPress={() => Linking.openURL(`tel:${sos.citizen_phone}`)}
           activeOpacity={0.85}>
           <Ionicons name="call" size={14} color="#fff" />
-          <Text style={s.callRowText}>{sos.citizen_phone} — Tap to Call Resident</Text>
+          <Text style={s.callRowText}>
+            {sos.citizen_phone} — Tap to Call {isBackupDispatch ? 'Requester / Team' : 'Resident'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -409,7 +411,65 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
       )}
 
       <View style={s.sosActionsGroup}>
-        {currentUser?.role === 'BARANGAY_OFFICIAL' ? (
+        {isAssignedToMe || isMDRRMO ? (
+          !isMyDispatchResponding ? (
+            <View style={{ gap: 8 }}>
+              <View style={s.sosActions}>
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: isBackupDispatch ? '#d97706' : '#16a34a' }]}
+                  onPress={() => onRespond({ sosId: sos.id, statusType: 'EN_ROUTE' })}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>✔ Accept</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: '#dc2626' }]}
+                  onPress={() => setDeclineReasonModal(true)}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>✖ Decline</Text>
+                </TouchableOpacity>
+              </View>
+
+              {onRequestBackup && (
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: '#d97706' }]}
+                  onPress={() => onRequestBackup(sos)}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>🚨 Request Field Backup</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {myDutyStatus !== 'RESCUE_IN_PROGRESS' && (
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: '#7e22ce' }]}
+                  onPress={() => onRespond({ sosId: sos.id, statusType: 'RESCUE_IN_PROGRESS' })}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>📍 On Scene / Rescue In Progress</Text>
+                </TouchableOpacity>
+              )}
+
+              <View style={s.sosActions}>
+                {onRequestBackup && (
+                  <TouchableOpacity
+                    style={[s.actionBtn, { backgroundColor: '#d97706' }]}
+                    onPress={() => onRequestBackup(sos)}
+                    activeOpacity={0.85}>
+                    <Text style={s.actionBtnText}>🚨 Request Backup</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[s.actionBtn, { backgroundColor: '#16a34a' }]}
+                  onPress={() => onComplete(sos.id)}
+                  activeOpacity={0.85}>
+                  <Text style={s.actionBtnText}>✔ Rescue Completed</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        ) : currentUser?.role === 'BARANGAY_OFFICIAL' ? (
           <View style={s.sosActions}>
             {onRequestBackup && (
               <TouchableOpacity
@@ -420,7 +480,7 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
               </TouchableOpacity>
             )}
           </View>
-        ) : !isAssignedToMe && !isMDRRMO ? (
+        ) : (
           <View style={s.sosActions}>
             <TouchableOpacity style={[s.actionBtn, s.disabledBtn]} disabled={true}>
               <Text style={s.disabledBtnText}>Accept (Disabled)</Text>
@@ -428,62 +488,6 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
             <TouchableOpacity style={[s.actionBtn, s.disabledBtn]} disabled={true}>
               <Text style={s.disabledBtnText}>Decline (Disabled)</Text>
             </TouchableOpacity>
-          </View>
-        ) : !isMyDispatchResponding ? (
-          <View style={{ gap: 8 }}>
-            <View style={s.sosActions}>
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: isBackupDispatch ? '#d97706' : '#16a34a' }]}
-                onPress={() => onRespond({ sosId: sos.id, statusType: 'EN_ROUTE' })}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>✔ Accept</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: '#dc2626' }]}
-                onPress={() => setDeclineReasonModal(true)}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>✖ Decline</Text>
-              </TouchableOpacity>
-            </View>
-
-            {onRequestBackup && (
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: '#d97706' }]}
-                onPress={() => onRequestBackup(sos)}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>🚨 Request Field Backup</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <View style={{ gap: 8 }}>
-            {myDutyStatus !== 'RESCUE_IN_PROGRESS' && (
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: '#7e22ce' }]}
-                onPress={() => onRespond({ sosId: sos.id, statusType: 'RESCUE_IN_PROGRESS' })}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>📍 On Scene / Rescue In Progress</Text>
-              </TouchableOpacity>
-            )}
-
-            <View style={s.sosActions}>
-              {onRequestBackup && (
-                <TouchableOpacity
-                  style={[s.actionBtn, { backgroundColor: '#d97706' }]}
-                  onPress={() => onRequestBackup(sos)}
-                  activeOpacity={0.85}>
-                  <Text style={s.actionBtnText}>🚨 Request Backup</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: '#16a34a' }]}
-                onPress={() => onComplete(sos.id)}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>✔ Rescue Completed</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         )}
       </View>
