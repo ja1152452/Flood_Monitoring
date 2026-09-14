@@ -107,7 +107,7 @@ export default function Login() {
                 style={styles.textInput}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="mdrrmo@lumban.gov.ph"
+                placeholder="Enter your email"
                 placeholderTextColor="#94a3b8"
                 keyboardType="email-address"
                 autoCapitalize="none"

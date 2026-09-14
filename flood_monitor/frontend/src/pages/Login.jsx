@@ -302,7 +302,7 @@ export default function Login() {
                   }}
                   className={`${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={inputStyle}
-                  placeholder="mdrrmo@lumban.gov.ph"
+                  placeholder="Enter your email"
                 />
               </div>
 
