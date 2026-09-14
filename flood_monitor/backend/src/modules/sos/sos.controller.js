@@ -39,6 +39,17 @@ export const resolveBackup = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const acceptBackup = asyncHandler(async (req, res) => {
+  const data = await service.acceptBackup(req.user, req.params.id);
+  res.json({ success: true, data });
+});
+
+export const declineBackup = asyncHandler(async (req, res) => {
+  const { reason } = req.body || {};
+  const data = await service.declineBackup(req.user, req.params.id, reason);
+  res.json({ success: true, data });
+});
+
 export const getMine = asyncHandler(async (req, res) => {
   const data = await service.getMine(req.user.id);
   res.json({ success: true, data });

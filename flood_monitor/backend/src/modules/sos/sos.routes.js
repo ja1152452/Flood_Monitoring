@@ -150,6 +150,16 @@ router.patch('/backup/:id/resolve',
   })
 );
 
+router.patch('/backup/:id/accept',
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  controller.acceptBackup
+);
+
+router.patch('/backup/:id/decline',
+  authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
+  controller.declineBackup
+);
+
 router.get('/duty-status',
   authorize('PNP','BFP','COAST_GUARD','RHU','MDRRMO','MDRRMO_RESPONDER','BARANGAY_OFFICIAL','RESCUE','ADMIN','SUPER_ADMIN'),
   asyncHandler(async (req, res) => {

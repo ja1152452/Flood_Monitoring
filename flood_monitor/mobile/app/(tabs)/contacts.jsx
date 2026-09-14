@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/authStore';
 import { getContacts } from '../../api/contacts';
 import {
   requestBackup, getActiveBackups, resolveBackup, respondSOS, declineSOS,
+  acceptBackupRequest, declineBackupRequest,
 } from '../../api/sos';
 import { formatDateTime } from '../../utils/floodUtils';
 import Toast from 'react-native-toast-message';
@@ -285,35 +286,39 @@ function BackupView({ user }) {
   });
 
   const respondMutation = useMutation({
-    mutationFn: ({ sosId, statusType }) => {
-      if (!sosId) {
-        Toast.show({ type: 'error', text1: 'No SOS incident linked' });
-        return Promise.resolve();
+    mutationFn: async ({ backupId, sosId, statusType = 'EN_ROUTE' }) => {
+      if (backupId) {
+        return await acceptBackupRequest(backupId);
       }
-      return respondSOS(sosId, statusType);
+      if (sosId) {
+        return await respondSOS(sosId, statusType);
+      }
+      throw new Error('No backup or SOS ID provided');
     },
     onSuccess: () => {
       Toast.show({ type: 'success', text1: 'Backup accepted ✓' });
       qc.invalidateQueries(['active-backups']);
       qc.invalidateQueries(['sos-pending']);
     },
-    onError: (err) => Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to accept backup' }),
+    onError: (err) => Toast.show({ type: 'error', text1: err.response?.data?.message || err.message || 'Failed to accept backup' }),
   });
 
   const declineMutation = useMutation({
-    mutationFn: ({ sosId, reason }) => {
-      if (!sosId) {
-        Toast.show({ type: 'info', text1: 'Backup request cleared' });
-        return Promise.resolve();
+    mutationFn: async ({ backupId, sosId, reason = 'Unable to respond to backup request' }) => {
+      if (backupId) {
+        return await declineBackupRequest(backupId, reason);
       }
-      return declineSOS(sosId, reason);
+      if (sosId) {
+        return await declineSOS(sosId, reason);
+      }
+      throw new Error('No backup or SOS ID provided');
     },
     onSuccess: () => {
       Toast.show({ type: 'info', text1: 'Backup declined' });
       qc.invalidateQueries(['active-backups']);
       qc.invalidateQueries(['sos-pending']);
     },
-    onError: (err) => Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to decline' }),
+    onError: (err) => Toast.show({ type: 'error', text1: err.response?.data?.message || err.message || 'Failed to decline' }),
   });
 
   const handleSend = (targetRole) => {
@@ -349,8 +354,17 @@ function BackupView({ user }) {
     });
   };
 
-  const myBackups = backups.filter(b => b.requester_id === user?.id);
-  const othersBackups = backups.filter(b => b.requester_id !== user?.id);
+  const myUserId = String(user?.id || user?._id || user?.user_id || '').toLowerCase().trim();
+  const myRole = String(user?.role || '').toUpperCase().trim();
+
+  const myBackups = backups.filter(b => {
+    const reqId = String(b.requester_id || '').toLowerCase().trim();
+    return Boolean(myUserId && reqId === myUserId);
+  });
+  const othersBackups = backups.filter(b => {
+    const reqId = String(b.requester_id || '').toLowerCase().trim();
+    return !myUserId || reqId !== myUserId;
+  });
 
   return (
     <View style={s.screen}>
@@ -407,6 +421,18 @@ function BackupView({ user }) {
                     <Text style={s.activeCardTime}>{formatDateTime(b.created_at)}</Text>
                   </View>
                   <Text style={s.activeCardMsg} numberOfLines={2}>{b.message}</Text>
+
+                  <View style={{ backgroundColor: b.status === 'ACCEPTED' ? '#f0fdf4' : b.status === 'DISPATCHED' ? '#fff7ed' : '#f8fafc', borderColor: b.status === 'ACCEPTED' ? '#bbf7d0' : b.status === 'DISPATCHED' ? '#fed7aa' : '#e2e8f0', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name={b.status === 'ACCEPTED' ? 'checkmark-circle' : b.status === 'DISPATCHED' ? 'shield-checkmark' : 'time-outline'} size={15} color={b.status === 'ACCEPTED' ? '#16a34a' : b.status === 'DISPATCHED' ? '#ea580c' : '#64748b'} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: b.status === 'ACCEPTED' ? '#166534' : b.status === 'DISPATCHED' ? '#9a3412' : '#475569', flex: 1 }}>
+                      {b.status === 'ACCEPTED'
+                        ? `✔ Accepted by ${b.assigned_responder_name || 'Responder'} (${b.assigned_responder_role || 'Unit'}) — En Route`
+                        : b.status === 'DISPATCHED'
+                        ? `🚨 Dispatched by MDRRMO to ${b.assigned_responder_name || 'Responder'} (${b.assigned_responder_role || 'Unit'})`
+                        : '⏳ Broadcasted — Awaiting MDRRMO Assignment / Unit Acceptance'}
+                    </Text>
+                  </View>
+
                   <TouchableOpacity
                     style={s.mapsRow}
                     onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.lat},${b.lng}`)}>
@@ -427,62 +453,110 @@ function BackupView({ user }) {
           {othersBackups.length > 0 && (
             <View style={s.categorySection}>
               <Text style={s.categoryHeaderTitle}>📥 Incoming Backup Calls ({othersBackups.length})</Text>
-              {othersBackups.map(b => (
-                <View key={b.id} style={s.incomingCard}>
-                  <View style={s.incomingHeader}>
-                    <View style={s.rolePill}>
-                      <Text style={s.rolePillText}>{b.requester_role}</Text>
+              {othersBackups.map(b => {
+                const isAssignedToMe = Boolean(
+                  myUserId && String(b.assigned_responder_id || '').toLowerCase().trim() === myUserId
+                );
+                const targetRoleUpper = String(b.target_role || '').toUpperCase().trim();
+                const isTargetedToMyAgency = Boolean(
+                  myRole && (
+                    targetRoleUpper === myRole ||
+                    targetRoleUpper === 'ALL' ||
+                    targetRoleUpper === 'GENERAL' ||
+                    targetRoleUpper === 'RESCUE' ||
+                    targetRoleUpper === 'ANY' ||
+                    (targetRoleUpper === 'COAST_GUARD' && (myRole === 'COAST_GUARD' || myRole === 'BFP')) ||
+                    (targetRoleUpper === 'BFP' && (myRole === 'BFP' || myRole === 'COAST_GUARD')) ||
+                    (targetRoleUpper === 'MDRRMO' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER')) ||
+                    (targetRoleUpper === 'MDRRMO_RESPONDER' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER'))
+                  )
+                );
+                const isMDRRMO = myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER';
+                const canAcceptOrDecline = (b.status === 'DISPATCHED' || b.status === 'ACTIVE') && (isAssignedToMe || isTargetedToMyAgency || isMDRRMO);
+
+                return (
+                  <View key={b.id} style={s.incomingCard}>
+                    <View style={s.incomingHeader}>
+                      <View style={s.rolePill}>
+                        <Text style={s.rolePillText}>{b.requester_role}</Text>
+                      </View>
+                      <Text style={s.incomingName}>{b.requester_name}</Text>
                     </View>
-                    <Text style={s.incomingName}>{b.requester_name}</Text>
-                  </View>
-                  {b.message && <Text style={s.incomingMsg}>{b.message}</Text>}
-                  <Text style={s.activeCardTime}>{formatDateTime(b.created_at)}</Text>
-                  <View style={{ gap: 6, marginTop: 8 }}>
-                    {b.sos_lat && b.sos_lng && (
+                    {b.message && <Text style={s.incomingMsg}>{b.message}</Text>}
+                    <Text style={s.activeCardTime}>{formatDateTime(b.created_at)}</Text>
+                    <View style={{ gap: 6, marginTop: 8 }}>
+                      {b.sos_lat && b.sos_lng && (
+                        <TouchableOpacity
+                          style={[s.mapsBtn, { backgroundColor: '#dc2626' }]}
+                          onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.sos_lat},${b.sos_lng}`)}>
+                          <Ionicons name="location" size={14} color="#fff" />
+                          <Text style={s.mapsBtnText}>📍 Open SOS Incident Location ({b.victim_name || 'Resident'})</Text>
+                        </TouchableOpacity>
+                      )}
+
                       <TouchableOpacity
-                        style={[s.mapsBtn, { backgroundColor: '#dc2626' }]}
-                        onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.sos_lat},${b.sos_lng}`)}>
-                        <Ionicons name="location" size={14} color="#fff" />
-                        <Text style={s.mapsBtnText}>📍 Open SOS Incident Location ({b.victim_name || 'Resident'})</Text>
+                        style={[s.mapsBtn, { backgroundColor: '#0284c7' }]}
+                        onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.lat},${b.lng}`)}>
+                        <Ionicons name="navigate" size={14} color="#fff" />
+                        <Text style={s.mapsBtnText}>🚨 Open Requesting Responder ({b.requester_name})</Text>
                       </TouchableOpacity>
-                    )}
 
-                    <TouchableOpacity
-                      style={[s.mapsBtn, { backgroundColor: '#0284c7' }]}
-                      onPress={() => Linking.openURL(`https://maps.google.com/?q=${b.lat},${b.lng}`)}>
-                      <Ionicons name="navigate" size={14} color="#fff" />
-                      <Text style={s.mapsBtnText}>🚨 Open Requesting Responder ({b.requester_name})</Text>
-                    </TouchableOpacity>
+                      {b.status === 'ACCEPTED' ? (
+                        isAssignedToMe ? (
+                          <View style={{ gap: 6, marginTop: 6 }}>
+                            <View style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 8, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534', flex: 1 }}>
+                                ✔ Accepted · You are actively responding to this backup request
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={[s.mapsBtn, { backgroundColor: '#16a34a', justifyContent: 'center' }]}
+                              onPress={() => resolveMutation.mutate(b.id)}>
+                              <Ionicons name="checkmark-done-circle" size={16} color="#fff" />
+                              <Text style={s.mapsBtnText}>✔ Mark Backup Resolved</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <View style={{ backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="checkmark-circle" size={16} color="#2563eb" />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#1e40af', flex: 1 }}>
+                              ✔ Accepted by {b.assigned_responder_name || 'Assigned Responder'} ({b.assigned_responder_role || 'Unit'}).
+                            </Text>
+                          </View>
+                        )
+                      ) : canAcceptOrDecline ? (
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                          <TouchableOpacity
+                            style={[s.mapsBtn, { flex: 1, backgroundColor: isAssignedToMe ? '#d97706' : '#16a34a', justifyContent: 'center' }]}
+                            onPress={() => respondMutation.mutate({ backupId: b.id, sosId: b.sos_id, statusType: 'EN_ROUTE' })}>
+                            <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                            <Text style={s.mapsBtnText}>
+                              {isAssignedToMe ? '✔ Accept Backup Dispatch' : '✔ Accept & Respond'}
+                            </Text>
+                          </TouchableOpacity>
 
-                    {b.status === 'DISPATCHED' && String(b.assigned_responder_id || '') === String(user?.id || '') ? (
-                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                        <TouchableOpacity
-                          style={[s.mapsBtn, { flex: 1, backgroundColor: '#d97706', justifyContent: 'center' }]}
-                          onPress={() => respondMutation.mutate({ sosId: b.sos_id, statusType: 'EN_ROUTE' })}>
-                          <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                          <Text style={s.mapsBtnText}>✔ Accept Backup Dispatch</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[s.mapsBtn, { backgroundColor: '#dc2626', paddingHorizontal: 16, justifyContent: 'center' }]}
-                          onPress={() => declineMutation.mutate({ sosId: b.sos_id, reason: 'Unable to respond to backup request' })}>
-                          <Ionicons name="close-circle" size={16} color="#fff" />
-                          <Text style={s.mapsBtnText}>✖ Decline</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <View style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="time-outline" size={16} color="#d97706" />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400e', flex: 1 }}>
-                          {b.status === 'ACTIVE'
-                            ? '⏳ Awaiting MDRRMO Dispatch Order. MDRRMO will assign backup units.'
-                            : `Assigned to ${b.assigned_responder_name || 'another responder unit'}.`}
-                        </Text>
-                      </View>
-                    )}
+                          <TouchableOpacity
+                            style={[s.mapsBtn, { backgroundColor: '#dc2626', paddingHorizontal: 16, justifyContent: 'center' }]}
+                            onPress={() => declineMutation.mutate({ backupId: b.id, sosId: b.sos_id, reason: 'Unable to respond to backup request' })}>
+                            <Ionicons name="close-circle" size={16} color="#fff" />
+                            <Text style={s.mapsBtnText}>✖ Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="time-outline" size={16} color="#d97706" />
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400e', flex: 1 }}>
+                            {b.status === 'ACTIVE'
+                              ? `⏳ Awaiting MDRRMO Dispatch Order for ${b.target_role || 'Backup'}.`
+                              : `Assigned to ${b.assigned_responder_name || 'another responder unit'}.`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 

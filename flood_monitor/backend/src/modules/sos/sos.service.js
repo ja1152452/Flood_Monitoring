@@ -764,7 +764,7 @@ export const getActiveBackups = async (requestingUser) => {
      LEFT JOIN users assigned_u ON assigned_u.id = br.assigned_responder_id
      LEFT JOIN sos_requests s ON s.id = br.sos_id
      LEFT JOIN users u_victim ON u_victim.id = s.user_id
-     WHERE br.status IN ('ACTIVE', 'DISPATCHED')
+     WHERE br.status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')
      ORDER BY br.created_at DESC`,
   );
   return rows;
@@ -1048,4 +1048,168 @@ export const updateSOSLocation = async (userId, sosId, lat, lng) => {
   }
 
   return updatedSos;
+};
+
+export const acceptBackup = async (rescueUser, backupId) => {
+  return withTransaction(async (client) => {
+    const { rows: backupCheck } = await client.query(
+      `SELECT br.*, u.full_name AS requester_name, u.role AS requester_role
+       FROM backup_requests br
+       JOIN users u ON u.id = br.requester_id
+       WHERE br.id = $1 AND br.status IN ('ACTIVE', 'DISPATCHED')`,
+      [backupId]
+    );
+    if (!backupCheck.length) throw ApiError.notFound('Active backup request not found');
+    const backup = backupCheck[0];
+
+    const { rows: updatedBackup } = await client.query(
+      `UPDATE backup_requests
+       SET status = 'ACCEPTED', assigned_responder_id = $1, accepted_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [rescueUser.id, backupId]
+    );
+
+    await client.query(
+      `UPDATE users SET responder_status = 'EN_ROUTE' WHERE id = $1`,
+      [rescueUser.id]
+    );
+
+    let targetSosId = backup.sos_id;
+    if (targetSosId) {
+      const { rows: checkSos } = await client.query(`SELECT id FROM sos_requests WHERE id = $1`, [targetSosId]);
+      if (!checkSos.length) targetSosId = null;
+    }
+
+    if (!targetSosId) {
+      const { rows: newSos } = await client.query(
+        `INSERT INTO sos_requests (user_id, victim_name, lat, lng, message, status, assigned_rescue_id, dispatched_by, dispatched_at, responded_at)
+         VALUES ($1, $2, $3, $4, $5, 'RESPONDING', $6, $6, NOW(), NOW())
+         RETURNING *`,
+        [
+          backup.requester_id,
+          `${backup.requester_role} (${backup.requester_name})`,
+          backup.lat,
+          backup.lng,
+          backup.message || `Field backup requested by ${backup.requester_name}`,
+          rescueUser.id
+        ]
+      );
+      targetSosId = newSos[0].id;
+      await client.query(`UPDATE backup_requests SET sos_id = $1 WHERE id = $2`, [targetSosId, backupId]);
+    }
+
+    await client.query(
+      `INSERT INTO sos_dispatches (sos_id, responder_id, dispatched_by, dispatch_type, status, responded_at, dispatched_at)
+       VALUES ($1, $2, $2, 'BACKUP', 'ACCEPTED', NOW(), NOW())
+       ON CONFLICT (sos_id, responder_id)
+       DO UPDATE SET dispatch_type = 'BACKUP', status = 'ACCEPTED', responded_at = NOW()`,
+      [targetSosId, rescueUser.id]
+    );
+
+    await client.query(
+      `UPDATE sos_requests
+       SET status = 'RESPONDING',
+           responded_at = COALESCE(responded_at, NOW())
+       WHERE id = $1`,
+      [targetSosId]
+    );
+
+    const io = getIO();
+    if (io) {
+      io.emit('backup:updated', updatedBackup[0]);
+      io.emit('backup:accepted', { backup: updatedBackup[0], responder: rescueUser });
+
+      if (targetSosId) {
+        try {
+          const { rows: fullSos } = await client.query(
+            `SELECT s.*,
+                    u.full_name AS citizen_name,
+                    u.phone_number AS citizen_phone,
+                    b.name AS barangay_name,
+                    b.risk_level,
+                    COALESCE(
+                      (
+                        SELECT json_agg(
+                          json_build_object(
+                            'id', d.id,
+                            'responder_id', d.responder_id,
+                            'full_name', ru.full_name,
+                            'role', ru.role,
+                            'phone_number', ru.phone_number,
+                            'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
+                            'status', d.status,
+                            'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                            'last_lat', ru.last_lat,
+                            'last_lng', ru.last_lng,
+                            'last_location_at', ru.last_location_at,
+                            'dispatched_at', d.dispatched_at
+                          )
+                        )
+                        FROM sos_dispatches d
+                        JOIN users ru ON ru.id = d.responder_id
+                        WHERE d.sos_id = s.id AND d.status != 'DECLINED'
+                      ), '[]'::json
+                    ) AS dispatched_responders
+             FROM sos_requests s
+             LEFT JOIN users u ON u.id = s.user_id
+             LEFT JOIN barangays b ON b.id = s.barangay_id
+             WHERE s.id = $1`,
+            [targetSosId]
+          );
+          if (fullSos.length) {
+            io.emit('sos:updated', fullSos[0]);
+          }
+        } catch (emitErr) {
+          console.warn('[acceptBackup] failed to emit sos:updated:', emitErr?.message);
+        }
+      }
+    }
+
+    return updatedBackup[0];
+  });
+};
+
+export const declineBackup = async (rescueUser, backupId, reason = '') => {
+  return withTransaction(async (client) => {
+    const { rows: backupCheck } = await client.query(
+      `SELECT br.*, u.full_name AS requester_name, u.role AS requester_role
+       FROM backup_requests br
+       JOIN users u ON u.id = br.requester_id
+       WHERE br.id = $1`,
+      [backupId]
+    );
+    if (!backupCheck.length) throw ApiError.notFound('Backup request not found');
+    const backup = backupCheck[0];
+
+    const { rows: updatedBackup } = await client.query(
+      `UPDATE backup_requests
+       SET status = 'ACTIVE', assigned_responder_id = NULL
+       WHERE id = $1
+       RETURNING *`,
+      [backupId]
+    );
+
+    if (backup.sos_id) {
+      await client.query(
+        `UPDATE sos_dispatches
+         SET status = 'DECLINED', notes = $3
+         WHERE sos_id = $1 AND responder_id = $2`,
+        [backup.sos_id, rescueUser.id, reason || 'Declined by responder']
+      );
+    }
+
+    await client.query(
+      `UPDATE users SET responder_status = 'AVAILABLE' WHERE id = $1`,
+      [rescueUser.id]
+    );
+
+    const io = getIO();
+    if (io) {
+      io.emit('backup:updated', updatedBackup[0]);
+      io.emit('backup:declined', { backup: updatedBackup[0], responder: rescueUser, reason });
+    }
+
+    return updatedBackup[0];
+  });
 };

@@ -729,6 +729,11 @@ export default function Rescue() {
                         DISPATCHED TO: {b.assigned_responder_name || 'Assigned Unit'} ({b.assigned_responder_role || 'Unit'})
                       </span>
                     )}
+                    {b.status === 'ACCEPTED' && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300">
+                        ACCEPTED BY: {b.assigned_responder_name || 'Assigned Unit'} ({b.assigned_responder_role || 'Unit'})
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-700 dark:text-slate-300 italic">"{b.message || 'Backup needed on-site.'}"</p>
                   <div className="text-[11px] text-slate-500">

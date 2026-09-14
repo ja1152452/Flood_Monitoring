@@ -14,4 +14,6 @@ export const requestBackup            = (data) => api.post('/sos/backup', data).
 export const getActiveBackups         = ()     => api.get('/sos/backup').then(r => (Array.isArray(r.data?.data) ? r.data.data : []));
 export const getBackupHistory        = ()     => api.get('/sos/backup').then(r => (Array.isArray(r.data?.data) ? r.data.data : []));
 export const resolveBackup            = (id)   => api.patch(`/sos/backup/${id}/resolve`).then(r => r.data.data);
+export const acceptBackupRequest      = (id)   => api.patch(`/sos/backup/${id}/accept`).then(r => r.data.data);
+export const declineBackupRequest     = (id, reason) => api.patch(`/sos/backup/${id}/decline`, { reason }).then(r => r.data.data);
 export const updateResponderStatus   = (status) => api.patch('/users/responder-status', { status }).then(r => r.data.data);
