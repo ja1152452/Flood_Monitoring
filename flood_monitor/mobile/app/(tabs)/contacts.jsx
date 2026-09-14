@@ -357,13 +357,35 @@ function BackupView({ user }) {
   const myUserId = String(user?.id || user?._id || user?.user_id || '').toLowerCase().trim();
   const myRole = String(user?.role || '').toUpperCase().trim();
 
+  const isCommand = ['MDRRMO', 'MDRRMO_RESPONDER', 'ADMIN', 'SUPER_ADMIN'].includes(myRole);
+
   const myBackups = backups.filter(b => {
     const reqId = String(b.requester_id || '').toLowerCase().trim();
     return Boolean(myUserId && reqId === myUserId);
   });
+
   const othersBackups = backups.filter(b => {
     const reqId = String(b.requester_id || '').toLowerCase().trim();
-    return !myUserId || reqId !== myUserId;
+    if (myUserId && reqId === myUserId) return false;
+
+    if (isCommand) return true;
+
+    const isAssignedToMe = Boolean(
+      myUserId && String(b.assigned_responder_id || '').toLowerCase().trim() === myUserId
+    );
+    const targetRoleUpper = String(b.target_role || '').toUpperCase().trim();
+    const isTargetedToMyAgency = Boolean(
+      myRole && (
+        targetRoleUpper === myRole ||
+        targetRoleUpper === 'ALL' ||
+        targetRoleUpper === 'RESCUE' ||
+        targetRoleUpper === 'GENERAL' ||
+        (targetRoleUpper === 'MDRRMO' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER')) ||
+        (targetRoleUpper === 'MDRRMO_RESPONDER' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER'))
+      )
+    );
+
+    return isAssignedToMe || isTargetedToMyAgency;
   });
 
   return (

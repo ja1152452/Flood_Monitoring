@@ -723,7 +723,10 @@ export const requestBackup = async (requesterId, dto) => {
 
   const { rows: responders } = await query(
     `SELECT fcm_token FROM users
-     WHERE ($1::text IS NULL OR $1::text = '' OR $1::text = 'RESCUE' OR $1::text = 'ALL' OR role::text = $1 OR (role::text = 'COAST_GUARD' AND $1 = 'BFP') OR (role::text = 'BFP' AND $1 = 'COAST_GUARD') OR (role::text IN ('MDRRMO','MDRRMO_RESPONDER') AND $1 IN ('MDRRMO','MDRRMO_RESPONDER')) OR role::text IN ('ADMIN','SUPER_ADMIN'))
+     WHERE ($1::text IS NULL OR $1::text = '' OR $1::text = 'RESCUE' OR $1::text = 'ALL' 
+            OR role::text = $1 
+            OR (role::text IN ('MDRRMO','MDRRMO_RESPONDER') AND $1 IN ('MDRRMO','MDRRMO_RESPONDER')) 
+            OR role::text IN ('ADMIN','SUPER_ADMIN'))
        AND is_active = TRUE AND id != $2 AND fcm_token IS NOT NULL`,
     [target_role, requesterId]
   );
@@ -754,6 +757,23 @@ export const requestBackup = async (requesterId, dto) => {
 };
 
 export const getActiveBackups = async (requestingUser) => {
+  let whereClause = `WHERE br.status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')`;
+  const params = [];
+
+  const isCommand = ['ADMIN', 'SUPER_ADMIN', 'MDRRMO', 'MDRRMO_RESPONDER'].includes(requestingUser?.role);
+  if (!isCommand && requestingUser?.id) {
+    whereClause += ` AND (
+      br.requester_id = $1 
+      OR br.assigned_responder_id = $1 
+      OR ($2::text IS NOT NULL AND (
+        br.target_role = $2 
+        OR br.target_role IN ('ALL', 'RESCUE', 'GENERAL')
+        OR (br.target_role IN ('MDRRMO', 'MDRRMO_RESPONDER') AND $2 IN ('MDRRMO', 'MDRRMO_RESPONDER'))
+      ))
+    )`;
+    params.push(requestingUser.id, requestingUser.role || '');
+  }
+
   const { rows } = await query(
     `SELECT br.*, 
             u.full_name AS requester_name, u.role AS requester_role, u.phone_number AS requester_phone,
@@ -764,8 +784,9 @@ export const getActiveBackups = async (requestingUser) => {
      LEFT JOIN users assigned_u ON assigned_u.id = br.assigned_responder_id
      LEFT JOIN sos_requests s ON s.id = br.sos_id
      LEFT JOIN users u_victim ON u_victim.id = s.user_id
-     WHERE br.status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')
+     ${whereClause}
      ORDER BY br.created_at DESC`,
+    params
   );
   return rows;
 };
@@ -802,8 +823,6 @@ export const dispatchBackup = async (mdrrmoUser, backupId, responderId, notes = 
       const isGeneral = !target || target === 'RESCUE' || target === 'ALL' || target === 'GENERAL' || target === 'ANY';
       const isMatch = isGeneral ||
         respRole === target ||
-        (target === 'COAST_GUARD' && (respRole === 'COAST_GUARD' || respRole === 'BFP')) ||
-        (target === 'BFP' && (respRole === 'BFP' || respRole === 'COAST_GUARD')) ||
         (target === 'MDRRMO' && (respRole === 'MDRRMO' || respRole === 'MDRRMO_RESPONDER')) ||
         (target === 'MDRRMO_RESPONDER' && (respRole === 'MDRRMO' || respRole === 'MDRRMO_RESPONDER'));
 
