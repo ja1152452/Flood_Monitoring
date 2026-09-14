@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
-import { getPendingSOS, respondSOS, declineSOS, completeSOS, getResponderLocations, requestBackup, updateResponderStatus, getBackupHistory } from '../../api/sos';
+import { getPendingSOS, respondSOS, declineSOS, completeSOS, getResponderLocations, updateResponderStatus, getBackupHistory } from '../../api/sos';
 import { ResponderMap, BarangaySosMap } from '../FloodMap';
 import { getActiveAlerts } from '../../api/alerts';
 import { getLatestReading, getRateOfRise } from '../../api/readings';
@@ -197,87 +197,7 @@ function FloodInfoSection({ themeColor }) {
     </>
   );
 }
-
-const BACKUP_AGENCIES = [
-  { role: 'RHU', label: 'RHU (Medical / First Aid)', icon: 'medkit', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', desc: 'Emergency medical treatment & triage' },
-  { role: 'BFP', label: 'BFP (Fire & Search/Rescue)', icon: 'flame', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', desc: 'Structural rescue, water pumping & extraction' },
-  { role: 'COAST_GUARD', label: 'Coast Guard (Water Rescue)', icon: 'boat', color: '#0284c7', bg: '#f0f9ff', border: '#bae6fd', desc: 'Rubber boats & river extraction units' },
-  { role: 'MDRRMO', label: 'MDRRMO (Disaster Command)', icon: 'shield-checkmark', color: '#dc2626', bg: '#fff1f2', border: '#fca5a5', desc: 'Command vehicle, heavy rescue & logistics' },
-  { role: 'PNP', label: 'PNP (Police & Security)', icon: 'shield', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe', desc: 'Perimeter security, crowd control & road clearing' },
-];
-
-function BackupAgencyPickerModal({ visible, sos, onClose, onSelectAgency, isSubmitting }) {
-  if (!visible || !sos) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="alert-circle" size={22} color="#d97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a' }}>Request Field Backup</Text>
-                <Text style={{ fontSize: 11, color: '#64748b' }} numberOfLines={1}>
-                  Site: <Text style={{ fontWeight: '700' }}>{sos.barangay_name || 'Incident Site'}</Text> ({sos.victim_name || 'Resident'})
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} disabled={isSubmitting} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close-circle" size={26} color="#94a3b8" />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={{ fontSize: 12, color: '#475569', marginBottom: 14 }}>
-            Select the specialized agency required to assist with this incident:
-          </Text>
-
-          <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
-            <View style={{ gap: 10, paddingBottom: 10 }}>
-              {BACKUP_AGENCIES.map(agency => (
-                <TouchableOpacity
-                  key={agency.role}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: agency.bg,
-                    borderColor: agency.border,
-                    borderWidth: 1.5,
-                    borderRadius: 14,
-                    padding: 12,
-                    gap: 12,
-                  }}
-                  disabled={isSubmitting}
-                  onPress={() => onSelectAgency(agency.role)}
-                  activeOpacity={0.75}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: agency.border }}>
-                    <Ionicons name={agency.icon} size={22} color={agency.color} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: agency.color }}>{agency.label}</Text>
-                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{agency.desc}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={agency.color} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <TouchableOpacity
-            style={{ marginTop: 10, backgroundColor: '#f1f5f9', paddingVertical: 12, borderRadius: 12, alignItems: 'center' }}
-            onPress={onClose}
-            disabled={isSubmitting}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b' }}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComplete, onRequestBackup }) {
+function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComplete }) {
   const isMDRRMO = ['ADMIN', 'SUPER_ADMIN', 'MDRRMO'].includes(currentUser?.role);
   const [declineReasonModal, setDeclineReasonModal] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
@@ -413,31 +333,20 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
       <View style={s.sosActionsGroup}>
         {isAssignedToMe || isMDRRMO ? (
           !isMyDispatchResponding ? (
-            <View style={{ gap: 8 }}>
-              <View style={s.sosActions}>
-                <TouchableOpacity
-                  style={[s.actionBtn, { backgroundColor: isBackupDispatch ? '#d97706' : '#16a34a' }]}
-                  onPress={() => onRespond({ sosId: sos.id, statusType: 'EN_ROUTE' })}
-                  activeOpacity={0.85}>
-                  <Text style={s.actionBtnText}>✔ Accept</Text>
-                </TouchableOpacity>
+            <View style={s.sosActions}>
+              <TouchableOpacity
+                style={[s.actionBtn, { backgroundColor: isBackupDispatch ? '#d97706' : '#16a34a' }]}
+                onPress={() => onRespond({ sosId: sos.id, statusType: 'EN_ROUTE' })}
+                activeOpacity={0.85}>
+                <Text style={s.actionBtnText}>✔ Accept</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[s.actionBtn, { backgroundColor: '#dc2626' }]}
-                  onPress={() => setDeclineReasonModal(true)}
-                  activeOpacity={0.85}>
-                  <Text style={s.actionBtnText}>✖ Decline</Text>
-                </TouchableOpacity>
-              </View>
-
-              {onRequestBackup && (
-                <TouchableOpacity
-                  style={[s.actionBtn, { backgroundColor: '#d97706' }]}
-                  onPress={() => onRequestBackup(sos)}
-                  activeOpacity={0.85}>
-                  <Text style={s.actionBtnText}>🚨 Request Field Backup</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[s.actionBtn, { backgroundColor: '#dc2626' }]}
+                onPress={() => setDeclineReasonModal(true)}
+                activeOpacity={0.85}>
+                <Text style={s.actionBtnText}>✖ Decline</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={{ gap: 8 }}>
@@ -450,36 +359,14 @@ function SOSCard({ sos, currentUser, accentColor, onRespond, onDecline, onComple
                 </TouchableOpacity>
               )}
 
-              <View style={s.sosActions}>
-                {onRequestBackup && (
-                  <TouchableOpacity
-                    style={[s.actionBtn, { backgroundColor: '#d97706' }]}
-                    onPress={() => onRequestBackup(sos)}
-                    activeOpacity={0.85}>
-                    <Text style={s.actionBtnText}>🚨 Request Backup</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={[s.actionBtn, { backgroundColor: '#16a34a' }]}
-                  onPress={() => onComplete(sos.id)}
-                  activeOpacity={0.85}>
-                  <Text style={s.actionBtnText}>✔ Rescue Completed</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[s.actionBtn, { backgroundColor: '#16a34a' }]}
+                onPress={() => onComplete(sos.id)}
+                activeOpacity={0.85}>
+                <Text style={s.actionBtnText}>✔ Rescue Completed</Text>
+              </TouchableOpacity>
             </View>
           )
-        ) : currentUser?.role === 'BARANGAY_OFFICIAL' ? (
-          <View style={s.sosActions}>
-            {onRequestBackup && (
-              <TouchableOpacity
-                style={[s.actionBtn, { backgroundColor: '#d97706', flex: 1 }]}
-                onPress={() => onRequestBackup(sos)}
-                activeOpacity={0.85}>
-                <Text style={s.actionBtnText}>🚨 Request Agency Backup</Text>
-              </TouchableOpacity>
-            )}
-          </View>
         ) : (
           <View style={s.sosActions}>
             <TouchableOpacity style={[s.actionBtn, s.disabledBtn]} disabled={true}>
@@ -629,35 +516,6 @@ export function ResponderDashboard({ user, onLogout }) {
     onError: () => Toast.show({ type: 'error', text1: 'Failed to complete' }),
   });
 
-  const [backupTargetSOS, setBackupTargetSOS] = useState(null);
-
-  const backupMut = useMutation({
-    mutationFn: requestBackup,
-    onSuccess: () => {
-      Toast.show({ type: 'success', text1: '🚨 Backup request broadcasted to MDRRMO & team!' });
-      qc.invalidateQueries(['active-backups']);
-      qc.invalidateQueries(['backup-history']);
-      setBackupTargetSOS(null);
-    },
-    onError: (err) => {
-      Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to request backup' });
-    },
-  });
-
-  const handleRequestBackup = (sos) => {
-    setBackupTargetSOS(sos);
-  };
-
-  const sendBackupRequest = (sos, targetRole) => {
-    backupMut.mutate({
-      sos_id: sos.id,
-      lat: Number(user?.last_lat || sos.lat || 14.3006),
-      lng: Number(user?.last_lng || sos.lng || 121.4619),
-      message: `Backup (${targetRole}) requested by ${user?.full_name || 'Responder'} for SOS in ${sos.barangay_name || 'Lumban'}`,
-      target_role: targetRole,
-    });
-  };
-
   const availCfg = AVAILABILITY_LABELS[currentDuty] || AVAILABILITY_LABELS.AVAILABLE;
 
   const [showBackupModal, setShowBackupModal] = useState(false);
@@ -766,21 +624,11 @@ export function ResponderDashboard({ user, onLogout }) {
                 onRespond={respond.mutate}
                 onDecline={decline.mutate}
                 onComplete={complete.mutate}
-                onRequestBackup={handleRequestBackup}
               />
             ))
           )}
         </View>
       </ScrollView>
-
-      {/* Agency Picker Modal for Requesting Field Backup */}
-      <BackupAgencyPickerModal
-        visible={!!backupTargetSOS}
-        sos={backupTargetSOS}
-        onClose={() => setBackupTargetSOS(null)}
-        onSelectAgency={(role) => sendBackupRequest(backupTargetSOS, role)}
-        isSubmitting={backupMut.isPending}
-      />
 
       {/* Responder Backup Request History Modal */}
       <Modal visible={showBackupModal} transparent animationType="slide">
@@ -940,31 +788,6 @@ export function BarangayDashboard({ user, onLogout }) {
     onError: () => Toast.show({ type: 'error', text1: 'Failed to complete' }),
   });
 
-  const [backupTargetSOS, setBackupTargetSOS] = useState(null);
-
-  const backupMut = useMutation({
-    mutationFn: requestBackup,
-    onSuccess: () => {
-      Toast.show({ type: 'success', text1: '🚨 Backup request sent to agency & MDRRMO!' });
-      qc.invalidateQueries(['active-backups']);
-      qc.invalidateQueries(['sos-pending']);
-      setBackupTargetSOS(null);
-    },
-    onError: (err) => {
-      Toast.show({ type: 'error', text1: err.response?.data?.message || 'Failed to request backup' });
-    },
-  });
-
-  const sendBarangayBackupRequest = (sos, targetRole) => {
-    backupMut.mutate({
-      sos_id: sos.id,
-      lat: Number(user?.last_lat || sos.lat || 14.3006),
-      lng: Number(user?.last_lng || sos.lng || 121.4619),
-      message: `Backup (${targetRole}) requested by ${user?.full_name || 'Barangay Official'} for SOS in ${sos.barangay_name || 'Lumban'}`,
-      target_role: targetRole,
-    });
-  };
-
   return (
     <View style={s.container}>
       <View style={[s.redHeader, { backgroundColor: '#7e22ce' }]}>
@@ -1024,21 +847,11 @@ export function BarangayDashboard({ user, onLogout }) {
                 onRespond={respond.mutate}
                 onDecline={decline.mutate}
                 onComplete={complete.mutate}
-                onRequestBackup={(item) => setBackupTargetSOS(item)}
               />
             ))
           )}
         </View>
       </ScrollView>
-
-      {/* Agency Picker Modal for Barangay Official */}
-      <BackupAgencyPickerModal
-        visible={!!backupTargetSOS}
-        sos={backupTargetSOS}
-        onClose={() => setBackupTargetSOS(null)}
-        onSelectAgency={(role) => sendBarangayBackupRequest(backupTargetSOS, role)}
-        isSubmitting={backupMut.isPending}
-      />
     </View>
   );
 }
