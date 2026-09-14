@@ -487,14 +487,12 @@ function BackupView({ user }) {
                     targetRoleUpper === 'GENERAL' ||
                     targetRoleUpper === 'RESCUE' ||
                     targetRoleUpper === 'ANY' ||
-                    (targetRoleUpper === 'COAST_GUARD' && (myRole === 'COAST_GUARD' || myRole === 'BFP')) ||
-                    (targetRoleUpper === 'BFP' && (myRole === 'BFP' || myRole === 'COAST_GUARD')) ||
                     (targetRoleUpper === 'MDRRMO' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER')) ||
                     (targetRoleUpper === 'MDRRMO_RESPONDER' && (myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER'))
                   )
                 );
                 const isMDRRMO = myRole === 'MDRRMO' || myRole === 'MDRRMO_RESPONDER';
-                const canAcceptOrDecline = (b.status === 'DISPATCHED' || b.status === 'ACTIVE') && (isAssignedToMe || isTargetedToMyAgency || isMDRRMO);
+                const canAcceptOrDecline = b.status === 'DISPATCHED' && (isAssignedToMe || isMDRRMO);
 
                 return (
                   <View key={b.id} style={s.incomingCard}>
@@ -550,12 +548,10 @@ function BackupView({ user }) {
                       ) : canAcceptOrDecline ? (
                         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                           <TouchableOpacity
-                            style={[s.mapsBtn, { flex: 1, backgroundColor: isAssignedToMe ? '#d97706' : '#16a34a', justifyContent: 'center' }]}
+                            style={[s.mapsBtn, { flex: 1, backgroundColor: '#d97706', justifyContent: 'center' }]}
                             onPress={() => respondMutation.mutate({ backupId: b.id, sosId: b.sos_id, statusType: 'EN_ROUTE' })}>
                             <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                            <Text style={s.mapsBtnText}>
-                              {isAssignedToMe ? '✔ Accept Backup Dispatch' : '✔ Accept & Respond'}
-                            </Text>
+                            <Text style={s.mapsBtnText}>✔ Accept Backup Dispatch</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -566,13 +562,23 @@ function BackupView({ user }) {
                           </TouchableOpacity>
                         </View>
                       ) : (
-                        <View style={{ backgroundColor: '#fef3c7', borderColor: '#fcd34d', borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="time-outline" size={16} color="#d97706" />
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400e', flex: 1 }}>
-                            {b.status === 'ACTIVE'
-                              ? `⏳ Awaiting MDRRMO Dispatch Order for ${b.target_role || 'Backup'}.`
-                              : `Assigned to ${b.assigned_responder_name || 'another responder unit'}.`}
-                          </Text>
+                        <View style={{ gap: 6, marginTop: 6 }}>
+                          <View style={{ backgroundColor: b.status === 'ACTIVE' ? '#fef3c7' : '#f8fafc', borderColor: b.status === 'ACTIVE' ? '#fcd34d' : '#e2e8f0', borderWidth: 1, borderRadius: 8, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="time-outline" size={16} color={b.status === 'ACTIVE' ? '#d97706' : '#64748b'} />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: b.status === 'ACTIVE' ? '#92400e' : '#475569', flex: 1 }}>
+                              {b.status === 'ACTIVE'
+                                ? `⏳ Awaiting MDRRMO Dispatch Order for ${b.target_role || 'Backup'}. You are in view-only mode.`
+                                : `Assigned by MDRRMO to ${b.assigned_responder_name || 'another responder unit'}.`}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity style={[s.mapsBtn, { flex: 1, backgroundColor: '#e2e8f0', justifyContent: 'center' }]} disabled={true}>
+                              <Text style={[s.mapsBtnText, { color: '#94a3b8' }]}>Accept (Disabled)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[s.mapsBtn, { backgroundColor: '#e2e8f0', paddingHorizontal: 16, justifyContent: 'center' }]} disabled={true}>
+                              <Text style={[s.mapsBtnText, { color: '#94a3b8' }]}>Decline (Disabled)</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       )}
                     </View>

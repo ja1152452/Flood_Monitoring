@@ -585,10 +585,11 @@ export const completeRescue = async (rescueUser, sosId) => {
     );
 
     // Resolve any linked backup requests
-    await client.query(
+    const { rows: resolvedBackups } = await client.query(
       `UPDATE backup_requests
        SET status = 'RESOLVED', resolved_at = NOW()
-       WHERE sos_id = $1 AND status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')`,
+       WHERE sos_id = $1 AND status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')
+       RETURNING *`,
       [sosId]
     );
 
@@ -609,6 +610,10 @@ export const completeRescue = async (rescueUser, sosId) => {
     const io = getIO();
     if (io) {
       io.emit('sos:updated', rows[0]);
+      (resolvedBackups || []).forEach(bk => {
+        io.emit('backup:resolved', bk);
+        io.emit('backup:updated', bk);
+      });
     }
 
     return rows[0];
@@ -1025,6 +1030,32 @@ export const resolveBackup = async (backupId, userId) => {
     }
   }
 
+  if (backup.sos_id) {
+    const { rows: remainingDispatches } = await query(
+      `SELECT id FROM sos_dispatches WHERE sos_id = $1 AND status IN ('DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'RESCUE_IN_PROGRESS')`,
+      [backup.sos_id]
+    ).catch(() => ({ rows: [] }));
+
+    const { rows: remainingBackups } = await query(
+      `SELECT id FROM backup_requests WHERE sos_id = $1 AND status IN ('ACTIVE', 'DISPATCHED', 'ACCEPTED')`,
+      [backup.sos_id]
+    ).catch(() => ({ rows: [] }));
+
+    if (!remainingDispatches.length && !remainingBackups.length) {
+      const { rows: resolvedSos } = await query(
+        `UPDATE sos_requests SET status = 'RESOLVED', resolved_at = NOW()
+         WHERE id = $1 AND status IN ('DISPATCHED', 'RESPONDING')
+         RETURNING *`,
+        [backup.sos_id]
+      ).catch(() => ({ rows: [] }));
+
+      if (resolvedSos.length) {
+        const io = getIO();
+        if (io) io.emit('sos:updated', resolvedSos[0]);
+      }
+    }
+  }
+
   await writeAuditLog({
     userId, action: 'BACKUP_RESOLVED',
     entityType: 'backup_requests', entityId: backupId,
@@ -1227,7 +1258,59 @@ export const declineBackup = async (rescueUser, backupId, reason = '') => {
     if (io) {
       io.emit('backup:updated', updatedBackup[0]);
       io.emit('backup:declined', { backup: updatedBackup[0], responder: rescueUser, reason });
+
+      if (backup.sos_id) {
+        try {
+          const { rows: fullSos } = await client.query(
+            `SELECT s.*,
+                    u.full_name AS citizen_name,
+                    u.phone_number AS citizen_phone,
+                    b.name AS barangay_name,
+                    b.risk_level,
+                    COALESCE(
+                      (
+                        SELECT json_agg(
+                          json_build_object(
+                            'id', d.id,
+                            'responder_id', d.responder_id,
+                            'full_name', ru.full_name,
+                            'role', ru.role,
+                            'phone_number', ru.phone_number,
+                            'dispatch_type', COALESCE(d.dispatch_type, 'PRIMARY'),
+                            'status', d.status,
+                            'responder_duty_status', COALESCE(ru.responder_status, 'AVAILABLE'),
+                            'last_lat', ru.last_lat,
+                            'last_lng', ru.last_lng,
+                            'last_location_at', ru.last_location_at,
+                            'dispatched_at', d.dispatched_at
+                          )
+                        )
+                        FROM sos_dispatches d
+                        JOIN users ru ON ru.id = d.responder_id
+                        WHERE d.sos_id = s.id AND d.status != 'DECLINED'
+                      ), '[]'::json
+                    ) AS dispatched_responders
+             FROM sos_requests s
+             LEFT JOIN users u ON u.id = s.user_id
+             LEFT JOIN barangays b ON b.id = s.barangay_id
+             WHERE s.id = $1`,
+            [backup.sos_id]
+          );
+          if (fullSos.length) {
+            io.emit('sos:updated', fullSos[0]);
+          }
+        } catch (_) {}
+      }
     }
+
+    const { rows: mdrrmoUsers } = await client.query(
+      `SELECT fcm_token FROM users WHERE role IN ('ADMIN','SUPER_ADMIN','MDRRMO') AND fcm_token IS NOT NULL`
+    );
+    const title = '⚠️ Backup Dispatch Declined — Reassignment Required';
+    const body  = `Responder ${rescueUser.full_name} (${rescueUser.role}) DECLINED backup dispatch for ${backup.requester_role} ${backup.requester_name}. MDRRMO reassignment required.`;
+    Promise.allSettled(
+      mdrrmoUsers.map(u => sendPushNotification(u.fcm_token, title, body))
+    ).catch(() => {});
 
     return updatedBackup[0];
   });
