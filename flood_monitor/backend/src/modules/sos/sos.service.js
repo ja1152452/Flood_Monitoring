@@ -66,7 +66,7 @@ export const getPending = async (requestingUser) => {
   const params    = [];
 
   if (requestingUser.role === 'BARANGAY_OFFICIAL' && requestingUser.barangay_id) {
-    whereClause += ` AND (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2))`;
+    whereClause += ` AND (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2) OR s.id IN (SELECT sos_id FROM backup_requests WHERE assigned_responder_id = $2))`;
     params.push(requestingUser.barangay_id, requestingUser.id);
   }
 
@@ -127,7 +127,7 @@ export const getHistory = async (requestingUser) => {
   const params    = [];
 
   if (requestingUser.role === 'BARANGAY_OFFICIAL' && requestingUser.barangay_id) {
-    whereClause = `WHERE (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2))`;
+    whereClause = `WHERE (s.barangay_id = $1 OR s.id IN (SELECT sos_id FROM sos_dispatches WHERE responder_id = $2) OR s.id IN (SELECT sos_id FROM backup_requests WHERE assigned_responder_id = $2))`;
     params.push(requestingUser.barangay_id, requestingUser.id);
   }
 
