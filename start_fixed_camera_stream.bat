@@ -13,7 +13,7 @@ ffmpeg ^
   -rtsp_transport tcp ^
   -fflags nobuffer ^
   -flags low_delay ^
-  -i "rtsp://Flood_monitoring:FloodCam2026@192.168.0.112:554/stream2" ^
+  -i "rtsp://Flood_monitoring:FloodCam2026@192.168.0.108:554/stream2" ^
   -an ^
   -c:v copy ^
   -vsync passthrough ^

@@ -18,7 +18,7 @@ def main():
     else:
         cal = {}
 
-    rtsp_url = cal.get("rtsp_url", "rtsp://Flood_monitoring:FloodCam2026@192.168.0.112:554/stream1")
+    rtsp_url = cal.get("rtsp_url", "rtsp://Flood_monitoring:FloodCam2026@192.168.0.108:554/stream1")
 
     print("=== Lumban Flood Monitor — Dataset Collector ===")
     print(f"Dataset Output Directory: {DATASET_DIR}")

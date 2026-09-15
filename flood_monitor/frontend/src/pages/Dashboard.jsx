@@ -302,11 +302,14 @@ export default function Dashboard() {
                   ({rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : 'Holding Level'})
                 </span>
               ) : (
-                trend?.delta_m != null && (
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    ({trend.delta_m > 0 ? '+' : ''}{trend.delta_m?.toFixed(2)}m / {trend.delta_cm ?? Math.round(Math.abs(trend.delta_m) * 100)}cm)
-                  </span>
-                )
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {rateVal !== 0
+                    ? `(${rateSign}${rateVal.toFixed(2)} m/hr${trend?.delta_m === 0 ? ' · Steady now' : ''})`
+                    : (trend?.delta_m != null && Math.abs(trend.delta_m) >= 0.01
+                        ? `(${trend.delta_m > 0 ? '+' : ''}${trend.delta_m.toFixed(2)}m / ${trend.delta_cm ?? Math.round(Math.abs(trend.delta_m) * 100)}cm)`
+                        : '(Holding Level)')
+                  }
+                </span>
               )}
             </div>
 
@@ -320,7 +323,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-slate-700 dark:text-slate-300 font-bold">Rate of Change:</span>
                 <span className={`font-extrabold ${trendColor}`}>
-                  {isSimulation ? (rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateVal.toFixed(2)} m/hr`)}
+                  {isSimulation ? (rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateSign}${rateVal.toFixed(2)} m/hr`)}
                 </span>
               </div>
             </div>
