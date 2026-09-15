@@ -183,6 +183,17 @@ export default function Dashboard() {
   };
   const floodTextColor = floodColorMap[level] || 'text-emerald-700 dark:text-emerald-400';
 
+  // 10-Minute Prior Reference and Net Delta Calculation
+  const prevLevelM = isSimulation
+    ? (simRateVal !== 0 ? Math.max(0, parseFloat((simWaterLevel - (simRateVal * 10 / 60)).toFixed(2))) : simWaterLevel)
+    : (rate?.from_level != null ? parseFloat(rate.from_level) : (trend?.previous != null ? parseFloat(trend.previous) : null));
+
+  const deltaM = isSimulation
+    ? (prevLevelM != null ? parseFloat((wl - prevLevelM).toFixed(3)) : 0)
+    : (rate?.delta_m != null ? parseFloat(rate.delta_m) : (trend?.delta_m != null ? parseFloat(trend.delta_m) : (prevLevelM != null ? parseFloat((wl - prevLevelM).toFixed(3)) : 0)));
+  const deltaCm = Math.round(Math.abs(deltaM) * 100);
+  const deltaSign = deltaM > 0.005 ? '+' : (deltaM < -0.005 ? '-' : '');
+
   return (
     <div className="space-y-5">
       <div className="page-header flex flex-wrap items-center justify-between gap-3">
@@ -297,33 +308,41 @@ export default function Dashboard() {
               <span className={`text-sm font-black ${trendColor}`}>
                 {trendName}
               </span>
-              {isSimulation ? (
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  ({rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : 'Holding Level'})
-                </span>
-              ) : (
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {rateVal !== 0
-                    ? `(${rateSign}${rateVal.toFixed(2)} m/hr${trend?.delta_m === 0 ? ' · Steady now' : ''})`
-                    : (trend?.delta_m != null && Math.abs(trend.delta_m) >= 0.01
-                        ? `(${trend.delta_m > 0 ? '+' : ''}${trend.delta_m.toFixed(2)}m / ${trend.delta_cm ?? Math.round(Math.abs(trend.delta_m) * 100)}cm)`
-                        : '(Holding Level)')
-                  }
-                </span>
-              )}
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {rateVal !== 0
+                  ? `(${rateSign}${rateVal.toFixed(2)} m/hr)`
+                  : '(Holding Level)'
+                }
+              </span>
             </div>
 
             <div className="text-xs bg-slate-100 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-slate-700 dark:text-slate-300 font-bold">Time Interval:</span>
-                <span className="font-extrabold text-slate-900 dark:text-white">
-                  {isSimulation ? 'Real-time Overlay' : (trend?.time_interval_text || '10 minutes')}
+                <span className="text-slate-700 dark:text-slate-300 font-bold">10 Mins Ago:</span>
+                <span className="font-extrabold text-slate-900 dark:text-white font-mono">
+                  {prevLevelM != null ? `${prevLevelM.toFixed(2)}m (${(prevLevelM * 100).toFixed(0)} cm)` : '--'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-700 dark:text-slate-300 font-bold">10-Min Change:</span>
+                <span className={`font-extrabold font-mono ${trendColor}`}>
+                  {prevLevelM != null
+                    ? (Math.abs(deltaM) >= 0.005
+                        ? `${deltaSign}${deltaCm} cm (${deltaSign}${Math.abs(deltaM).toFixed(2)}m)`
+                        : '0 cm (Steady)')
+                    : '--'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-700 dark:text-slate-300 font-bold">Rate of Change:</span>
-                <span className={`font-extrabold ${trendColor}`}>
-                  {isSimulation ? (rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : '0.00 m/hr') : (trend?.rate_text || `${rateSign}${rateVal.toFixed(2)} m/hr`)}
+                <span className={`font-extrabold font-mono ${trendColor}`}>
+                  {isSimulation ? (rateVal !== 0 ? `${rateSign}${rateVal.toFixed(2)} m/hr` : '0.00 m/hr') : (rate?.rate_per_hour != null ? `${rateSign}${rateVal.toFixed(2)} m/hr` : (trend?.rate_text || `${rateSign}${rateVal.toFixed(2)} m/hr`))}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-700 dark:text-slate-300 font-bold">Time Interval:</span>
+                <span className="font-extrabold text-slate-900 dark:text-white">
+                  {isSimulation ? '10 minutes (Simulated)' : '10 minutes'}
                 </span>
               </div>
             </div>

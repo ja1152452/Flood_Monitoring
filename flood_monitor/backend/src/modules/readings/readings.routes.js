@@ -55,11 +55,19 @@ router.get('/rate-of-rise',
       const sim = getSimulationState();
       const rate = sim.rate_per_hour || 0;
       const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'RECEDING' : 'STABLE');
+      const curM = parseFloat(sim.water_level_m || 2.0);
+      const fromM = parseFloat(Math.max(0, curM - (rate * 10 / 60)).toFixed(2));
+      const deltaM = parseFloat((curM - fromM).toFixed(3));
       return res.json({
         success: true,
         data: {
           rate_per_hour: rate,
           trend: trend,
+          from_level: fromM,
+          to_level: curM,
+          delta_m: deltaM,
+          delta_cm: Math.round(Math.abs(deltaM) * 100),
+          period_hours: 0.17,
           is_simulated: true,
         },
       });
@@ -97,6 +105,8 @@ router.get('/rate-of-rise',
         trend: trend,
         from_level: parseFloat(first.water_level_m),
         to_level: parseFloat(last.water_level_m),
+        delta_m: parseFloat(delta.toFixed(3)),
+        delta_cm: Math.round(Math.abs(delta) * 100),
         period_hours: parseFloat(hours.toFixed(2)),
       },
     });
@@ -279,11 +289,19 @@ router.get('/:cameraId/rate-of-rise',
       const sim = getSimulationState();
       const rate = sim.rate_per_hour || 0;
       const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'RECEDING' : 'STABLE');
+      const curM = parseFloat(sim.water_level_m || 2.0);
+      const fromM = parseFloat(Math.max(0, curM - (rate * 10 / 60)).toFixed(2));
+      const deltaM = parseFloat((curM - fromM).toFixed(3));
       return res.json({
         success: true,
         data: {
           rate_per_hour: rate,
           trend: trend,
+          from_level: fromM,
+          to_level: curM,
+          delta_m: deltaM,
+          delta_cm: Math.round(Math.abs(deltaM) * 100),
+          period_hours: 0.17,
           is_simulated: true,
         },
       });
@@ -326,6 +344,8 @@ router.get('/:cameraId/rate-of-rise',
         trend: trend,
         from_level: parseFloat(first.water_level_m),
         to_level: parseFloat(last.water_level_m),
+        delta_m: parseFloat(delta.toFixed(3)),
+        delta_cm: Math.round(Math.abs(delta) * 100),
         period_hours: parseFloat(hours.toFixed(2)),
       },
     });
