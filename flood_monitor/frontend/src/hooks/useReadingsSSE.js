@@ -3,94 +3,46 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export function useReadingsSSE(cameraId) {
   const qc             = useQueryClient();
-  const retryTimer     = useRef(null);
-  const abortRef       = useRef(null);
   const lastInvalidate = useRef(0);
 
   useEffect(() => {
     if (!cameraId) return;
 
-    let stopped = false;
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
 
-    async function connect() {
-      const token = localStorage.getItem('accessToken');
-      if (!token || stopped) return;
+    const url = `/api/v1/readings/live?token=${encodeURIComponent(token)}`;
+    const es = new EventSource(url);
 
-      const controller = new AbortController();
-      abortRef.current = controller;
-
+    es.addEventListener('reading', (e) => {
       try {
-        const res = await fetch(
-          `/api/v1/readings/live?token=${encodeURIComponent(token)}`,
-          { signal: controller.signal }
-        );
+        const reading = JSON.parse(e.data);
+        qc.setQueryData(['latest-reading'], reading);
+        qc.setQueryData(['history', cameraId], (old) => {
+          if (!old?.data) return old;
+          return { ...old, data: [reading, ...old.data].slice(0, 48) };
+        });
 
-        if (res.status === 401) {
-          // Token invalid — stop retrying, let the axios interceptor handle logout
-          return;
+        // Throttle query invalidations (trend, rate-of-rise) to at most once per 10s
+        const now = Date.now();
+        if (now - lastInvalidate.current > 10000) {
+          lastInvalidate.current = now;
+          qc.invalidateQueries({ queryKey: ['trend'] });
+          qc.invalidateQueries({ queryKey: ['rate-of-rise'] });
+          qc.invalidateQueries({ queryKey: ['active-alerts'] });
         }
+      } catch (_) {}
+    });
 
-        if (!res.ok || !res.body) {
-          throw new Error(`SSE connect failed: ${res.status}`);
-        }
-
-        const reader  = res.body.getReader();
-        const decoder = new TextDecoder();
-        let   buffer  = '';
-
-        while (!stopped) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop(); // keep incomplete line
-
-          let eventType = 'message';
-          let dataLine  = '';
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              eventType = line.slice(6).trim();
-            } else if (line.startsWith('data:')) {
-              dataLine = line.slice(5).trim();
-            } else if (line === '' && dataLine) {
-              if (eventType === 'reading') {
-                try {
-                  const reading = JSON.parse(dataLine);
-                  qc.setQueryData(['latest-reading'], reading);
-                  qc.setQueryData(['history', cameraId], (old) => {
-                    if (!old?.data) return old;
-                    return { ...old, data: [reading, ...old.data].slice(0, 48) };
-                  });
-
-                  // Throttle expensive query invalidations (trend, rate-of-rise) to at most once per 10s
-                  const now = Date.now();
-                  if (now - lastInvalidate.current > 10000) {
-                    lastInvalidate.current = now;
-                    qc.invalidateQueries({ queryKey: ['trend'] });
-                    qc.invalidateQueries({ queryKey: ['rate-of-rise'] });
-                    qc.invalidateQueries({ queryKey: ['active-alerts'] });
-                  }
-                } catch (_) {}
-              }
-              eventType = 'message';
-              dataLine  = '';
-            }
-          }
-        }
-      } catch (err) {
-        if (stopped || err.name === 'AbortError') return;
-        retryTimer.current = setTimeout(connect, 5000);
+    es.onerror = () => {
+      // Browser EventSource automatically reconnects silently in the background
+      if (es.readyState === EventSource.CLOSED) {
+        es.close();
       }
-    }
-
-    connect();
+    };
 
     return () => {
-      stopped = true;
-      clearTimeout(retryTimer.current);
-      abortRef.current?.abort();
+      es.close();
     };
   }, [cameraId, qc]);
 }

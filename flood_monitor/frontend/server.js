@@ -15,6 +15,8 @@ app.use(
     target: `${BACKEND_URL}/api`,
     changeOrigin: true,
     ws: true,
+    proxyTimeout: 0,
+    timeout: 0,
   })
 );
 
