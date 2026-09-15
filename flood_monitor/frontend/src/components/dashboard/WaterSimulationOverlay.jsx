@@ -83,7 +83,8 @@ export function WaterSimulationOverlay({
           ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
           ctx.font = 'bold 9px Inter, monospace';
           ctx.textAlign = 'left';
-          ctx.fillText(`${pt.m.toFixed(0)}m`, roi.right + 4, tickY + 3);
+          const label = pt.m % 1 === 0 ? `${pt.m.toFixed(0)}m` : `${pt.m.toFixed(1)}m`;
+          ctx.fillText(label, roi.right + 4, tickY + 3);
         }
       });
       ctx.restore();

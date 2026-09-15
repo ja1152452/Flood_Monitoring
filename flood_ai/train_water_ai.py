@@ -13,7 +13,8 @@ def train_model():
     print(f"Output directory: {MODEL_SAVE_DIR}\n")
 
     # Load pretrained YOLOv12 nano model
-    model = YOLO("yolo12n.pt")
+    model_weight_path = os.path.join(_DIR, "yolo12n.pt") if os.path.exists(os.path.join(_DIR, "yolo12n.pt")) else "yolo12n.pt"
+    model = YOLO(model_weight_path)
 
     # Train model with data augmentations for shadow & lighting invariance
     results = model.train(

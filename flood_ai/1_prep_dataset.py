@@ -89,9 +89,17 @@ def prepare_dataset():
 
     generate_data_yaml()
 
-    # Collect source images
-    sources = glob.glob(os.path.join(_DIR, "capture_*.jpg"))
-    raw_sources = glob.glob(os.path.join(DATASET_ROOT, "raw_images", "*.jpg"))
+    # Collect source images (.jpg, .jpeg, .jfif, .png, .webp, .bmp)
+    valid_exts = {".jpg", ".jpeg", ".jfif", ".png", ".webp", ".bmp"}
+    sources = [
+        os.path.join(_DIR, f) for f in os.listdir(_DIR)
+        if f.startswith("capture_") and os.path.splitext(f)[1].lower() in valid_exts
+    ]
+    raw_dir = os.path.join(DATASET_ROOT, "raw_images")
+    raw_sources = [
+        os.path.join(raw_dir, f) for f in os.listdir(raw_dir)
+        if os.path.splitext(f)[1].lower() in valid_exts
+    ] if os.path.exists(raw_dir) else []
     all_images = sources + raw_sources
 
     if not all_images:
@@ -115,10 +123,9 @@ def prepare_dataset():
             dest_img = os.path.join(target_img_dir, f"{base_name}.jpg")
             dest_lbl = os.path.join(target_lbl_dir, f"{base_name}.txt")
 
-            shutil.copy(img_path, dest_img)
-
             img = cv2.imread(img_path)
             if img is not None:
+                cv2.imwrite(dest_img, img)
                 labels_str = generate_yolo_label(img, cal)
                 with open(dest_lbl, "w") as f:
                     f.write(labels_str)

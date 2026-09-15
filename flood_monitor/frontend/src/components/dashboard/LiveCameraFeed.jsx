@@ -11,7 +11,8 @@ import { WaterSimulationOverlay } from './WaterSimulationOverlay';
 import { 
   SIMULATION_PRESETS, 
   SCENARIO_PRESETS, 
-  classifySimulatedLevel 
+  classifySimulatedLevel,
+  updateCalibrationConfig,
 } from '../../utils/waterSimulationUtils';
 import { useSimulationStore } from '../../store/simulationStore';
 
@@ -159,6 +160,18 @@ export function LiveCameraFeed() {
     queryFn:         () => api.get('/stream/status').then(r => r.data.data),
     refetchInterval: 5000,
   });
+
+  const { data: liveCalData } = useQuery({
+    queryKey:        ['live-calibration'],
+    queryFn:         () => api.get('/stream/calibration').then(r => r.data.data).catch(() => null),
+    refetchInterval: 8000,
+  });
+
+  useEffect(() => {
+    if (liveCalData) {
+      updateCalibrationConfig(liveCalData);
+    }
+  }, [liveCalData]);
 
   const toggleFullscreen = () => {
     const elem = containerRef.current;

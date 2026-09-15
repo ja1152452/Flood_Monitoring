@@ -13,28 +13,42 @@
  */
 
 export const CALIBRATION_CONFIG = {
-  baseline_pixel_y: 230,
-  baseline_meters: 3.869,
-  px_per_meter: 48.0838,
+  baseline_pixel_y: 198,
+  baseline_meters: 5.08,
+  px_per_meter: 50.8772,
   roi: {
-    left_pct: 48.44,
-    right_pct: 58.13,
-    top_pct: 15.28,
-    bottom_pct: 100,
+    left_pct: 37.81,
+    right_pct: 49.22,
+    top_pct: 25.28,
+    bottom_pct: 92.78,
   },
   // Reference frame dimensions from calibration
   reference_width: 640,
   reference_height: 360,
   points: [
-    { px: 56, m: 7.0 },
-    { px: 128, m: 6.0 },
-    { px: 190, m: 5.0 },
-    { px: 247, m: 4.0 },
-    { px: 296, m: 3.0 },
-    { px: 337, m: 2.0 },
-    { px: 360, m: 0.0 },
+    { px: 93, m: 7.0 },
+    { px: 151, m: 6.1 },
+    { px: 204, m: 5.1 },
+    { px: 252, m: 4.1 },
+    { px: 290, m: 3.1 },
   ],
 };
+
+/**
+ * Dynamically updates CALIBRATION_CONFIG so simulation matches latest live calibration
+ */
+export function updateCalibrationConfig(newConfig) {
+  if (!newConfig) return;
+  if (newConfig.roi) {
+    CALIBRATION_CONFIG.roi = { ...CALIBRATION_CONFIG.roi, ...newConfig.roi };
+  }
+  if (newConfig.points && Array.isArray(newConfig.points) && newConfig.points.length > 0) {
+    CALIBRATION_CONFIG.points = [...newConfig.points];
+  }
+  if (newConfig.baseline_pixel_y !== undefined) CALIBRATION_CONFIG.baseline_pixel_y = newConfig.baseline_pixel_y;
+  if (newConfig.baseline_meters !== undefined) CALIBRATION_CONFIG.baseline_meters = newConfig.baseline_meters;
+  if (newConfig.px_per_meter !== undefined) CALIBRATION_CONFIG.px_per_meter = newConfig.px_per_meter;
+}
 
 // Project official threshold definitions
 export const SIMULATION_THRESHOLDS = [

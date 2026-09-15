@@ -246,8 +246,20 @@ router.get('/snapshot', (req, res) => {
   if (!latestSnapshot) return res.status(404).end();
   res.setHeader('Content-Type',  'image/jpeg');
   res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('X-Captured-At', latestSnapshotAt || '');
   res.end(latestSnapshot);
+});
+
+router.get('/calibration', (_req, res) => {
+  const calPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../flood_ai/calibration.json');
+  if (fs.existsSync(calPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(calPath, 'utf-8'));
+      return res.json({ success: true, data });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+  return res.status(404).json({ success: false, message: 'calibration.json not found' });
 });
 
 router.get('/:segment', (req, res) => {
