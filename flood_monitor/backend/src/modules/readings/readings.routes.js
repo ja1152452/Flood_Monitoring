@@ -69,7 +69,7 @@ router.get('/rate-of-rise',
        FROM water_level_readings
        WHERE (is_simulated = FALSE OR is_simulated IS NULL)
          AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
-         AND captured_at >= NOW() - INTERVAL '1 hour'
+         AND captured_at >= NOW() - INTERVAL '10 minutes'
        ORDER BY captured_at ASC`
     );
     if (rows.length < 2) {
@@ -126,7 +126,7 @@ router.get('/trend',
        FROM water_level_readings
        WHERE (is_simulated = FALSE OR is_simulated IS NULL)
          AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
-         AND captured_at >= NOW() - INTERVAL '1 hour'
+         AND captured_at >= NOW() - INTERVAL '10 minutes'
        ORDER BY captured_at ASC
        LIMIT 20`
     );
@@ -295,7 +295,7 @@ router.get('/:cameraId/rate-of-rise',
        WHERE camera_id = $1
          AND (is_simulated = FALSE OR is_simulated IS NULL)
          AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
-         AND captured_at >= NOW() - INTERVAL '1 hour'
+         AND captured_at >= NOW() - INTERVAL '10 minutes'
        ORDER BY captured_at ASC`,
       [req.params.cameraId]
     );
