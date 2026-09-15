@@ -376,6 +376,10 @@ def apply_water_simulation(frame, sim_meters, cal):
 
     return out, water_top
 
+def grab_frame(cap):
+    ret, frame = cap.read()
+    return frame if ret else None
+
 def main():
     print("")
     print("Detection logic: BOTTOM of LOWEST visible colored band = waterline")
