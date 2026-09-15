@@ -25,7 +25,15 @@ echo "[INFO] Injecting stereo audio sync track for instant YouTube unlock."
 echo ""
 
 while true; do
-  echo "[$(date +'%T')] Pushing live camera stream to YouTube..."
+  # Dynamically reload latest calibration if updated
+  if [ -f "$CALIB_FILE" ]; then
+    CALIB_RTSP=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('rtsp_url', ''))" 2>/dev/null)
+    CALIB_KEY=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('youtube_stream_key', ''))" 2>/dev/null)
+    if [ -n "$CALIB_RTSP" ]; then RTSP_URL="$CALIB_RTSP"; fi
+    if [ -n "$CALIB_KEY" ]; then STREAM_KEY="$CALIB_KEY"; fi
+  fi
+
+  echo "[$(date +'%T')] Pushing live camera stream to YouTube from $RTSP_URL..."
   ffmpeg -nostdin -loglevel warning \
     -rtsp_transport tcp \
     -timeout 10000000 \
