@@ -57,10 +57,12 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=5, deadband_m=0.035, max_jump_px=120):
+    def __init__(self, window_size=5, deadband_m=0.035, max_jump_m=0.35, outlier_streak_thresh=4):
         self.window_size = window_size
         self.deadband_m = deadband_m  # Ignore jitter < 0.035m (3.5cm) unless sustained
-        self.max_jump_px = max_jump_px
+        self.max_jump_m = max_jump_m  # Reject sudden jumps > 0.35m as physical impossibilities
+        self.outlier_streak_thresh = outlier_streak_thresh
+        self.outlier_streak = 0
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
         self.last_stable_m = None
@@ -69,6 +71,7 @@ class WaterlineSmoother:
     def reset(self, raw_y=None, raw_m=None):
         self.history_y.clear()
         self.history_m.clear()
+        self.outlier_streak = 0
         if raw_y is not None and raw_m is not None:
             self.history_y.append(raw_y)
             self.history_m.append(raw_m)
@@ -76,11 +79,23 @@ class WaterlineSmoother:
         self.last_stable_y = raw_y
 
     def process(self, raw_y, raw_m, is_manual=False):
-        # Immediate snap for manual trained levels or large calibration shifts (> 0.4m)
-        if is_manual or self.last_stable_m is None or abs(raw_m - self.last_stable_m) > 0.4:
+        # Immediate snap for manual trained levels or initial reading
+        if is_manual or self.last_stable_m is None:
             self.reset(raw_y, raw_m)
             return raw_y, raw_m, 0.99
 
+        # Reject physical impossibilities (river water cannot jump > 35cm in 2 seconds)
+        jump = abs(raw_m - self.last_stable_m)
+        if jump > self.max_jump_m:
+            self.outlier_streak += 1
+            if self.outlier_streak >= self.outlier_streak_thresh:
+                # Sustained shift over multiple readings -> genuine change or re-calibration
+                self.reset(raw_y, raw_m)
+                return raw_y, raw_m, 0.95
+            # Transient outlier/glitch: reject and hold the last stable reading
+            return self.last_stable_y, self.last_stable_m, 0.90
+
+        self.outlier_streak = 0
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
@@ -93,7 +108,7 @@ class WaterlineSmoother:
             smooth_m = self.last_stable_m
             smooth_y = self.last_stable_y
         else:
-            alpha = 0.50  # Fast response factor
+            alpha = 0.45  # Smooth, responsive filter factor
             smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
             smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
             self.last_stable_m = smooth_m
@@ -188,27 +203,33 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         min_band_px = max(4, int(roi_w * 0.15))
         valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
-        if len(valid_gauge_rows) > 0:
-            # Follow contiguous gauge board downwards from top; ignore disjoint water reflection
+        # The staff gauge is anchored at the top wall; verify valid rows start near the top
+        if len(valid_gauge_rows) > 0 and valid_gauge_rows[0] < int(roi_h * 0.25):
+            # Follow contiguous gauge board downwards from top; stop when board enters water
             cont_end = valid_gauge_rows[0]
             for r in valid_gauge_rows:
-                if r - cont_end <= 6:
+                if r - cont_end <= 8:
                     cont_end = r
                 else:
+                    # Water gap reached — stop here and ignore water reflections below
                     break
             waterline_y = roi_top + int(cont_end)
-            ai_confidence = 0.90
+            ai_confidence = 0.92
+        elif smoother is not None and smoother.last_stable_y is not None:
+            # Hold previous stable reading rather than guessing bottom of ROI
+            waterline_y = smoother.last_stable_y
+            ai_confidence = 0.85
         else:
-            # Saturation transition: find where painted board (S > 35) transitions to water
+            # Top-down saturation scan: find where painted board (S > 35) transitions to water
             sat = hsv_roi[:, :, 1]
             row_sat = np.mean(sat, axis=1)
-            sat_y = roi_h - 1
-            for y in range(len(row_sat) - 1, -1, -1):
-                if row_sat[y] > 35:
+            sat_y = int(roi_h * 0.5)
+            for y in range(len(row_sat)):
+                if row_sat[y] < 35:
                     sat_y = y
                     break
             waterline_y = roi_top + sat_y
-            ai_confidence = 0.85
+            ai_confidence = 0.75
 
     if waterline_y is None:
         return {"success": False, "reason": "No staff gauge or water surface detected"}
@@ -361,32 +382,58 @@ def write_log(result, api_success, error=""):
         })
 
 class _FrameReader:
-    """On-demand frame reader that fetches frames without locking RTSP port 554 continuously."""
+    """Persistent background frame reader that maintains a single stable RTSP connection,
+    draining old frames and providing only the latest real-time frame without thrashing port 554."""
     def __init__(self, primary_url, fallback_url=None):
         self._primary_url  = primary_url
         self._fallback_url = fallback_url
         self._frame = None
         self._lock  = threading.Lock()
-        self._ok    = True
+        self._running = True
+        self._connected = False
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
-        while True:
-            for url in filter(None, [self._primary_url, self._fallback_url]):
+        urls = list(filter(None, [self._primary_url, self._fallback_url]))
+        while self._running:
+            for url in urls:
+                cap = None
                 try:
                     cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-                    if cap.isOpened():
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    if not cap.isOpened():
+                        if cap is not None:
+                            cap.release()
+                        continue
+
+                    self._connected = True
+                    consecutive_failures = 0
+                    while self._running:
                         ret, frame = cap.read()
-                        cap.release()
-                        if ret and frame is not None:
-                            with self._lock:
-                                self._frame = frame
-                            break
-                    else:
-                        cap.release()
+                        if not ret or frame is None:
+                            consecutive_failures += 1
+                            if consecutive_failures > 15:
+                                break
+                            time.sleep(0.05)
+                            continue
+
+                        consecutive_failures = 0
+                        with self._lock:
+                            self._frame = frame
+                        time.sleep(0.02)
                 except Exception:
                     pass
-            time.sleep(2.0)
+                finally:
+                    if cap is not None:
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                self._connected = False
+                if not self._running:
+                    break
+                time.sleep(1.0)
+            time.sleep(1.0)
 
     def get(self):
         with self._lock:
@@ -397,7 +444,7 @@ class _FrameReader:
         return True
 
     def release(self):
-        pass
+        self._running = False
 
 
 

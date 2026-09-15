@@ -13,7 +13,7 @@ if exist "flood_ai\calibration.json" (
   for /f "delims=" %%i in ('powershell -Command "(Get-Content flood_ai/calibration.json | ConvertFrom-Json).youtube_stream_key" 2^>nul') do (
     if not "%%i"=="" set "STREAM_KEY=%%i"
   )
-  for /f "delims=" %%i in ('powershell -Command "(Get-Content flood_ai/calibration.json | ConvertFrom-Json).rtsp_url" 2^>nul') do (
+  for /f "delims=" %%i in ('powershell -Command "$c=(Get-Content flood_ai/calibration.json | ConvertFrom-Json); if($c.youtube_rtsp_url){$c.youtube_rtsp_url}else{$c.rtsp_url -replace 'stream2','stream1'}" 2^>nul') do (
     if not "%%i"=="" set "RTSP_URL=%%i"
   )
 )
@@ -30,13 +30,14 @@ if exist "flood_ai\calibration.json" (
   for /f "delims=" %%i in ('powershell -Command "(Get-Content flood_ai/calibration.json | ConvertFrom-Json).youtube_stream_key" 2^>nul') do (
     if not "%%i"=="" set "STREAM_KEY=%%i"
   )
-  for /f "delims=" %%i in ('powershell -Command "(Get-Content flood_ai/calibration.json | ConvertFrom-Json).rtsp_url" 2^>nul') do (
+  for /f "delims=" %%i in ('powershell -Command "$c=(Get-Content flood_ai/calibration.json | ConvertFrom-Json); if($c.youtube_rtsp_url){$c.youtube_rtsp_url}else{$c.rtsp_url -replace 'stream2','stream1'}" 2^>nul') do (
     if not "%%i"=="" set "RTSP_URL=%%i"
   )
 )
 echo [%time%] Pushing live camera stream to YouTube from !RTSP_URL!...
 ffmpeg -nostdin -loglevel warning ^
   -rtsp_transport tcp ^
+  -reorder_queue_size 20 ^
   -timeout 10000000 ^
   -use_wallclock_as_timestamps 1 ^
   -thread_queue_size 4096 ^

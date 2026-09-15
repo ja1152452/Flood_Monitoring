@@ -8,7 +8,7 @@ CALIB_FILE="$SCRIPT_DIR/flood_ai/calibration.json"
 
 # Load RTSP_URL and STREAM_KEY dynamically from calibration.json if available
 if [ -f "$CALIB_FILE" ]; then
-  CALIB_RTSP=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('rtsp_url', ''))" 2>/dev/null)
+  CALIB_RTSP=$(python3 -c "import json; d=json.load(open('$CALIB_FILE')); print(d.get('youtube_rtsp_url') or d.get('rtsp_url', '').replace('/stream2', '/stream1'))" 2>/dev/null)
   CALIB_KEY=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('youtube_stream_key', ''))" 2>/dev/null)
   if [ -n "$CALIB_RTSP" ]; then RTSP_URL="$CALIB_RTSP"; fi
   if [ -n "$CALIB_KEY" ]; then STREAM_KEY="$CALIB_KEY"; fi
@@ -27,7 +27,7 @@ echo ""
 while true; do
   # Dynamically reload latest calibration if updated
   if [ -f "$CALIB_FILE" ]; then
-    CALIB_RTSP=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('rtsp_url', ''))" 2>/dev/null)
+    CALIB_RTSP=$(python3 -c "import json; d=json.load(open('$CALIB_FILE')); print(d.get('youtube_rtsp_url') or d.get('rtsp_url', '').replace('/stream2', '/stream1'))" 2>/dev/null)
     CALIB_KEY=$(python3 -c "import json; print(json.load(open('$CALIB_FILE')).get('youtube_stream_key', ''))" 2>/dev/null)
     if [ -n "$CALIB_RTSP" ]; then RTSP_URL="$CALIB_RTSP"; fi
     if [ -n "$CALIB_KEY" ]; then STREAM_KEY="$CALIB_KEY"; fi
@@ -36,6 +36,7 @@ while true; do
   echo "[$(date +'%T')] Pushing live camera stream to YouTube from $RTSP_URL..."
   ffmpeg -nostdin -loglevel warning \
     -rtsp_transport tcp \
+    -reorder_queue_size 20 \
     -timeout 10000000 \
     -use_wallclock_as_timestamps 1 \
     -thread_queue_size 4096 \

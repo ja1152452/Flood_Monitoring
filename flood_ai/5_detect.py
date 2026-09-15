@@ -61,24 +61,62 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=3, max_jump_px=100):
+    def __init__(self, window_size=5, deadband_m=0.035, max_jump_m=0.35, outlier_streak_thresh=4):
         self.window_size = window_size
-        self.max_jump_px = max_jump_px
+        self.deadband_m = deadband_m
+        self.max_jump_m = max_jump_m
+        self.outlier_streak_thresh = outlier_streak_thresh
+        self.outlier_streak = 0
         self.history_y = deque(maxlen=window_size)
         self.history_m = deque(maxlen=window_size)
+        self.last_stable_m = None
+        self.last_stable_y = None
 
-    def process(self, raw_y, raw_m):
+    def reset(self, raw_y=None, raw_m=None):
+        self.history_y.clear()
+        self.history_m.clear()
+        self.outlier_streak = 0
+        if raw_y is not None and raw_m is not None:
+            self.history_y.append(raw_y)
+            self.history_m.append(raw_m)
+        self.last_stable_m = raw_m
+        self.last_stable_y = raw_y
+
+    def process(self, raw_y, raw_m, is_manual=False):
+        if is_manual or self.last_stable_m is None:
+            self.reset(raw_y, raw_m)
+            return raw_y, raw_m, 0.99
+
+        jump = abs(raw_m - self.last_stable_m)
+        if jump > self.max_jump_m:
+            self.outlier_streak += 1
+            if self.outlier_streak >= self.outlier_streak_thresh:
+                self.reset(raw_y, raw_m)
+                return raw_y, raw_m, 0.95
+            return self.last_stable_y, self.last_stable_m, 0.90
+
+        self.outlier_streak = 0
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
-        smooth_y = int(np.median(self.history_y))
-        smooth_m = round(float(np.median(self.history_m)), 3)
+        median_y = int(np.median(self.history_y))
+        median_m = round(float(np.median(self.history_m)), 3)
+
+        if abs(median_m - self.last_stable_m) < self.deadband_m:
+            smooth_m = self.last_stable_m
+            smooth_y = self.last_stable_y
+        else:
+            alpha = 0.45
+            smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
+            smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
+            self.last_stable_m = smooth_m
+            self.last_stable_y = smooth_y
 
         std_y = np.std(self.history_y) if len(self.history_y) > 1 else 0.0
-        stability = max(0.75, min(0.98, 1.0 - (std_y / 50.0)))
+        stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5, deadband_m=0.035)
 
 YOLO_MODEL = None
 
@@ -163,27 +201,33 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         min_band_px = max(4, int(roi_w * 0.15))
         valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
-        if len(valid_gauge_rows) > 0:
-            # Follow contiguous gauge board downwards from top; ignore disjoint water reflection
+        # The staff gauge is anchored at the top wall; verify valid rows start near the top
+        if len(valid_gauge_rows) > 0 and valid_gauge_rows[0] < int(roi_h * 0.25):
+            # Follow contiguous gauge board downwards from top; stop when board enters water
             cont_end = valid_gauge_rows[0]
             for r in valid_gauge_rows:
-                if r - cont_end <= 6:
+                if r - cont_end <= 8:
                     cont_end = r
                 else:
+                    # Water gap reached — stop here and ignore water reflections below
                     break
             waterline_y = roi_top + int(cont_end)
-            ai_confidence = 0.90
+            ai_confidence = 0.92
+        elif smoother is not None and getattr(smoother, 'last_stable_y', None) is not None:
+            # Hold previous stable reading rather than guessing bottom of ROI
+            waterline_y = smoother.last_stable_y
+            ai_confidence = 0.85
         else:
-            # Saturation transition: find where painted board (S > 35) transitions to water
+            # Top-down saturation scan: find where painted board (S > 35) transitions to water
             sat = hsv_roi[:, :, 1]
             row_sat = np.mean(sat, axis=1)
-            sat_y = roi_h - 1
-            for y in range(len(row_sat) - 1, -1, -1):
-                if row_sat[y] > 35:
+            sat_y = int(roi_h * 0.5)
+            for y in range(len(row_sat)):
+                if row_sat[y] < 35:
                     sat_y = y
                     break
             waterline_y = roi_top + sat_y
-            ai_confidence = 0.85
+            ai_confidence = 0.75
 
     if waterline_y is None:
         return {"success": False, "reason": "No staff gauge or water surface detected"}
