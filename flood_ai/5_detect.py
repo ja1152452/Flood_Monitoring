@@ -12,7 +12,9 @@ from datetime import datetime
 
 print("=== Lumban Flood Monitor — Live Detection ===")
 
-with open("calibration.json") as f:
+_DIR = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(_DIR, "calibration.json")) as f:
     CAL = json.load(f)
 
 RTSP_URL         = CAL["rtsp_url"]
@@ -23,10 +25,10 @@ PX_PER_METER     = CAL["px_per_meter"]
 # Colored marker ranges for dry staff gauge bands (ONLY vivid colored bands — white removed to avoid water reflection glare!)
 MARKER_RANGES = {
   "purple":     ([115, 60,  60],  [160, 255, 255]),
-  "red_low":    ([0,   70,  70],  [15,  255, 255]),
-  "red_high":   ([160, 70,  70],  [180, 255, 255]),
-  "orange":     ([5,   80,  90],  [28,  255, 255]),
-  "yellow":     ([14,  80,  90],  [40,  255, 255]),
+  "red_low":    ([0,   70,  110], [15,  255, 255]),
+  "red_high":   ([160, 70,  110], [180, 255, 255]),
+  "orange":     ([5,   80,  135], [28,  255, 255]),
+  "yellow":     ([14,  80,  135], [40,  255, 255]),
 }
 
 # Brown floodwater color range (muddy river water during rising flood)
@@ -90,7 +92,9 @@ class WaterlineSmoother:
         jump = abs(raw_m - self.last_stable_m)
         if jump > self.max_jump_m:
             self.outlier_streak += 1
-            if self.outlier_streak >= self.outlier_streak_thresh:
+            drop_spike = (self.last_stable_m - raw_m) > 0.50
+            thresh = 15 if drop_spike else self.outlier_streak_thresh
+            if self.outlier_streak >= thresh:
                 self.reset(raw_y, raw_m)
                 return raw_y, raw_m, 0.95
             return self.last_stable_y, self.last_stable_m, 0.90
@@ -206,7 +210,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
             clusters = []
             cur_cluster = [valid_gauge_rows[0]]
             for r in valid_gauge_rows[1:]:
-                if r - cur_cluster[-1] <= 8:
+                if r - cur_cluster[-1] <= 6:
                     cur_cluster.append(r)
                 else:
                     clusters.append(cur_cluster)
@@ -214,12 +218,30 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
             if cur_cluster:
                 clusters.append(cur_cluster)
 
-            # The physical staff gauge board is the main contiguous visible colored band
-            gauge_cluster = max(clusters, key=len)
-            if len(gauge_cluster) >= 6:
-                cont_end = gauge_cluster[-1]
+            # CRITICAL REFLECTION REJECTION:
+            # The physical staff gauge board is mounted from the top wall downwards.
+            # Any colored reflection in water is ALWAYS in the water BELOW the physical board.
+            # We select the FIRST substantial colored cluster from the top (length >= 8 rows).
+            physical_cluster = None
+            for c in clusters:
+                if len(c) >= 8:
+                    physical_cluster = c
+                    break
+
+            if physical_cluster is not None:
+                cont_end = physical_cluster[-1]
+
+                # If reflection is continuous with the board, detect where brightness drops into water
+                val_roi = hsv_roi[:, :, 2]
+                cluster_vals = [np.mean(val_roi[r, :]) for r in physical_cluster]
+                peak_v = max(cluster_vals) if cluster_vals else 200
+                for i, r in enumerate(physical_cluster):
+                    if i > len(physical_cluster) // 2 and cluster_vals[i] < peak_v * 0.55:
+                        cont_end = r
+                        break
+
                 waterline_y = roi_top + int(cont_end)
-                ai_confidence = 0.92
+                ai_confidence = 0.94
 
         if waterline_y is None:
             if smoother is not None and getattr(smoother, 'last_stable_y', None) is not None:
