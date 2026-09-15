@@ -46,24 +46,7 @@ const ROLE_CONFIG = {
 };
 const ROLE_BADGE = ROLE_CONFIG;
 
-const RESPONDER_ROLES = [
-  'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'RESCUE',
-];
-
 const getRoleOption = (val) => ROLE_OPTIONS.find(r => r.value === val) || ROLE_OPTIONS[0];
-
-const toDateTimeLocal = (dateString) => {
-  if (!dateString) return '';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
 
 const formatJoinedDate = (ts) => {
   if (!ts) return '—';
@@ -82,7 +65,6 @@ const EMPTY = {
   full_name: '', email: '', password: '',
   roleOption: 'BARANGAY_OFFICIAL', barangay: '', phone_number: '',
   evacuation_center_id: '',
-  created_at: '',
 };
 
 const inputCls = 'w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-red-500 shadow-sm';
@@ -212,45 +194,6 @@ function FormFields({ form, setForm, isEdit, centers = [], isSuperAdmin = false 
         </div>
       )}
 
-      {/* Joined Date & Time - for Resident, Responders & MSWDO */}
-      {(form.roleOption === 'CITIZEN' || form.roleOption === 'MSWDO' || RESPONDER_ROLES.includes(form.roleOption)) && (
-        <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Joined Date &amp; Time (Created At)
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setForm(f => ({ ...f, created_at: toDateTimeLocal(new Date()) }))}
-                className="text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline">
-                Set to Now
-              </button>
-              {form.created_at && (
-                <>
-                  <span className="text-slate-300 dark:text-slate-600 text-xs">·</span>
-                  <button
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, created_at: '' }))}
-                    className="text-xs font-medium text-rose-500 hover:text-rose-400 hover:underline">
-                    Clear
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          <input
-            type="datetime-local"
-            className={inputCls}
-            value={form.created_at || ''}
-            onChange={e => setForm(f => ({ ...f, created_at: e.target.value }))}
-          />
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-            Customize the registration date and time shown in the Joined column. Leave blank to default to current date and time.
-          </p>
-        </div>
-      )}
-
       {opt.needsBarangay && !form.barangay && (
         <div className="text-xs text-amber-400 bg-amber-900/20 rounded-lg px-3 py-2">
           ⚠ Barangay Officials must have a barangay assigned.
@@ -363,12 +306,6 @@ export default function Users() {
     if (form.phone_number)         payload.phone_number         = form.phone_number.trim();
     if (form.barangay)             payload.barangay             = form.barangay;
     if (form.evacuation_center_id) payload.evacuation_center_id = form.evacuation_center_id;
-    if (form.created_at) {
-      const parsedDate = new Date(form.created_at);
-      if (!isNaN(parsedDate.getTime())) {
-        payload.created_at = parsedDate.toISOString();
-      }
-    }
     create.mutate(payload);
   };
 
@@ -400,12 +337,6 @@ export default function Users() {
     if (form.barangay !== undefined)             payload.barangay             = form.barangay;
     if (form.evacuation_center_id !== undefined) payload.evacuation_center_id = form.evacuation_center_id;
     if (form.password)                           payload.password             = form.password;
-    if (form.created_at) {
-      const parsedDate = new Date(form.created_at);
-      if (!isNaN(parsedDate.getTime())) {
-        payload.created_at = parsedDate.toISOString();
-      }
-    }
     update.mutate({ id: editItem.id, data: payload });
   };
 
@@ -419,7 +350,6 @@ export default function Users() {
       barangay:             user.barangay_name || '',
       phone_number:         user.phone_number || '',
       evacuation_center_id: user.evacuation_center_id || '',
-      created_at:           user.created_at ? toDateTimeLocal(user.created_at) : '',
     });
     setShowEdit(true);
   };
