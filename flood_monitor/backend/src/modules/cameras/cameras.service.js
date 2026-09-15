@@ -31,11 +31,11 @@ export const create = async (dto, actorId) => {
     await client.query(
       `INSERT INTO flood_thresholds (camera_id, flood_level, min_meters, max_meters)
        VALUES
-         ($1,'NORMAL',    0.0, 1.0),
-         ($1,'MONITOR',   1.0, 1.5),
-         ($1,'ALERT',     1.5, 2.0),
-         ($1,'EVACUATION',2.0, 2.5),
-         ($1,'CRITICAL',  2.5, 99.0)`,
+         ($1,'NORMAL',    0.0, 3.1),
+         ($1,'MONITOR',   3.1, 4.1),
+         ($1,'ALERT',     4.1, 5.1),
+         ($1,'EVACUATION',5.1, 6.1),
+         ($1,'CRITICAL',  6.1, 99.0)`,
       [rows[0].id]
     );
 

@@ -76,7 +76,7 @@ export const evaluateAndDispatch = async (reading, client) => {
   );
 
   // calculate real estimated hours to critical flood
-  const CRITICAL_LEVEL = 6.0;
+  const CRITICAL_LEVEL = 6.1;
   const currentLevel = parseFloat(reading.water_level_m);
   const { rows: trendRows } = await db.query(
     `SELECT water_level_m, captured_at

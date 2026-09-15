@@ -318,9 +318,9 @@ export const calculatePredictiveForecast = async (cameraId, currentLevelM, rateP
 
   const THRESHOLDS = [
     { level: 'NORMAL',     target: 3.1, nextLevel: 'MONITOR',    nextLabel: 'Monitor Level' },
-    { level: 'MONITOR',    target: 4.0, nextLevel: 'ALERT',      nextLabel: 'Alert Level' },
-    { level: 'ALERT',      target: 5.0, nextLevel: 'EVACUATION', nextLabel: 'Evacuation Level' },
-    { level: 'EVACUATION', target: 6.0, nextLevel: 'CRITICAL',   nextLabel: 'Critical Level' },
+    { level: 'MONITOR',    target: 4.1, nextLevel: 'ALERT',      nextLabel: 'Alert Level' },
+    { level: 'ALERT',      target: 5.1, nextLevel: 'EVACUATION', nextLabel: 'Evacuation Level' },
+    { level: 'EVACUATION', target: 6.1, nextLevel: 'CRITICAL',   nextLabel: 'Critical Level' },
     { level: 'CRITICAL',   target: 7.0, nextLevel: null,         nextLabel: 'Maximum Hazard' },
   ];
 

@@ -53,10 +53,10 @@ export function updateCalibrationConfig(newConfig) {
 // Project official threshold definitions
 export const SIMULATION_THRESHOLDS = [
   { min: 0.0, max: 3.1, level: 'NORMAL', label: 'Normal Level', color: '#16a34a', bg: 'bg-emerald-600', text: 'text-emerald-300' },
-  { min: 3.1, max: 4.0, level: 'MONITOR', label: 'Monitor Level (Warning)', color: '#d97706', bg: 'bg-amber-600', text: 'text-amber-300' },
-  { min: 4.0, max: 5.0, level: 'ALERT', label: 'Alert Level (Warning)', color: '#ea580c', bg: 'bg-orange-600', text: 'text-orange-300' },
-  { min: 5.0, max: 6.0, level: 'EVACUATION', label: 'Evacuation Level (Critical)', color: '#dc2626', bg: 'bg-red-600', text: 'text-red-300' },
-  { min: 6.0, max: 99.0, level: 'CRITICAL', label: 'Critical Level (Flood)', color: '#7e22ce', bg: 'bg-purple-700', text: 'text-purple-300' },
+  { min: 3.1, max: 4.1, level: 'MONITOR', label: 'Monitor Level (Warning)', color: '#d97706', bg: 'bg-amber-600', text: 'text-amber-300' },
+  { min: 4.1, max: 5.1, level: 'ALERT', label: 'Alert Level (Warning)', color: '#ea580c', bg: 'bg-orange-600', text: 'text-orange-300' },
+  { min: 5.1, max: 6.1, level: 'EVACUATION', label: 'Evacuation Level (Critical)', color: '#dc2626', bg: 'bg-red-600', text: 'text-red-300' },
+  { min: 6.1, max: 99.0, level: 'CRITICAL', label: 'Critical Level (Flood)', color: '#7e22ce', bg: 'bg-purple-700', text: 'text-purple-300' },
 ];
 
 // Presets using existing project meter values
@@ -117,14 +117,14 @@ export function calculateDynamicRate(meters, phaseOrIsRising = 'rising') {
   if (m < 3.1) {
     target = 3.1;
     transitionHours = 1.8;
-  } else if (m < 4.0) {
-    target = 4.0;
+  } else if (m < 4.1) {
+    target = 4.1;
     transitionHours = 1.5;
-  } else if (m < 5.0) {
-    target = 5.0;
+  } else if (m < 5.1) {
+    target = 5.1;
     transitionHours = 1.2;
-  } else if (m < 6.0) {
-    target = 6.0;
+  } else if (m < 6.1) {
+    target = 6.1;
     transitionHours = 1.0;
   } else {
     target = 7.0;

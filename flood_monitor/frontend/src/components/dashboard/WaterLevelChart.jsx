@@ -8,9 +8,9 @@ import { useThemeStore } from '../../store/themeStore';
 
 const THRESHOLD_LINES = [
   { y: 3.1, label: 'Monitor (3.1m)',    color: '#D97706' },
-  { y: 4.0, label: 'Alert (4.0m)',      color: '#EA580C' },
-  { y: 5.0, label: 'Evacuation (5.0m)', color: '#DC2626' },
-  { y: 6.0, label: 'Critical (6.0m)',   color: '#7C3AED' },
+  { y: 4.1, label: 'Alert (4.1m)',      color: '#EA580C' },
+  { y: 5.1, label: 'Evacuation (5.1m)', color: '#DC2626' },
+  { y: 6.1, label: 'Critical (6.1m)',   color: '#7C3AED' },
 ];
 
 const LEVEL_COLORS = {
@@ -26,7 +26,7 @@ export function WaterLevelChart({ data = [], title = 'Water Level History', floo
 
   const { formatted, isMultiDay, yMin, yMax } = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      return { formatted: [], isMultiDay: false, yMin: 0, yMax: 6.5 };
+      return { formatted: [], isMultiDay: false, yMin: 0, yMax: 7.2 };
     }
 
     // 1. Sort data chronologically by timestamp
@@ -58,7 +58,7 @@ export function WaterLevelChart({ data = [], title = 'Water Level History', floo
     const minVal = levels.length ? Math.min(...levels) : 0;
     const maxVal = levels.length ? Math.max(...levels) : 3;
     const computedMin = Math.max(0, Math.floor(minVal - 0.2));
-    const computedMax = Math.max(6.5, Math.ceil(maxVal + 0.5));
+    const computedMax = Math.max(7.2, Math.ceil(maxVal + 0.5));
 
     return {
       formatted: fmt,
