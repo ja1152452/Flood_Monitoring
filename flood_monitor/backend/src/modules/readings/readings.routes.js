@@ -164,14 +164,27 @@ router.get('/live',
   authenticate,
   (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (res.flushHeaders) res.flushHeaders();
+
+    // Immediate connect ping so edge proxies (Railway/Cloudflare) don't close prematurely
+    res.write(': connected\n\n');
 
     streamService.addClient('readings-live', res);
 
-    const heartbeat = setInterval(() => res.write(':ping\n\n'), 25000);
-    req.on('close', () => clearInterval(heartbeat));
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': ping\n\n');
+      } catch (_) {
+        clearInterval(heartbeat);
+      }
+    }, 12000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+    });
   }
 );
 

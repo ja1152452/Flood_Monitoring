@@ -15,15 +15,25 @@ export const streamService = {
     if (!subs?.size) return;
 
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const res of subs) {
-      res.write(payload);
+    for (const res of Array.from(subs)) {
+      try {
+        res.write(payload);
+      } catch (_) {
+        subs.delete(res);
+      }
     }
   },
 
   broadcastAll(event, data) {
     for (const subs of clients.values()) {
       const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-      for (const res of subs) res.write(payload);
+      for (const res of Array.from(subs)) {
+        try {
+          res.write(payload);
+        } catch (_) {
+          subs.delete(res);
+        }
+      }
     }
   },
 };

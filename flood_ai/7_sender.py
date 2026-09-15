@@ -57,10 +57,10 @@ def classify(water_level_m):
 from collections import deque
 
 class WaterlineSmoother:
-    def __init__(self, window_size=5, deadband_m=0.035, max_jump_m=0.35, outlier_streak_thresh=4):
+    def __init__(self, window_size=9, deadband_m=0.065, max_jump_m=0.25, outlier_streak_thresh=5):
         self.window_size = window_size
-        self.deadband_m = deadband_m  # Ignore jitter < 0.035m (3.5cm) unless sustained
-        self.max_jump_m = max_jump_m  # Reject sudden jumps > 0.35m as physical impossibilities
+        self.deadband_m = deadband_m  # Ignore ripples/jitter < 0.065m (6.5cm) unless sustained
+        self.max_jump_m = max_jump_m  # Reject sudden jumps > 0.25m as physical impossibilities
         self.outlier_streak_thresh = outlier_streak_thresh
         self.outlier_streak = 0
         self.history_y = deque(maxlen=window_size)
@@ -84,7 +84,7 @@ class WaterlineSmoother:
             self.reset(raw_y, raw_m)
             return raw_y, raw_m, 0.99
 
-        # Reject physical impossibilities (river water cannot jump > 35cm in 2 seconds)
+        # Reject physical impossibilities (river water cannot jump > 25cm in 2 seconds)
         jump = abs(raw_m - self.last_stable_m)
         if jump > self.max_jump_m:
             self.outlier_streak += 1
@@ -99,16 +99,16 @@ class WaterlineSmoother:
         self.history_y.append(raw_y)
         self.history_m.append(raw_m)
 
-        # Median filter removes noise spikes
+        # Median filter over window removes ripple spikes and water spray
         median_y = int(np.median(self.history_y))
         median_m = round(float(np.median(self.history_m)), 3)
 
-        # Deadband Filter: If change < 0.035m (3.5cm), hold previous stable reading
+        # Deadband Filter: If change < 0.065m (6.5cm), hold previous stable reading
         if abs(median_m - self.last_stable_m) < self.deadband_m:
             smooth_m = self.last_stable_m
             smooth_y = self.last_stable_y
         else:
-            alpha = 0.45  # Smooth, responsive filter factor
+            alpha = 0.22  # Smooth, gradual moving average filter factor
             smooth_m = round(self.last_stable_m * (1 - alpha) + median_m * alpha, 3)
             smooth_y = int(self.last_stable_y * (1 - alpha) + median_y * alpha)
             self.last_stable_m = smooth_m
@@ -118,7 +118,7 @@ class WaterlineSmoother:
         stability = max(0.85, min(0.99, 1.0 - (std_y / 60.0)))
         return smooth_y, smooth_m, round(stability, 3)
 
-GLOBAL_SMOOTHER = WaterlineSmoother(window_size=5, deadband_m=0.035)
+GLOBAL_SMOOTHER = WaterlineSmoother(window_size=9, deadband_m=0.065)
 
 YOLO_MODEL = None
 
@@ -203,33 +203,44 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         min_band_px = max(4, int(roi_w * 0.15))
         valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
-        # The staff gauge is anchored at the top wall; verify valid rows start near the top
-        if len(valid_gauge_rows) > 0 and valid_gauge_rows[0] < int(roi_h * 0.25):
-            # Follow contiguous gauge board downwards from top; stop when board enters water
-            cont_end = valid_gauge_rows[0]
-            for r in valid_gauge_rows:
-                if r - cont_end <= 8:
-                    cont_end = r
+        if len(valid_gauge_rows) > 0:
+            # Group rows into contiguous vertical blocks
+            clusters = []
+            cur_cluster = [valid_gauge_rows[0]]
+            for r in valid_gauge_rows[1:]:
+                if r - cur_cluster[-1] <= 8:
+                    cur_cluster.append(r)
                 else:
-                    # Water gap reached — stop here and ignore water reflections below
-                    break
-            waterline_y = roi_top + int(cont_end)
-            ai_confidence = 0.92
-        elif smoother is not None and smoother.last_stable_y is not None:
-            # Hold previous stable reading rather than guessing bottom of ROI
-            waterline_y = smoother.last_stable_y
-            ai_confidence = 0.85
-        else:
-            # Top-down saturation scan: find where painted board (S > 35) transitions to water
-            sat = hsv_roi[:, :, 1]
-            row_sat = np.mean(sat, axis=1)
-            sat_y = int(roi_h * 0.5)
-            for y in range(len(row_sat)):
-                if row_sat[y] < 35:
-                    sat_y = y
-                    break
-            waterline_y = roi_top + sat_y
-            ai_confidence = 0.75
+                    clusters.append(cur_cluster)
+                    cur_cluster = [r]
+            if cur_cluster:
+                clusters.append(cur_cluster)
+
+            # The physical staff gauge board is the main contiguous visible colored band
+            # Find the cluster that represents the gauge (either largest or anchored highest)
+            gauge_cluster = max(clusters, key=len)
+            if len(gauge_cluster) >= 6:
+                cont_end = gauge_cluster[-1]
+                waterline_y = roi_top + int(cont_end)
+                ai_confidence = 0.92
+
+        if waterline_y is None:
+            if smoother is not None and smoother.last_stable_y is not None:
+                # Hold previous stable reading rather than guessing
+                waterline_y = smoother.last_stable_y
+                ai_confidence = 0.85
+            else:
+                # Fallback: scan downwards from highest-saturation gauge center
+                sat = hsv_roi[:, :, 1]
+                row_sat = np.mean(sat, axis=1)
+                peak_y = int(np.argmax(row_sat))
+                sat_y = peak_y
+                for y in range(peak_y, len(row_sat)):
+                    if row_sat[y] < 35:
+                        sat_y = y
+                        break
+                waterline_y = roi_top + sat_y
+                ai_confidence = 0.75
 
     if waterline_y is None:
         return {"success": False, "reason": "No staff gauge or water surface detected"}

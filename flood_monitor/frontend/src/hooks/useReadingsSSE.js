@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function useReadingsSSE(cameraId) {
-  const qc         = useQueryClient();
-  const retryTimer = useRef(null);
-  const abortRef   = useRef(null);
+  const qc             = useQueryClient();
+  const retryTimer     = useRef(null);
+  const abortRef       = useRef(null);
+  const lastInvalidate = useRef(0);
 
   useEffect(() => {
     if (!cameraId) return;
@@ -62,10 +63,15 @@ export function useReadingsSSE(cameraId) {
                     if (!old?.data) return old;
                     return { ...old, data: [reading, ...old.data].slice(0, 48) };
                   });
-                  qc.invalidateQueries({ queryKey: ['trend'] });
-                  qc.invalidateQueries({ queryKey: ['rate-of-rise'] });
-                  qc.invalidateQueries({ queryKey: ['active-alerts'] });
-                  qc.invalidateQueries({ queryKey: ['summary'] });
+
+                  // Throttle expensive query invalidations (trend, rate-of-rise) to at most once per 10s
+                  const now = Date.now();
+                  if (now - lastInvalidate.current > 10000) {
+                    lastInvalidate.current = now;
+                    qc.invalidateQueries({ queryKey: ['trend'] });
+                    qc.invalidateQueries({ queryKey: ['rate-of-rise'] });
+                    qc.invalidateQueries({ queryKey: ['active-alerts'] });
+                  }
                 } catch (_) {}
               }
               eventType = 'message';
