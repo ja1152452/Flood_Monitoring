@@ -3,6 +3,47 @@ import { ApiError } from '../../utils/ApiError.js';
 import { parsePagination, paginate } from '../../utils/pagination.js';
 import { getSimulationState, isSimulationActive } from '../../services/simulation.service.js';
 
+const CALIBRATION_POINTS = [
+  { px: 90, m: 7.0 },
+  { px: 155, m: 6.1 },
+  { px: 208, m: 5.1 },
+  { px: 256, m: 4.15 },
+  { px: 271, m: 4.15 },
+  { px: 340, m: 3.1 },
+];
+
+function resolveMetersFromPixelY(py) {
+  if (py == null) return null;
+  const pts = [...CALIBRATION_POINTS].sort((a, b) => a.px - b.px);
+  if (py <= pts[0].px) {
+    const slope = (pts[1].m - pts[0].m) / (pts[1].px - pts[0].px);
+    return Math.max(0, parseFloat((pts[0].m + slope * (py - pts[0].px)).toFixed(3)));
+  }
+  if (py >= pts[pts.length - 1].px) {
+    const last = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const slope = (last.m - prev.m) / (last.px - prev.px);
+    return Math.max(0, parseFloat((last.m + slope * (py - last.px)).toFixed(3)));
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (py >= pts[i].px && py <= pts[i + 1].px) {
+      const frac = (py - pts[i].px) / (pts[i + 1].px - pts[i].px);
+      const val = pts[i].m + frac * (pts[i + 1].m - pts[i].m);
+      return Math.max(0, parseFloat(val.toFixed(3)));
+    }
+  }
+  return null;
+}
+
+function classifyLevel(meters) {
+  const m = parseFloat(meters);
+  if (m < 3.1) return 'NORMAL';
+  if (m < 4.1) return 'MONITOR';
+  if (m < 5.1) return 'ALERT';
+  if (m < 6.1) return 'EVACUATION';
+  return 'CRITICAL';
+}
+
 export const ingestReading = async (cameraId, dto) => {
   return withTransaction(async (client) => {
 
@@ -16,6 +57,16 @@ export const ingestReading = async (cameraId, dto) => {
       camId = cam[0].id;
     }
 
+    let finalWaterLevel = dto.water_level_m;
+    let finalFloodLevel = dto.flood_level;
+    if (dto.waterline_pixel_y != null) {
+      const calibratedM = resolveMetersFromPixelY(dto.waterline_pixel_y);
+      if (calibratedM != null) {
+        finalWaterLevel = calibratedM;
+        finalFloodLevel = classifyLevel(finalWaterLevel);
+      }
+    }
+
     const { rows } = await client.query(
       `INSERT INTO water_level_readings
          (camera_id, water_level_m, flood_level, waterline_pixel_y, confidence, captured_at)
@@ -23,8 +74,8 @@ export const ingestReading = async (cameraId, dto) => {
        RETURNING *`,
       [
         camId,
-        dto.water_level_m,
-        dto.flood_level,
+        finalWaterLevel,
+        finalFloodLevel,
         dto.waterline_pixel_y || null,
         dto.confidence || null,
         dto.captured_at || new Date().toISOString(),

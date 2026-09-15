@@ -13,9 +13,9 @@
  */
 
 export const CALIBRATION_CONFIG = {
-  baseline_pixel_y: 198,
-  baseline_meters: 5.08,
-  px_per_meter: 50.8772,
+  baseline_pixel_y: 271,
+  baseline_meters: 4.15,
+  px_per_meter: 52.8209,
   roi: {
     left_pct: 37.81,
     right_pct: 49.22,
@@ -26,11 +26,12 @@ export const CALIBRATION_CONFIG = {
   reference_width: 640,
   reference_height: 360,
   points: [
-    { px: 93, m: 7.0 },
-    { px: 151, m: 6.1 },
-    { px: 204, m: 5.1 },
-    { px: 261, m: 4.1 },
-    { px: 290, m: 3.1 },
+    { px: 90, m: 7.0 },
+    { px: 155, m: 6.1 },
+    { px: 208, m: 5.1 },
+    { px: 256, m: 4.15 },
+    { px: 271, m: 4.15 },
+    { px: 340, m: 3.1 },
   ],
 };
 

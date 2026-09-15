@@ -238,7 +238,7 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
                 cluster_vals = [np.mean(val_roi[r, :]) for r in physical_cluster]
                 peak_v = max(cluster_vals) if cluster_vals else 200
                 for i, r in enumerate(physical_cluster):
-                    if i > len(physical_cluster) // 2 and cluster_vals[i] < peak_v * 0.55:
+                    if i > len(physical_cluster) // 2 and cluster_vals[i] < peak_v * 0.65:
                         cont_end = r
                         break
 
