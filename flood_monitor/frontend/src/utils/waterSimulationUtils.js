@@ -29,7 +29,7 @@ export const CALIBRATION_CONFIG = {
     { px: 93, m: 7.0 },
     { px: 151, m: 6.1 },
     { px: 204, m: 5.1 },
-    { px: 252, m: 4.1 },
+    { px: 261, m: 4.1 },
     { px: 290, m: 3.1 },
   ],
 };
