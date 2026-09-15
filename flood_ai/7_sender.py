@@ -26,12 +26,11 @@ PX_PER_METER     = CAL["px_per_meter"]
 
 # Colored marker ranges for dry staff gauge bands (ONLY vivid colored bands — white removed to avoid water reflection glare!)
 MARKER_RANGES = {
-  "purple":     ([115, 30,  30],  [160, 255, 255]),
-  "red_low":    ([0,   40,  40],  [15,  255, 255]),
-  "red_high":   ([155, 40,  40],  [180, 255, 255]),
-  "orange":     ([10,  35,  35],  [28,  255, 255]),
-  "yellow":     ([14,  35,  35],  [40,  255, 255]),
-  "white_band": ([85,  10, 120],  [140, 75,  240]),
+  "purple":     ([115, 60,  60],  [160, 255, 255]),
+  "red_low":    ([0,   70,  70],  [15,  255, 255]),
+  "red_high":   ([160, 70,  70],  [180, 255, 255]),
+  "orange":     ([5,   80,  90],  [28,  255, 255]),
+  "yellow":     ([14,  80,  90],  [40,  255, 255]),
 }
 
 # Brown floodwater color range (muddy river water during rising flood)
@@ -190,8 +189,14 @@ def detect_waterline(frame, use_clahe=True, smoother=GLOBAL_SMOOTHER):
         valid_gauge_rows = np.where(row_counts >= min_band_px)[0]
 
         if len(valid_gauge_rows) > 0:
-            lowest_dry_row = valid_gauge_rows[-1]
-            waterline_y = roi_top + int(lowest_dry_row)
+            # Follow contiguous gauge board downwards from top; ignore disjoint water reflection
+            cont_end = valid_gauge_rows[0]
+            for r in valid_gauge_rows:
+                if r - cont_end <= 6:
+                    cont_end = r
+                else:
+                    break
+            waterline_y = roi_top + int(cont_end)
             ai_confidence = 0.90
         else:
             # Saturation transition: find where painted board (S > 35) transitions to water
