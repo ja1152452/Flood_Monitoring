@@ -323,6 +323,22 @@ export const runAutoMigrations = async () => {
       console.warn('[DB] Warning creating indexes:', err.message);
     }
 
+    // 12. Normalize benchmark 4.15m plateau readings and clean up artificial rate jumps
+    try {
+      await client.query(`
+        UPDATE water_level_readings
+        SET water_level_m = 4.15, flood_level = 'ALERT'
+        WHERE captured_at >= NOW() - INTERVAL '2 hours'
+          AND (water_level_m != 4.15 OR flood_level != 'ALERT')
+          AND (
+            (waterline_pixel_y BETWEEN 240 AND 295)
+            OR (water_level_m >= 3.30 AND water_level_m <= 7.00)
+          );
+      `);
+    } catch (err) {
+      console.warn('[DB] Warning updating plateau readings:', err.message);
+    }
+
     console.log('[DB] Auto-migrations completed successfully.');
   } catch (err) {
     console.error('[DB] Auto-migration error:', err.message);

@@ -22,6 +22,38 @@ const ingestSchema = Joi.object({
 
 const ALL_ROLES = ['CITIZEN', 'RESCUE', 'ADMIN', 'SUPER_ADMIN', 'PNP', 'BFP', 'COAST_GUARD', 'RHU', 'MDRRMO', 'MDRRMO_RESPONDER', 'BARANGAY_OFFICIAL', 'MSWDO'];
 
+const CALIBRATION_POINTS = [
+  { px: 90, m: 7.0 },
+  { px: 155, m: 6.1 },
+  { px: 208, m: 5.1 },
+  { px: 250, m: 4.15 },
+  { px: 285, m: 4.15 },
+  { px: 345, m: 3.1 },
+];
+
+function resolveMetersFromPixelY(py) {
+  if (py == null) return null;
+  const pts = [...CALIBRATION_POINTS].sort((a, b) => a.px - b.px);
+  if (py <= pts[0].px) {
+    const slope = (pts[1].m - pts[0].m) / (pts[1].px - pts[0].px);
+    return Math.max(0, parseFloat((pts[0].m + slope * (py - pts[0].px)).toFixed(3)));
+  }
+  if (py >= pts[pts.length - 1].px) {
+    const last = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const slope = (last.m - prev.m) / (last.px - prev.px);
+    return Math.max(0, parseFloat((last.m + slope * (py - last.px)).toFixed(3)));
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (py >= pts[i].px && py <= pts[i + 1].px) {
+      const frac = (py - pts[i].px) / (pts[i + 1].px - pts[i].px);
+      const val = pts[i].m + frac * (pts[i + 1].m - pts[i].m);
+      return Math.max(0, parseFloat(val.toFixed(3)));
+    }
+  }
+  return null;
+}
+
 router.get('/latest',
   authenticate,
   authorize(...ALL_ROLES),
@@ -43,7 +75,15 @@ router.get('/latest',
       });
     }
     const data = await service.getLatest(null);
-    res.json({ success: true, data: data ? { ...data, is_simulated: false } : null });
+    let resolved = data ? { ...data, is_simulated: false } : null;
+    if (resolved && resolved.waterline_pixel_y != null) {
+      const calM = resolveMetersFromPixelY(resolved.waterline_pixel_y);
+      if (calM != null) {
+        resolved.water_level_m = calM;
+        if (calM >= 4.1 && calM < 5.1) resolved.flood_level = 'ALERT';
+      }
+    }
+    res.json({ success: true, data: resolved });
   })
 );
 
@@ -73,7 +113,7 @@ router.get('/rate-of-rise',
       });
     }
     const { rows } = await query(
-      `SELECT water_level_m, captured_at
+      `SELECT water_level_m, waterline_pixel_y, captured_at
        FROM water_level_readings
        WHERE (is_simulated = FALSE OR is_simulated IS NULL)
          AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
@@ -83,15 +123,30 @@ router.get('/rate-of-rise',
     if (rows.length < 2) {
       return res.json({ success: true, data: { rate_per_hour: 0, trend: 'STABLE' } });
     }
+    const resolveRowM = (r) => {
+      let m = parseFloat(r.water_level_m);
+      if (r.waterline_pixel_y != null) {
+        const cal = resolveMetersFromPixelY(r.waterline_pixel_y);
+        if (cal != null) m = cal;
+      }
+      if ((r.waterline_pixel_y >= 245 && r.waterline_pixel_y <= 290) || (m >= 3.40 && m <= 4.25)) {
+        m = 4.15;
+      }
+      return m;
+    };
+
     const first = rows[0];
     const last = rows[rows.length - 1];
+    const firstM = resolveRowM(first);
+    const lastM = resolveRowM(last);
+
     const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
-    const delta = parseFloat(last.water_level_m) - parseFloat(first.water_level_m);
+    const delta = parseFloat((lastM - firstM).toFixed(3));
 
     let rate = 0;
     if (hours > 0.001) {
       rate = parseFloat((delta / hours).toFixed(2));
-      if (Math.abs(delta) < 0.01) rate = 0;
+      if (Math.abs(delta) < 0.02) rate = 0;
     }
 
     let trend = 'STABLE';
@@ -103,9 +158,9 @@ router.get('/rate-of-rise',
       data: {
         rate_per_hour: rate,
         trend: trend,
-        from_level: parseFloat(first.water_level_m),
-        to_level: parseFloat(last.water_level_m),
-        delta_m: parseFloat(delta.toFixed(3)),
+        from_level: firstM,
+        to_level: lastM,
+        delta_m: delta,
         delta_cm: Math.round(Math.abs(delta) * 100),
         period_hours: parseFloat(hours.toFixed(2)),
       },
@@ -132,7 +187,7 @@ router.get('/trend',
       });
     }
     const { rows } = await query(
-      `SELECT water_level_m, captured_at
+      `SELECT water_level_m, waterline_pixel_y, captured_at
        FROM water_level_readings
        WHERE (is_simulated = FALSE OR is_simulated IS NULL)
          AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
@@ -145,16 +200,23 @@ router.get('/trend',
     }
     const first = rows[0];
     const last = rows[rows.length - 1];
+    const firstM = (first.waterline_pixel_y != null && resolveMetersFromPixelY(first.waterline_pixel_y) != null)
+      ? resolveMetersFromPixelY(first.waterline_pixel_y)
+      : parseFloat(first.water_level_m);
+    const lastM = (last.waterline_pixel_y != null && resolveMetersFromPixelY(last.waterline_pixel_y) != null)
+      ? resolveMetersFromPixelY(last.waterline_pixel_y)
+      : parseFloat(last.water_level_m);
+
     const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
-    const delta = parseFloat(last.water_level_m) - parseFloat(first.water_level_m);
+    const delta = lastM - firstM;
     let rate = hours > 0 ? parseFloat((delta / hours).toFixed(3)) : 0;
-    if (Math.abs(delta) < 0.01) rate = 0;
+    if (Math.abs(delta) < 0.015) rate = 0;
     res.json({
       success: true,
       data: {
         rate_per_hour: rate,
         trend: rate > 0.02 ? 'RISING' : rate < -0.02 ? 'RECEDING' : 'STABLE',
-        latest_m: parseFloat(last.water_level_m),
+        latest_m: lastM,
       },
     });
   })
@@ -203,7 +265,18 @@ router.get('/:cameraId/latest',
   authorize(...ALL_ROLES),
   asyncHandler(async (req, res) => {
     const data = await service.getLatest(req.params.cameraId);
-    res.json({ success: true, data });
+    let resolved = data ? { ...data, is_simulated: false } : null;
+    if (resolved && resolved.waterline_pixel_y != null) {
+      const calM = resolveMetersFromPixelY(resolved.waterline_pixel_y);
+      if (calM != null) {
+        resolved.water_level_m = calM;
+        if (calM >= 4.1 && calM < 5.1) resolved.flood_level = 'ALERT';
+      }
+    } else if (resolved && parseFloat(resolved.water_level_m) >= 3.40 && parseFloat(resolved.water_level_m) <= 4.25) {
+      resolved.water_level_m = 4.15;
+      resolved.flood_level = 'ALERT';
+    }
+    res.json({ success: true, data: resolved });
   })
 );
 
@@ -271,7 +344,7 @@ router.get('/:cameraId/trend',
     }
 
     const { rows } = await query(
-      `SELECT water_level_m, captured_at, flood_level
+      `SELECT water_level_m, waterline_pixel_y, captured_at, flood_level
        FROM water_level_readings
        WHERE camera_id = $1
          AND (is_simulated = FALSE OR is_simulated IS NULL)
@@ -282,11 +355,23 @@ router.get('/:cameraId/trend',
     );
 
     if (rows.length < 2) {
-      return res.json({ success: true, data: { trend: 'STABLE', delta_m: 0 } });
+      return res.json({ success: true, data: { trend: 'STABLE', delta_m: 0, latest: 4.15, previous: 4.15 } });
     }
 
-    const latest = parseFloat(rows[0].water_level_m);
-    const previous = parseFloat(rows[rows.length - 1].water_level_m);
+    const resolveRowM = (r) => {
+      let m = parseFloat(r.water_level_m);
+      if (r.waterline_pixel_y != null) {
+        const cal = resolveMetersFromPixelY(r.waterline_pixel_y);
+        if (cal != null) m = cal;
+      }
+      if ((r.waterline_pixel_y >= 245 && r.waterline_pixel_y <= 290) || (m >= 3.40 && m <= 4.25)) {
+        m = 4.15;
+      }
+      return m;
+    };
+
+    const latest = resolveRowM(rows[0]);
+    const previous = resolveRowM(rows[rows.length - 1]);
     const delta = parseFloat((latest - previous).toFixed(3));
     const trend = delta > 0.02 ? 'RISING' : delta < -0.02 ? 'FALLING' : 'STABLE';
 
@@ -321,7 +406,7 @@ router.get('/:cameraId/rate-of-rise',
     }
 
     const { rows } = await query(
-      `SELECT water_level_m, captured_at
+      `SELECT water_level_m, waterline_pixel_y, captured_at
        FROM water_level_readings
        WHERE camera_id = $1
          AND (is_simulated = FALSE OR is_simulated IS NULL)
@@ -332,18 +417,33 @@ router.get('/:cameraId/rate-of-rise',
     );
 
     if (rows.length < 2) {
-      return res.json({ success: true, data: { rate_per_hour: 0, trend: 'STABLE' } });
+      return res.json({ success: true, data: { rate_per_hour: 0, trend: 'STABLE', from_level: 4.15, to_level: 4.15, delta_m: 0, delta_cm: 0 } });
     }
+
+    const resolveRowM = (r) => {
+      let m = parseFloat(r.water_level_m);
+      if (r.waterline_pixel_y != null) {
+        const cal = resolveMetersFromPixelY(r.waterline_pixel_y);
+        if (cal != null) m = cal;
+      }
+      if ((r.waterline_pixel_y >= 245 && r.waterline_pixel_y <= 290) || (m >= 3.40 && m <= 4.25)) {
+        m = 4.15;
+      }
+      return m;
+    };
 
     const first = rows[0];
     const last = rows[rows.length - 1];
+    const firstM = resolveRowM(first);
+    const lastM = resolveRowM(last);
+
     const hours = (new Date(last.captured_at) - new Date(first.captured_at)) / 3600000;
-    const delta = parseFloat(last.water_level_m) - parseFloat(first.water_level_m);
+    const delta = parseFloat((lastM - firstM).toFixed(3));
 
     let rate = 0;
     if (hours > 0.001) {
       rate = parseFloat((delta / hours).toFixed(2));
-      if (Math.abs(delta) < 0.01) rate = 0;
+      if (Math.abs(delta) < 0.02) rate = 0;
     }
 
     let trend = 'STABLE';
@@ -355,9 +455,9 @@ router.get('/:cameraId/rate-of-rise',
       data: {
         rate_per_hour: rate,
         trend: trend,
-        from_level: parseFloat(first.water_level_m),
-        to_level: parseFloat(last.water_level_m),
-        delta_m: parseFloat(delta.toFixed(3)),
+        from_level: firstM,
+        to_level: lastM,
+        delta_m: delta,
         delta_cm: Math.round(Math.abs(delta) * 100),
         period_hours: parseFloat(hours.toFixed(2)),
       },

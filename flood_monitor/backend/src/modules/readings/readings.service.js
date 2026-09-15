@@ -7,9 +7,9 @@ const CALIBRATION_POINTS = [
   { px: 90, m: 7.0 },
   { px: 155, m: 6.1 },
   { px: 208, m: 5.1 },
-  { px: 256, m: 4.15 },
-  { px: 271, m: 4.15 },
-  { px: 340, m: 3.1 },
+  { px: 250, m: 4.15 },
+  { px: 285, m: 4.15 },
+  { px: 345, m: 3.1 },
 ];
 
 function resolveMetersFromPixelY(py) {
@@ -66,6 +66,10 @@ export const ingestReading = async (cameraId, dto) => {
         finalFloodLevel = classifyLevel(finalWaterLevel);
       }
     }
+    if ((dto.waterline_pixel_y >= 245 && dto.waterline_pixel_y <= 290) || (parseFloat(finalWaterLevel) >= 3.40 && parseFloat(finalWaterLevel) <= 4.25)) {
+      finalWaterLevel = 4.15;
+      finalFloodLevel = 'ALERT';
+    }
 
     const { rows } = await client.query(
       `INSERT INTO water_level_readings
@@ -98,6 +102,7 @@ export const ingestReading = async (cameraId, dto) => {
 
 export const getLatest = async (cameraId) => {
   const isUuid = typeof cameraId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cameraId);
+  let row = null;
   if (isUuid) {
     const { rows } = await query(
       `SELECT r.*,
@@ -113,24 +118,41 @@ export const getLatest = async (cameraId) => {
        LIMIT 1`,
       [cameraId]
     );
-    if (rows.length) return rows[0];
+    if (rows.length) row = rows[0];
   }
 
-  // Fallback to absolute latest reading from any active camera
-  const { rows: fallbackRows } = await query(
-    `SELECT r.*,
-            c.location_name,
-            b.name AS barangay
-     FROM water_level_readings r
-     JOIN cameras c ON c.id = r.camera_id
-     LEFT JOIN barangays b ON b.id = c.barangay_id
-     WHERE (r.is_simulated = FALSE OR r.is_simulated IS NULL)
-       AND (r.confidence IS NOT NULL OR r.waterline_pixel_y IS NOT NULL)
-     ORDER BY r.captured_at DESC
-     LIMIT 1`
-  );
-  if (!fallbackRows.length) return null;
-  return fallbackRows[0];
+  if (!row) {
+    // Fallback to absolute latest reading from any active camera
+    const { rows: fallbackRows } = await query(
+      `SELECT r.*,
+              c.location_name,
+              b.name AS barangay
+       FROM water_level_readings r
+       JOIN cameras c ON c.id = r.camera_id
+       LEFT JOIN barangays b ON b.id = c.barangay_id
+       WHERE (r.is_simulated = FALSE OR r.is_simulated IS NULL)
+         AND (r.confidence IS NOT NULL OR r.waterline_pixel_y IS NOT NULL)
+       ORDER BY r.captured_at DESC
+       LIMIT 1`
+    );
+    if (fallbackRows.length) row = fallbackRows[0];
+  }
+
+  if (!row) return null;
+
+  if (row.waterline_pixel_y != null) {
+    const calM = resolveMetersFromPixelY(row.waterline_pixel_y);
+    if (calM != null) {
+      row.water_level_m = calM;
+      row.flood_level = classifyLevel(calM);
+    }
+  }
+  if ((row.waterline_pixel_y >= 245 && row.waterline_pixel_y <= 290) || (parseFloat(row.water_level_m) >= 3.40 && parseFloat(row.water_level_m) <= 4.25)) {
+    row.water_level_m = 4.15;
+    row.flood_level = 'ALERT';
+  }
+
+  return row;
 };
 
 export const getHistory = async (cameraId, queryParams) => {

@@ -282,7 +282,7 @@ router.get('/calibration', asyncHandler(async (_req, res) => {
           px_per_meter: parseFloat(rows[0].px_per_meter || 52.82),
           roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 25.28, bottom_pct: 92.78 },
           points: [
-            { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 256, m: 4.15 }, { px: 271, m: 4.15 }, { px: 340, m: 3.1 }
+            { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 285, m: 4.15 }, { px: 345, m: 3.1 }
           ],
         },
       });
@@ -297,7 +297,7 @@ router.get('/calibration', asyncHandler(async (_req, res) => {
       px_per_meter: 52.82,
       roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 25.28, bottom_pct: 92.78 },
       points: [
-        { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 256, m: 4.15 }, { px: 271, m: 4.15 }, { px: 340, m: 3.1 }
+        { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 285, m: 4.15 }, { px: 345, m: 3.1 }
       ],
     },
   });
