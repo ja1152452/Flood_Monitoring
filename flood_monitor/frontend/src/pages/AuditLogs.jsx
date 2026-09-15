@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAuditLogs, createAuditLog, updateAuditLog, deleteAuditLog } from '../api/analytics';
+import { getAuditLogs, deleteAuditLog } from '../api/analytics';
 import { getUsers } from '../api/users';
-import { useAuthStore } from '../store/authStore';
 import { formatDateTime } from '../utils/floodUtils';
 import {
-  Search, Activity, Waves, Layers, Plus, Edit2, Trash2,
-  Eye, Calendar, Clock, X, Check, AlertCircle, FileText,
-  User, Shield, Tag, CornerDownRight
+  Search, Activity, Waves, Layers, Trash2,
+  Eye, Clock, AlertCircle, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -51,55 +49,7 @@ const ACTION_FILTER_OPTIONS = [
   { value: 'MAINTENANCE', label: '🛠️ Maintenance & Checks' },
 ];
 
-const PRESET_ACTIONS = [
-  { value: 'DRILL_SCENARIO_STARTED', label: '⏱️ DRILL_SCENARIO_STARTED' },
-  { value: 'SIMULATION_STARTED',      label: '🧪 SIMULATION_STARTED' },
-  { value: 'SIMULATION_STOPPED',      label: '🛑 SIMULATION_STOPPED' },
-  { value: 'SIMULATION_RESET',        label: '🔄 SIMULATION_RESET' },
-  { value: 'ALERT_TRIGGERED',         label: '🚨 ALERT_TRIGGERED' },
-  { value: 'ALERT_RESOLVED',          label: '✅ ALERT_RESOLVED' },
-  { value: 'SOS_TRIGGERED',           label: '🆘 SOS_TRIGGERED' },
-  { value: 'SOS_ACKNOWLEDGED',        label: '👁️ SOS_ACKNOWLEDGED' },
-  { value: 'SOS_RESOLVED',            label: '🏁 SOS_RESOLVED' },
-  { value: 'RESCUE_DISPATCHED',       label: '🚑 RESCUE_DISPATCHED' },
-  { value: 'RESCUE_COMPLETED',        label: '🤝 RESCUE_COMPLETED' },
-  { value: 'USER_CREATED',            label: '👤 USER_CREATED' },
-  { value: 'USER_UPDATED',            label: '✏️ USER_UPDATED' },
-  { value: 'USER_DELETED',            label: '🗑️ USER_DELETED' },
-  { value: 'MAINTENANCE_LOG',         label: '🛠️ MAINTENANCE_LOG' },
-  { value: 'INSPECTION_CHECK',        label: '📋 INSPECTION_CHECK' },
-  { value: 'SYSTEM_BACKUP',           label: '💾 SYSTEM_BACKUP' },
-  { value: 'CUSTOM',                  label: '✨ Custom Action…' },
-];
 
-const COMMON_ENTITY_TYPES = [
-  'FLOOD_SIMULATION',
-  'water_level_readings',
-  'flood_alerts',
-  'sos_requests',
-  'rescue_operations',
-  'users',
-  'cameras',
-  'evacuation_centers',
-  'evacuation_families',
-  'flood_risk_areas',
-  'announcements',
-  'SYSTEM',
-  'OTHER',
-];
-
-const toDateTimeLocal = (dateString) => {
-  if (!dateString) return '';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
 
 /**
  * Converts technical states or raw payloads into clean, plain English sentences
@@ -315,25 +265,10 @@ export default function AuditLogs() {
   const [categoryTab,   setCategoryTab]   = useState('all'); // 'all' | 'live' | 'simulation'
 
   // Modals state
-  const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingLog,    setEditingLog]    = useState(null); // null = create, object = edit
   const [viewLog,       setViewLog]       = useState(null); // object for inspection modal
   const [deleteTarget,  setDeleteTarget]  = useState(null); // object to confirm deletion
 
-  // Form state
-  const [formData, setFormData] = useState({
-    actionPreset: 'DRILL_SCENARIO_STARTED',
-    actionCustom: '',
-    description:  '',
-    created_at:   '',
-    user_id:      '',
-    entity_type:  'FLOOD_SIMULATION',
-    entity_id:    '',
-    details_json: '',
-  });
-
   const queryClient = useQueryClient();
-  const { user: currentUser } = useAuthStore();
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['audit-logs', page, categoryTab, actionFilter, search],
@@ -355,33 +290,6 @@ export default function AuditLogs() {
   const usersList = usersData?.data || [];
   const usersMap = Object.fromEntries(usersList.map(u => [u.id, u]));
 
-  const createMutation = useMutation({
-    mutationFn: createAuditLog,
-    onSuccess: () => {
-      toast.success('Audit log entry created successfully');
-      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
-      setFormModalOpen(false);
-    },
-    onError: (err) => {
-      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to create audit log entry';
-      toast.error(msg);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => updateAuditLog(id, data),
-    onSuccess: () => {
-      toast.success('Audit log entry updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
-      setFormModalOpen(false);
-      setEditingLog(null);
-    },
-    onError: (err) => {
-      const msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to update audit log entry';
-      toast.error(msg);
-    },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: deleteAuditLog,
     onSuccess: () => {
@@ -394,97 +302,7 @@ export default function AuditLogs() {
     },
   });
 
-  const openCreateModal = () => {
-    setEditingLog(null);
-    setFormData({
-      actionPreset: 'DRILL_SCENARIO_STARTED',
-      actionCustom: '',
-      description:  '',
-      created_at:   toDateTimeLocal(new Date()),
-      user_id:      currentUser?.id || '',
-      entity_type:  'FLOOD_SIMULATION',
-      entity_id:    '', // Auto-generated upon save
-      details_json: '',
-    });
-    setFormModalOpen(true);
-  };
-
-  const openEditModal = (log) => {
-    setEditingLog(log);
-    const isPreset = PRESET_ACTIONS.some(p => p.value === log.action);
-    let detailsJson = '';
-    const stateObj = log.after_state || log.before_state;
-    if (stateObj) {
-      try {
-        detailsJson = typeof stateObj === 'string' ? stateObj : JSON.stringify(stateObj, null, 2);
-      } catch {
-        detailsJson = '';
-      }
-    }
-
-    setFormData({
-      actionPreset: isPreset ? log.action : 'CUSTOM',
-      actionCustom: isPreset ? '' : log.action,
-      description:  log.description || '',
-      created_at:   toDateTimeLocal(log.created_at),
-      user_id:      log.user_id || '',
-      entity_type:  log.entity_type || '',
-      entity_id:    log.entity_id || '',
-      details_json: detailsJson,
-    });
-    setFormModalOpen(true);
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    const finalAction = formData.actionPreset === 'CUSTOM'
-      ? formData.actionCustom.trim()
-      : formData.actionPreset;
-
-    if (!finalAction) {
-      toast.error('Action is required');
-      return;
-    }
-
-    let parsedState = null;
-    if (formData.details_json && formData.details_json.trim()) {
-      try {
-        parsedState = JSON.parse(formData.details_json.trim());
-      } catch {
-        toast.error('Details JSON is invalid. Please enter valid JSON or leave it empty.');
-        return;
-      }
-    }
-
-    let formattedCreatedAt = null;
-    if (formData.created_at && String(formData.created_at).trim()) {
-      const d = new Date(formData.created_at);
-      if (!isNaN(d.getTime())) {
-        formattedCreatedAt = d.toISOString();
-      }
-    }
-
-    const payload = {
-      action: finalAction,
-      description: formData.description?.trim() || null,
-      createdAt: formattedCreatedAt,
-      userId: formData.user_id?.trim() || null,
-      entityType: formData.entity_type?.trim() || null,
-      // If editing, preserve existing entity_id; if new, let backend auto-generate upon save!
-      entityId: editingLog ? (formData.entity_id?.trim() || null) : null,
-      afterState: parsedState,
-    };
-
-    if (editingLog) {
-      updateMutation.mutate({ id: editingLog.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
-    }
-  };
-
   const filtered = logs;
-
-  const inputCls = "w-full text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm transition-all";
 
   return (
     <div className="space-y-6">
@@ -497,12 +315,6 @@ export default function AuditLogs() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all hover:shadow hover:-translate-y-0.5 active:translate-y-0">
-            <Plus size={15} />
-            Add Audit Log
-          </button>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -645,12 +457,6 @@ export default function AuditLogs() {
                           <Eye size={15} />
                         </button>
                         <button
-                          onClick={() => openEditModal(log)}
-                          title="Edit Audit Log"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
-                          <Edit2 size={15} />
-                        </button>
-                        <button
                           onClick={() => setDeleteTarget(log)}
                           title="Delete Audit Log"
                           className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
@@ -689,210 +495,7 @@ export default function AuditLogs() {
         </div>
       </div>
 
-      {/* CREATE & EDIT MODAL */}
-      {formModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
-                  {editingLog ? <Edit2 size={16} /> : <Plus size={16} />}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingLog ? 'Edit Audit Log Entry' : 'Create New Audit Log Entry'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {editingLog ? 'Modify activity record, timestamp, and details' : 'Log a customized activity or test event'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFormModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-              {/* CUSTOM DATE & TIME PICKER */}
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Calendar size={13} className="text-red-500" />
-                    Event Date &amp; Time (Timestamp)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData(f => ({ ...f, created_at: toDateTimeLocal(new Date()) }))}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline">
-                      Set to Now
-                    </button>
-                    {formData.created_at && (
-                      <>
-                        <span className="text-slate-300 dark:text-slate-600 text-xs">·</span>
-                        <button
-                          type="button"
-                          onClick={() => setFormData(f => ({ ...f, created_at: '' }))}
-                          className="text-xs font-semibold text-rose-500 hover:text-rose-400 hover:underline">
-                          Clear
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <input
-                  type="datetime-local"
-                  className={inputCls}
-                  value={formData.created_at || ''}
-                  onChange={e => setFormData(f => ({ ...f, created_at: e.target.value }))}
-                />
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                  Customize the exact date and time recorded for this activity. Leave blank to default to current date and time.
-                </p>
-              </div>
-
-              {/* ACTION SELECTION */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Action Type *
-                </label>
-                <select
-                  className={inputCls}
-                  value={formData.actionPreset}
-                  onChange={e => setFormData(f => ({ ...f, actionPreset: e.target.value }))}>
-                  {PRESET_ACTIONS.map(p => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-
-                {formData.actionPreset === 'CUSTOM' && (
-                  <input
-                    type="text"
-                    placeholder="Enter custom action (e.g. SYSTEM_OPTIMIZATION)"
-                    className={`${inputCls} mt-2 font-mono uppercase`}
-                    value={formData.actionCustom}
-                    onChange={e => setFormData(f => ({ ...f, actionCustom: e.target.value }))}
-                  />
-                )}
-              </div>
-
-              {/* USER / OPERATOR & ENTITY TYPE */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Operator / User
-                  </label>
-                  <select
-                    className={inputCls}
-                    value={formData.user_id}
-                    onChange={e => setFormData(f => ({ ...f, user_id: e.target.value }))}>
-                    <option value="">System (Automated / None)</option>
-                    {usersList.map(u => (
-                      <option key={u.id} value={u.id}>
-                        {u.full_name || u.email} ({u.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Entity Type
-                  </label>
-                  <input
-                    list="entity-types-list"
-                    className={inputCls}
-                    placeholder="e.g. FLOOD_SIMULATION"
-                    value={formData.entity_type}
-                    onChange={e => setFormData(f => ({ ...f, entity_type: e.target.value }))}
-                  />
-                  <datalist id="entity-types-list">
-                    {COMMON_ENTITY_TYPES.map(e => (
-                      <option key={e} value={e} />
-                    ))}
-                  </datalist>
-                </div>
-              </div>
-
-              {/* ENTITY ID - READ-ONLY & AUTO-GENERATED (NO MANUAL TYPING REQUIRED) */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Entity Reference ID
-                  </label>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    Auto-generated upon save
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  readOnly
-                  disabled
-                  placeholder="Auto-generated upon save"
-                  className={`${inputCls} bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none font-mono text-[11px]`}
-                  value={editingLog ? (formData.entity_id || 'None') : 'Auto-generated upon save'}
-                />
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {editingLog
-                    ? 'Unique reference ID linked to this activity log entry.'
-                    : 'A unique reference ID is automatically created upon saving. No manual entry needed.'}
-                </p>
-              </div>
-
-              {/* DESCRIPTION - MULTI-LINE COMFORTABLE */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Description / Notes
-                </label>
-                <textarea
-                  rows={3}
-                  className={inputCls}
-                  placeholder="Enter a plain, readable description of what occurred (e.g. Dispatched BFP Team for flood rescue in Brgy. Wawa)..."
-                  value={formData.description}
-                  onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
-                />
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Displays in the table as a clean, understandable description for MDRRMO officers.
-                </p>
-              </div>
-
-              {/* DETAILS / STATE (JSON) */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Additional Details / State Payload (JSON, Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  className={`${inputCls} font-mono text-[11px]`}
-                  placeholder='{"notes": "Monsoon surge warning", "water_level_m": 2.5}'
-                  value={formData.details_json}
-                  onChange={e => setFormData(f => ({ ...f, details_json: e.target.value }))}
-                />
-              </div>
-
-              {/* MODAL FOOTER */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setFormModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all disabled:opacity-50">
-                  <Check size={14} />
-                  {editingLog ? 'Save Changes' : 'Create Entry'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* VIEW DETAILS MODAL */}
       {viewLog && (
@@ -1004,18 +607,7 @@ export default function AuditLogs() {
               )}
             </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
-              <button
-                type="button"
-                onClick={() => {
-                  const toEdit = viewLog;
-                  setViewLog(null);
-                  openEditModal(toEdit);
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 transition-colors">
-                <Edit2 size={13} />
-                Edit This Log
-              </button>
+            <div className="flex items-center justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60">
               <button
                 type="button"
                 onClick={() => setViewLog(null)}
