@@ -681,6 +681,29 @@ class CalibratorHandler(BaseHTTPRequestHandler):
                     cal["baseline_meters"] = round(float(np.polyval(coeffs, cal["baseline_pixel_y"])), 4)
             
             save_cal(cal)
+
+            # Forward saved calibration to backend stream API if reachable
+            backend_candidates = [
+                "http://127.0.0.1:5001",
+                cal.get("backend_url", "").rstrip('/')
+            ]
+            for be_url in backend_candidates:
+                if not be_url:
+                    continue
+                try:
+                    import urllib.request
+                    req = urllib.request.Request(
+                        f"{be_url}/api/v1/stream/calibration",
+                        data=json.dumps(cal).encode('utf-8'),
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                        if resp.status == 200:
+                            print(f"[SYNC] Pushed updated calibration to backend: {be_url}")
+                except Exception as sync_err:
+                    pass
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()

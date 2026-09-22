@@ -255,13 +255,32 @@ router.post('/snapshot',
 );
 
 router.get('/snapshot', (req, res) => {
-  if (!latestSnapshot) return res.status(404).end();
-  res.setHeader('Content-Type',  'image/jpeg');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.end(latestSnapshot);
+  if (latestSnapshot) {
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.end(latestSnapshot);
+  }
+
+  // Fallback to local test_frame.jpg from flood_ai so snapshot mode shows the calibrated bridge
+  const candidateFrames = [
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../flood_ai/test_frame.jpg'),
+    path.resolve(process.cwd(), 'flood_ai/test_frame.jpg'),
+    path.resolve(process.cwd(), '../flood_ai/test_frame.jpg'),
+    path.resolve(process.cwd(), '../../flood_ai/test_frame.jpg'),
+  ];
+  for (const p of candidateFrames) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.end(fs.readFileSync(p));
+    }
+  }
+
+  res.status(404).end();
 });
 
 router.get('/calibration', asyncHandler(async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const candidates = [
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../flood_ai/calibration.json'),
     path.resolve(process.cwd(), 'flood_ai/calibration.json'),
@@ -292,9 +311,9 @@ router.get('/calibration', asyncHandler(async (_req, res) => {
           baseline_meters: parseFloat(rows[0].baseline_meters || 4.15),
           baseline_pixel_y: parseInt(rows[0].baseline_pixel_y || 271),
           px_per_meter: parseFloat(rows[0].px_per_meter || 52.82),
-          roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 25.28, bottom_pct: 92.78 },
+          roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 23.50, bottom_pct: 97.50 },
           points: [
-            { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 285, m: 4.15 }, { px: 345, m: 3.1 }
+            { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 305, m: 3.1 }, { px: 340, m: 2.0 }
           ],
         },
       });
@@ -307,12 +326,63 @@ router.get('/calibration', asyncHandler(async (_req, res) => {
       baseline_meters: 4.15,
       baseline_pixel_y: 271,
       px_per_meter: 52.82,
-      roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 25.28, bottom_pct: 92.78 },
+      roi: { left_pct: 37.81, right_pct: 49.22, top_pct: 23.50, bottom_pct: 97.50 },
       points: [
-        { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 285, m: 4.15 }, { px: 345, m: 3.1 }
+        { px: 90, m: 7.0 }, { px: 155, m: 6.1 }, { px: 208, m: 5.1 }, { px: 250, m: 4.15 }, { px: 345, m: 3.1 }
       ],
     },
   });
+}));
+
+router.post('/calibration', asyncHandler(async (req, res) => {
+  const calData = req.body;
+  if (!calData || typeof calData !== 'object') {
+    return res.status(400).json({ success: false, message: 'Invalid calibration payload' });
+  }
+
+  const candidates = [
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../flood_ai/calibration.json'),
+    path.resolve(process.cwd(), 'flood_ai/calibration.json'),
+    path.resolve(process.cwd(), '../flood_ai/calibration.json'),
+    path.resolve(process.cwd(), '../../flood_ai/calibration.json'),
+  ];
+
+  let savedPath = null;
+  for (const calPath of candidates) {
+    const dir = path.dirname(calPath);
+    if (fs.existsSync(dir)) {
+      try {
+        let existing = {};
+        if (fs.existsSync(calPath)) {
+          existing = JSON.parse(fs.readFileSync(calPath, 'utf-8'));
+        }
+        const merged = { ...existing, ...calData };
+        fs.writeFileSync(calPath, JSON.stringify(merged, null, 2), 'utf-8');
+        savedPath = calPath;
+        break;
+      } catch (err) {
+        console.error('[Stream Calibration Save Error]:', err.message);
+      }
+    }
+  }
+
+  // Also update camera in database if camera exists
+  try {
+    const { query } = await import('../../config/db.js');
+    if (calData.baseline_meters !== undefined || calData.baseline_pixel_y !== undefined || calData.px_per_meter !== undefined) {
+      await query(
+        `UPDATE cameras
+         SET baseline_meters = COALESCE($1, baseline_meters),
+             baseline_pixel_y = COALESCE($2, baseline_pixel_y),
+             px_per_meter = COALESCE($3, px_per_meter),
+             updated_at = NOW()
+         WHERE is_active = TRUE`,
+        [calData.baseline_meters, calData.baseline_pixel_y, calData.px_per_meter]
+      );
+    }
+  } catch (_) {}
+
+  return res.json({ success: true, message: 'Calibration saved successfully', savedPath, data: calData });
 }));
 
 router.get('/:segment', (req, res) => {

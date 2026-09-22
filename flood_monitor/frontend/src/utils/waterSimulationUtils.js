@@ -19,8 +19,8 @@ export const CALIBRATION_CONFIG = {
   roi: {
     left_pct: 37.81,
     right_pct: 49.22,
-    top_pct: 25.28,
-    bottom_pct: 92.78,
+    top_pct: 23.50,
+    bottom_pct: 97.50,
   },
   // Reference frame dimensions from calibration
   reference_width: 640,
@@ -30,8 +30,8 @@ export const CALIBRATION_CONFIG = {
     { px: 155, m: 6.1 },
     { px: 208, m: 5.1 },
     { px: 250, m: 4.15 },
-    { px: 285, m: 4.15 },
-    { px: 345, m: 3.1 },
+    { px: 305, m: 3.1 },
+    { px: 340, m: 2.0 },
   ],
 };
 
@@ -139,25 +139,69 @@ export function calculateDynamicRate(meters, phaseOrIsRising = 'rising') {
 }
 
 /**
+ * Compute the fitted video bounding box inside a container using object-contain logic.
+ * Ensures the simulation overlay matches the exact visible 16:9 camera feed,
+ * eliminating letterboxing (top/bottom) and pillarboxing (left/right) offsets.
+ * 
+ * @param {number} containerWidth - Viewport container width in pixels
+ * @param {number} containerHeight - Viewport container height in pixels
+ * @param {number} targetAspect - Aspect ratio of video (default: 16 / 9)
+ * @returns {{ x: number, y: number, width: number, height: number }}
+ */
+export function computeContainedVideoBox(containerWidth, containerHeight, targetAspect = 16 / 9) {
+  const cw = Math.max(1, Math.round(containerWidth || 640));
+  const ch = Math.max(1, Math.round(containerHeight || 360));
+  const containerAspect = cw / ch;
+
+  let width, height, x, y;
+  if (containerAspect > targetAspect) {
+    // Container is wider than target aspect -> black pillarbox bars on left and right
+    height = ch;
+    width = Math.round(ch * targetAspect);
+    x = Math.round((cw - width) / 2);
+    y = 0;
+  } else {
+    // Container is taller than target aspect -> black letterbox bars on top and bottom
+    width = cw;
+    height = Math.round(cw / targetAspect);
+    x = 0;
+    y = Math.round((ch - height) / 2);
+  }
+
+  return {
+    x: Math.max(0, x),
+    y: Math.max(0, y),
+    width: Math.max(1, width),
+    height: Math.max(1, height),
+  };
+}
+
+/**
  * Convert water level in meters (m) to pixel Y coordinate on a canvas of height `canvasHeight`.
  * Uses calibrated piecewise interpolation based on `points`.
  * 
  * @param {number} meters - Water level in meters (0.0m to 7.0m+)
  * @param {number} canvasHeight - Current canvas/video height in pixels (default: 360)
+ * @param {Array} customPoints - Optional reactive calibration points override
  * @returns {number} Pixel Y position for the waterline
  */
-export function meterToPixelY(meters, canvasHeight = CALIBRATION_CONFIG.reference_height) {
+export function meterToPixelY(meters, canvasHeight = CALIBRATION_CONFIG.reference_height, customPoints = null) {
   const m = Math.max(0.0, parseFloat(meters) || 0.0);
-  const pts = [...CALIBRATION_CONFIG.points].sort((a, b) => a.m - b.m);
+  const sourcePoints = (Array.isArray(customPoints) && customPoints.length >= 2)
+    ? customPoints
+    : CALIBRATION_CONFIG.points;
+  const pts = [...sourcePoints].sort((a, b) => a.m - b.m);
   
   const scale = canvasHeight / CALIBRATION_CONFIG.reference_height;
 
   let refPixelY;
 
   if (m <= pts[0].m) {
-    // Extrapolate below 0m
-    const slope = (pts[1].px - pts[0].px) / (pts[1].m - pts[0].m);
-    refPixelY = pts[0].px + slope * (m - pts[0].m);
+    // Below lowest calibrated point: smoothly interpolate down towards bottom of river channel (355px)
+    const lowest = pts[0];
+    const riverbedPx = 355;
+    const t = Math.max(0, m / (lowest.m || 1.0));
+    refPixelY = riverbedPx - t * (riverbedPx - lowest.px);
   } else if (m >= pts[pts.length - 1].m) {
     // Extrapolate above 7m
     const last = pts[pts.length - 1];
@@ -175,8 +219,8 @@ export function meterToPixelY(meters, canvasHeight = CALIBRATION_CONFIG.referenc
     }
   }
 
-  // Bound within reasonable frame coordinates
-  return Math.max(0, Math.min(canvasHeight, (refPixelY ?? CALIBRATION_CONFIG.baseline_pixel_y) * scale));
+  // Bound within reasonable frame coordinates (safe margins from frame edges)
+  return Math.max(20 * scale, Math.min(canvasHeight - 6, (refPixelY ?? CALIBRATION_CONFIG.baseline_pixel_y) * scale));
 }
 
 /**
@@ -217,14 +261,15 @@ export function pixelYToMeter(pixelY, canvasHeight = CALIBRATION_CONFIG.referenc
  * Compute the bounding ROI pixel coordinates on a canvas of width `w` and height `h`.
  * @param {number} w - Canvas width
  * @param {number} h - Canvas height
+ * @param {object} customRoi - Optional reactive ROI override object
  * @returns {object} { left, right, top, bottom, width, height }
  */
-export function getRoiBounds(w, h) {
-  const { roi } = CALIBRATION_CONFIG;
-  const left = Math.round((roi.left_pct / 100) * w);
-  const right = Math.round((roi.right_pct / 100) * w);
-  const top = Math.round((roi.top_pct / 100) * h);
-  const bottom = Math.round((roi.bottom_pct / 100) * h);
+export function getRoiBounds(w, h, customRoi = null) {
+  const roi = customRoi || CALIBRATION_CONFIG.roi;
+  const left = Math.round(((roi.left_pct ?? 37.81) / 100) * w);
+  const right = Math.round(((roi.right_pct ?? 49.22) / 100) * w);
+  const top = Math.round(((roi.top_pct ?? 25.28) / 100) * h);
+  const bottom = Math.round(((roi.bottom_pct ?? 92.78) / 100) * h);
 
   return {
     left,

@@ -13,6 +13,7 @@ import {
   SCENARIO_PRESETS, 
   classifySimulatedLevel,
   updateCalibrationConfig,
+  computeContainedVideoBox,
 } from '../../utils/waterSimulationUtils';
 import { useSimulationStore } from '../../store/simulationStore';
 
@@ -25,7 +26,13 @@ export function LiveCameraFeed() {
   const videoRef              = useRef(null);
   const hlsRef                = useRef(null);
   const hlsStartedRef         = useRef(false);
-  const [status, setStatus]   = useState('youtube'); // default to 'youtube' for centralized YouTube HD live stream
+  const [status, setStatus]   = useState(() => {
+    return localStorage.getItem('stream_source') || 'snapshot';
+  });
+  const handleSetStatus = (s) => {
+    setStatus(s);
+    localStorage.setItem('stream_source', s);
+  };
   const [youtubeId, setYoutubeId] = useState(() => {
     return localStorage.getItem('youtube_live_id') || DEFAULT_YOUTUBE_ID;
   });
@@ -78,7 +85,7 @@ export function LiveCameraFeed() {
     simRatePerHour,
   } = useSimulationStore();
 
-  const [videoDims, setVideoDims] = useState({ width: 640, height: 360 });
+  const [videoBox, setVideoBox] = useState({ x: 0, y: 0, width: 640, height: 360 });
 
   const changeYoutubeId = (e) => {
     if (e) e.stopPropagation();
@@ -95,14 +102,15 @@ export function LiveCameraFeed() {
   const [snapshotUrl, setSnapshotUrl] = useState('/api/v1/stream/snapshot');
   const [snapshotAvailable, setSnapshotAvailable] = useState(false);
 
-  // Measure video viewport size for overlay synchronization
+  // Measure video viewport size and compute 16:9 contained video box for overlay synchronization
   useEffect(() => {
     if (!videoViewportRef.current) return;
     const updateDims = () => {
       if (videoViewportRef.current) {
         const rect = videoViewportRef.current.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          setVideoDims({ width: Math.round(rect.width), height: Math.round(rect.height) });
+          const box = computeContainedVideoBox(rect.width, rect.height, 16 / 9);
+          setVideoBox(box);
         }
       }
     };
@@ -342,7 +350,7 @@ export function LiveCameraFeed() {
           {/* Stream Type / Source selector */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
-              onClick={() => setStatus('youtube')}
+              onClick={() => handleSetStatus('youtube')}
               className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
                 status === 'youtube'
                   ? 'bg-red-600 text-white shadow-sm'
@@ -363,7 +371,7 @@ export function LiveCameraFeed() {
               </button>
             )}
             <button
-              onClick={() => setStatus('hls')}
+              onClick={() => handleSetStatus('hls')}
               className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
                 status === 'hls' || status === 'live'
                   ? 'bg-blue-600 text-white shadow-sm'
@@ -372,10 +380,10 @@ export function LiveCameraFeed() {
               Direct HLS
             </button>
             <button
-              onClick={() => setStatus('snapshot')}
+              onClick={() => handleSetStatus('snapshot')}
               className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
                 status === 'snapshot'
-                  ? 'bg-slate-800 text-white shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}>
               Snapshot
@@ -471,12 +479,15 @@ export function LiveCameraFeed() {
         {/* WATER LEVEL SIMULATION OVERLAY (Mounts directly on top of real-time CCTV stream) */}
         {mode === 'simulation' && (
           <WaterSimulationOverlay
-            width={videoDims.width}
-            height={videoDims.height}
+            x={videoBox.x}
+            y={videoBox.y}
+            width={videoBox.width}
+            height={videoBox.height}
             waterLevelMeters={simWaterLevel}
             isActive={true}
             isRising={scenarioSubMode === 'scenario' ? scenarioPhase === 'rising' : isSimRising}
             confidence={0.99}
+            calConfig={liveCalData}
           />
         )}
 
