@@ -329,53 +329,26 @@ router.get('/:cameraId/trend',
     if (isSimulationActive()) {
       const sim = getSimulationState();
       const rate = sim.rate_per_hour || 0;
-      const trend = rate > 0.02 ? 'RISING' : (rate < -0.02 ? 'FALLING' : 'STABLE');
+      const curM = parseFloat(sim.water_level_m || 2.0);
+      const isSimRising = rate > 0.01;
+      const trend = isSimRising ? 'RISING' : (rate < -0.01 ? 'FALLING' : 'STABLE');
+      const mlForecast = await service.calculatePredictiveForecast(req.params.cameraId, curM, rate, 'NORMAL', true);
       return res.json({
         success: true,
         data: {
           trend: trend,
           delta_m: parseFloat((rate / 3600).toFixed(3)),
           rate_per_hour: rate,
-          latest: parseFloat(sim.water_level_m || 2.0),
-          previous: parseFloat(sim.water_level_m || 2.0),
+          latest: curM,
+          previous: curM,
           is_simulated: true,
+          ...mlForecast,
         },
       });
     }
 
-    const { rows } = await query(
-      `SELECT water_level_m, waterline_pixel_y, captured_at, flood_level
-       FROM water_level_readings
-       WHERE camera_id = $1
-         AND (is_simulated = FALSE OR is_simulated IS NULL)
-         AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
-       ORDER BY captured_at DESC
-       LIMIT 5`,
-      [req.params.cameraId]
-    );
-
-    if (rows.length < 2) {
-      return res.json({ success: true, data: { trend: 'STABLE', delta_m: 0, latest: 4.15, previous: 4.15 } });
-    }
-
-    const resolveRowM = (r) => {
-      let m = parseFloat(r.water_level_m);
-      if (r.waterline_pixel_y != null) {
-        const cal = resolveMetersFromPixelY(r.waterline_pixel_y);
-        if (cal != null) m = cal;
-      }
-      if ((r.waterline_pixel_y >= 245 && r.waterline_pixel_y <= 290) || (m >= 3.40 && m <= 4.25)) {
-        m = 4.15;
-      }
-      return m;
-    };
-
-    const latest = resolveRowM(rows[0]);
-    const previous = resolveRowM(rows[rows.length - 1]);
-    const delta = parseFloat((latest - previous).toFixed(3));
-    const trend = delta > 0.02 ? 'RISING' : delta < -0.02 ? 'FALLING' : 'STABLE';
-
-    res.json({ success: true, data: { trend, delta_m: delta, latest, previous } });
+    const data = await service.getTrend(req.params.cameraId);
+    res.json({ success: true, data });
   })
 );
 

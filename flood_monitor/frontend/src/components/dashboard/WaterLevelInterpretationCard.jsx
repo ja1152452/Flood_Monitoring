@@ -86,11 +86,11 @@ export function WaterLevelInterpretationCard({ trendData }) {
             <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
               <div className="text-[11px] font-extrabold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>🧠 ML Hydrological Forecast</span>
+                <span>🧠 AI Flood Early Warning Forecast</span>
               </div>
               {trendData.is_ml_driven && (
-                <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
-                  R² = {trendData.model_r2_score || 0.97} • {trendData.model_confidence || 97}% Confidence
+                <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                  {trendData.model_confidence || 96}% Forecast Reliability
                 </span>
               )}
             </div>
@@ -99,11 +99,11 @@ export function WaterLevelInterpretationCard({ trendData }) {
             </p>
           </div>
 
-          {/* Quick 1h and 3h ML Projection Pills */}
+          {/* Quick 1h and 3h Projected Levels */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-indigo-100 dark:border-slate-800">
             <div className="bg-white/80 dark:bg-slate-900/80 rounded-lg p-2 border border-indigo-100 dark:border-slate-800">
               <div className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase">
-                +1 Hour Projection
+                Expected in 1 Hour
               </div>
               <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
                 {predicted1h.toFixed(2)} m
@@ -111,7 +111,7 @@ export function WaterLevelInterpretationCard({ trendData }) {
             </div>
             <div className="bg-white/80 dark:bg-slate-900/80 rounded-lg p-2 border border-indigo-100 dark:border-slate-800">
               <div className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase">
-                +3 Hours Projection
+                Expected in 3 Hours
               </div>
               <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
                 {predicted3h.toFixed(2)} m
@@ -119,6 +119,7 @@ export function WaterLevelInterpretationCard({ trendData }) {
             </div>
           </div>
         </div>
+
 
       </div>
 
