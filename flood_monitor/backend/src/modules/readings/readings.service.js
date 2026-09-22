@@ -2,6 +2,7 @@ import { query, withTransaction } from '../../config/db.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { parsePagination, paginate } from '../../utils/pagination.js';
 import { getSimulationState, isSimulationActive } from '../../services/simulation.service.js';
+import { calculateMLForecast } from './ml_forecast.service.js';
 
 const CALIBRATION_POINTS = [
   { px: 90, m: 7.0 },
@@ -386,113 +387,9 @@ export const getWaterLevelInterpretation = async (cameraId) => {
 };
 
 export const calculatePredictiveForecast = async (cameraId, currentLevelM, ratePerHour, floodLevel, isSimulated = false) => {
-  const current_m = parseFloat(currentLevelM || 0);
-  const liveRate = parseFloat(ratePerHour || 0);
-
-  const THRESHOLDS = [
-    { level: 'NORMAL',     target: 3.1, nextLevel: 'MONITOR',    nextLabel: 'Monitor Level' },
-    { level: 'MONITOR',    target: 4.1, nextLevel: 'ALERT',      nextLabel: 'Alert Level' },
-    { level: 'ALERT',      target: 5.1, nextLevel: 'EVACUATION', nextLabel: 'Evacuation Level' },
-    { level: 'EVACUATION', target: 6.1, nextLevel: 'CRITICAL',   nextLabel: 'Critical Level' },
-    { level: 'CRITICAL',   target: 7.0, nextLevel: null,         nextLabel: 'Maximum Hazard' },
-  ];
-
-  const currentCfg = THRESHOLDS.find(t => t.level === floodLevel) || THRESHOLDS[0];
-
-  // Query database for historical transitions out of current flood level (live mode only)
-  let dbTransitionHours = null;
-  let dbOccurrences = 0;
-
-  if (!isSimulated && currentCfg.nextLevel) {
-    try {
-      const { rows: dbHist } = await query(
-        `SELECT 
-           COUNT(*) as occurrences,
-           AVG(EXTRACT(EPOCH FROM (captured_at - prev_time))/3600) as avg_hours
-         FROM (
-           SELECT 
-             flood_level, 
-             captured_at, 
-             LAG(flood_level) OVER (ORDER BY captured_at) as prev_level,
-             LAG(captured_at) OVER (ORDER BY captured_at) as prev_time
-           FROM water_level_readings
-           WHERE camera_id = $1
-             AND (is_simulated = FALSE OR is_simulated IS NULL)
-             AND (confidence IS NOT NULL OR waterline_pixel_y IS NOT NULL)
-         ) t
-         WHERE prev_level = $2 AND flood_level = $3
-           AND EXTRACT(EPOCH FROM (captured_at - prev_time)) BETWEEN 60 AND 86400`,
-        [cameraId, floodLevel, currentCfg.nextLevel]
-      );
-
-      if (dbHist && dbHist.length > 0 && dbHist[0].avg_hours) {
-        dbOccurrences = parseInt(dbHist[0].occurrences || '0', 10);
-        dbTransitionHours = parseFloat(parseFloat(dbHist[0].avg_hours).toFixed(1));
-      }
-    } catch (err) {
-      console.error('DB transition query fallback:', err.message);
-    }
-  }
-
-  // Calculate rate to use for predictions
-  const deltaM = Math.max(0.1, currentCfg.target - current_m);
-  let effective_rate = liveRate;
-
-  if (Math.abs(liveRate) <= 0.01) {
-    if (dbTransitionHours && dbTransitionHours > 0) {
-      effective_rate = parseFloat((deltaM / dbTransitionHours).toFixed(2));
-    } else {
-      effective_rate = 0.35; // Default physical baseline rate for Lumban River
-    }
-  }
-
-  const predicted_level_1h = parseFloat(Math.max(0, current_m + effective_rate * 1).toFixed(2));
-  const predicted_level_3h = parseFloat(Math.max(0, current_m + effective_rate * 3).toFixed(2));
-
-  let estimated_hours_to_next = dbTransitionHours;
-  if (Math.abs(effective_rate) > 0.01) {
-    estimated_hours_to_next = parseFloat((deltaM / Math.abs(effective_rate)).toFixed(2));
-  }
-
-  let timeText = '';
-  if (estimated_hours_to_next != null && estimated_hours_to_next > 0) {
-    if (estimated_hours_to_next < 1) {
-      const mins = Math.max(1, Math.round(estimated_hours_to_next * 60));
-      timeText = `in approximately ${mins} minute${mins !== 1 ? 's' : ''}`;
-    } else {
-      timeText = `in approximately ${estimated_hours_to_next} hour${estimated_hours_to_next !== 1 ? 's' : ''}`;
-    }
-  } else {
-    timeText = 'in 2 to 3 hours based on database rise patterns';
-  }
-
-  let predictive_text = '';
-  const levelLabel = getFloodLevelLabel(floodLevel);
-
-  if (effective_rate > 0.005) {
-    let timeString = estimated_hours_to_next != null && estimated_hours_to_next > 0
-      ? (estimated_hours_to_next < 1
-          ? `${Math.max(1, Math.round(estimated_hours_to_next * 60))} mins`
-          : `${estimated_hours_to_next} hrs`)
-      : '2.5 hrs';
-
-    predictive_text = `Water level is ${current_m.toFixed(2)}m (${levelLabel}), rising at +${effective_rate.toFixed(2)} m/hr. Expected to reach ${currentCfg.nextLabel} (${currentCfg.target.toFixed(1)}m) in ${timeString}.`;
-  } else if (effective_rate < -0.005) {
-    predictive_text = `Water level is ${current_m.toFixed(2)}m (${levelLabel}), receding at ${effective_rate.toFixed(2)} m/hr.`;
-  } else {
-    predictive_text = `Water level is ${current_m.toFixed(2)}m (${levelLabel}) and stable.`;
-  }
-
-  return {
-    predicted_level_1h,
-    predicted_level_3h,
-    next_threshold_level: currentCfg.nextLabel,
-    next_threshold_m: currentCfg.target,
-    estimated_hours_to_next,
-    db_occurrences: dbOccurrences,
-    predictive_text,
-  };
+  return await calculateMLForecast(cameraId, currentLevelM, ratePerHour, floodLevel, isSimulated);
 };
+
 
 export const getTrend = async (cameraId, minutes = 30) => {
   return await getWaterLevelInterpretation(cameraId);

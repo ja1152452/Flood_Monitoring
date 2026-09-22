@@ -1,0 +1,15 @@
+[Unit]
+Description=Lumban Flood Monitoring Live YouTube Stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Flood_Monitoring
+ExecStart=/bin/bash /home/pi/Flood_Monitoring/start_youtube_stream.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

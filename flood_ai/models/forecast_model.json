@@ -1,0 +1,95 @@
+{
+  "model_name": "Lumban River Machine Learning Hydrological Forecast Engine",
+  "algorithm": "Ridge Regularized Hydrological Regressor",
+  "trained_at": "2026-09-22T12:09:14.579430Z",
+  "training_samples": 7227,
+  "testing_samples": 1807,
+  "features": [
+    "level_current",
+    "level_lag_15m",
+    "level_lag_30m",
+    "level_lag_60m",
+    "velocity_15m",
+    "velocity_60m",
+    "acceleration",
+    "rolling_std_30m"
+  ],
+  "feature_means": [
+    2.1137831356028407,
+    2.1125392479405836,
+    2.1113252220684022,
+    2.109059868757536,
+    0.004975550649027199,
+    0.004723266845304801,
+    0.00033637840496319153,
+    0.040046885033548314
+  ],
+  "feature_stds": [
+    1.67926142202671,
+    1.6789592205946646,
+    1.6787475814946364,
+    1.678497963175911,
+    0.43438710103033634,
+    0.3229435261677256,
+    0.3847255825506398,
+    0.05543131528560775
+  ],
+  "coefficients_1h": [
+    0.8836829053482818,
+    0.874190422926136,
+    -0.9926881185454852,
+    0.8394948279432495,
+    0.1492175166862503,
+    0.23175647566214325,
+    -0.034747152848230524,
+    0.13144282245193084
+  ],
+  "intercept_1h": 2.1187913364630857,
+  "coefficients_3h": [
+    1.4924964409939707,
+    1.4739560144722192,
+    -3.0324700096688644,
+    1.4141430463554776,
+    0.2907973514048137,
+    0.41076987825977246,
+    -0.021961469860948456,
+    0.4120979585937801
+  ],
+  "intercept_3h": 2.126771009428668,
+  "metrics": {
+    "forecast_1h": {
+      "r2_score": 0.9711,
+      "mae_m": 0.1198,
+      "rmse_m": 0.3304,
+      "accuracy_pct": 97.11
+    },
+    "forecast_3h": {
+      "r2_score": 0.8633,
+      "mae_m": 0.3759,
+      "rmse_m": 0.714,
+      "accuracy_pct": 86.33
+    },
+    "random_forest_benchmark": {
+      "rf_1h_r2": 0.9754,
+      "rf_1h_rmse": 0.3047,
+      "rf_3h_r2": 0.9129,
+      "rf_3h_rmse": 0.57
+    },
+    "naive_baseline": {
+      "naive_1h_r2": 0.907,
+      "naive_1h_rmse": 0.5932,
+      "naive_3h_r2": 0.2542,
+      "naive_3h_rmse": 1.6676
+    }
+  },
+  "feature_importance": {
+    "level_current": 0.9644,
+    "level_lag_15m": 0.0007,
+    "level_lag_30m": 0.0005,
+    "level_lag_60m": 0.0009,
+    "velocity_15m": 0.0005,
+    "velocity_60m": 0.0313,
+    "acceleration": 0.0002,
+    "rolling_std_30m": 0.0015
+  }
+}

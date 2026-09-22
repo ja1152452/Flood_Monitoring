@@ -28,10 +28,12 @@ This section outlines the comprehensive hardware and software resources utilized
 
 ---
 
-### C. Computer Vision & Edge AI Water Level Detection Pipeline (`flood_ai`)
-* **Python Programming Language (v3.10+):** Employed as the primary computing language for camera calibration, hydrological data capture, and image processing.
+### C. Computer Vision & Machine Learning Hydrological Forecasting Pipeline (`flood_ai`)
+* **Python Programming Language (v3.10+):** Employed as the primary computing language for camera calibration, hydrological data capture, image processing, and machine learning model training.
+* **Scikit-Learn (v1.4+):** Implemented for supervised machine learning hydrological forecasting (Ridge Regularized Regressor and Random Forest Regressor), cross-validation, feature normalization, and empirical performance evaluation ($R^2$, MAE, RMSE).
+* **Pandas (v2.0+):** Utilized for time-series hydrological telemetry resampling, moving window statistics, and multi-lag feature extraction.
 * **OpenCV (Open Source Computer Vision Library v4.9):** Utilized for digital image processing, perspective transformation, region-of-interest (ROI) masking, and water meniscus edge detection against calibrated staff gauges.
-* **Ultralytics YOLO (YOLOv8 / YOLO11):** Applied for deep learning object recognition, automated staff gauge metric detection, and water line bounding box localization.
+* **Ultralytics YOLO (YOLOv8 / YOLO12):** Applied for deep learning object recognition, automated staff gauge metric detection, and water line bounding box localization.
 * **PyTorch (v2.0+):** Utilized as the deep learning tensor computation and model inference framework.
 * **NumPy (v1.26):** Employed for high-performance multi-dimensional array operations, mathematical matrix calculations, and hydrological rate-of-rise trend algorithms.
 * **FFmpeg Engine:** Deployed on the edge device for hardware-accelerated video decoding, converting RTSP raw video streams into low-latency HTTP Live Streaming (HLS) segments.

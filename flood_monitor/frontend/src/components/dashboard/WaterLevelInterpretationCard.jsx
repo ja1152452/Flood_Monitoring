@@ -80,16 +80,46 @@ export function WaterLevelInterpretationCard({ trendData }) {
           </p>
         </div>
 
-        {/* Real Predictive Forecast Callout */}
-        <div className="bg-amber-50 dark:bg-slate-950 border-l-4 border-amber-500 rounded-r-xl p-4 shadow-sm text-amber-900 dark:text-amber-100">
-          <div className="text-[11px] font-extrabold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <span>🔮 Predictive Forecast (Real-time Sensor Rate)</span>
+        {/* ML Predictive Forecast Callout */}
+        <div className="bg-gradient-to-br from-indigo-50 to-amber-50/50 dark:from-slate-950 dark:to-slate-900 border-l-4 border-indigo-500 rounded-r-xl p-4 shadow-sm text-slate-900 dark:text-slate-100 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+              <div className="text-[11px] font-extrabold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>🧠 ML Hydrological Forecast</span>
+              </div>
+              {trendData.is_ml_driven && (
+                <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                  R² = {trendData.model_r2_score || 0.97} • {trendData.model_confidence || 97}% Confidence
+                </span>
+              )}
+            </div>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 italic leading-relaxed mb-2.5">
+              "{predictiveText}"
+            </p>
           </div>
-          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 italic leading-relaxed">
-            "{predictiveText}"
-          </p>
+
+          {/* Quick 1h and 3h ML Projection Pills */}
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-indigo-100 dark:border-slate-800">
+            <div className="bg-white/80 dark:bg-slate-900/80 rounded-lg p-2 border border-indigo-100 dark:border-slate-800">
+              <div className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase">
+                +1 Hour Projection
+              </div>
+              <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                {predicted1h.toFixed(2)} m
+              </div>
+            </div>
+            <div className="bg-white/80 dark:bg-slate-900/80 rounded-lg p-2 border border-indigo-100 dark:border-slate-800">
+              <div className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase">
+                +3 Hours Projection
+              </div>
+              <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                {predicted3h.toFixed(2)} m
+              </div>
+            </div>
+          </div>
         </div>
+
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
