@@ -332,7 +332,7 @@ router.get('/:cameraId/trend',
       const curM = parseFloat(sim.water_level_m || 2.0);
       const isSimRising = rate > 0.01;
       const trend = isSimRising ? 'RISING' : (rate < -0.01 ? 'FALLING' : 'STABLE');
-      const mlForecast = await service.calculatePredictiveForecast(req.params.cameraId, curM, rate, 'NORMAL', true);
+      const mlForecast = await service.calculatePredictiveForecast(req.params.cameraId, curM, rate, sim.flood_level || 'NORMAL', true);
       return res.json({
         success: true,
         data: {

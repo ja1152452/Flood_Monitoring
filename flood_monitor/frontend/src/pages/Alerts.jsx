@@ -106,6 +106,11 @@ export default function Alerts() {
                   <div className="text-xs text-slate-600 dark:text-slate-400">
                     {alert.barangay_name} • Triggered: {formatDateTime(alert.triggered_at)}
                   </div>
+                  {alert.predictive_text && (
+                    <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-1 italic">
+                      🔮 {alert.predictive_text}
+                    </div>
+                  )}
                   {alert.siren_active && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1 font-bold">🔊 Siren Active</div>
                   )}

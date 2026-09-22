@@ -127,10 +127,22 @@ router.post('/simulation', asyncHandler(async (req, res) => {
       };
       const meta = LEVEL_META[updated.flood_level];
       if (meta) {
+        const { calculatePredictiveForecast } = await import('../readings/readings.service.js');
+        const predictive = await calculatePredictiveForecast(
+          'sim-camera',
+          parseFloat(updated.water_level_m || 2.0),
+          updated.rate_per_hour || 0,
+          updated.flood_level,
+          true
+        );
+        const forecastLine = updated.flood_level === 'CRITICAL'
+          ? `CRITICAL DANGER: Water level is at ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m.`
+          : (predictive?.predictive_text || `Water level has reached ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m (${updated.flood_level}).`);
+
         const { rows: recipients } = await query(
           `SELECT id, role, fcm_token FROM users WHERE is_active = TRUE AND fcm_token IS NOT NULL`
         );
-        const pushBody = `Water level has reached ${parseFloat(updated.water_level_m || 2.0).toFixed(2)}m (${updated.flood_level}). ${meta.action}`;
+        const pushBody = `${forecastLine}\n\n👉 ACTION: ${meta.action}`;
         for (const user of recipients) {
           try {
             await sendPushNotification(user.fcm_token, meta.title, pushBody);

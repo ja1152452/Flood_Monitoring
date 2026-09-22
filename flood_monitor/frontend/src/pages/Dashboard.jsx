@@ -100,9 +100,9 @@ export default function Dashboard() {
   });
 
   const { data: trend } = useQuery({
-    queryKey: ['trend'],
+    queryKey: ['trend', isSimulation],
     queryFn: () => getTrend(CAMERA_ID),
-    refetchInterval: 10000,
+    refetchInterval: isSimulation ? 3000 : 10000,
     retry: 1,
   });
 
@@ -208,8 +208,21 @@ export default function Dashboard() {
   const deltaCm = Math.round(Math.abs(deltaM) * 100);
   const deltaSign = deltaM > 0.005 ? '+' : (deltaM < -0.005 ? '-' : '');
 
-  const pred1h = trend?.predicted_level_1h != null ? parseFloat(trend.predicted_level_1h) : parseFloat((wl + rateVal * 1).toFixed(2));
-  const pred3h = trend?.predicted_level_3h != null ? parseFloat(trend.predicted_level_3h) : parseFloat((wl + rateVal * 3).toFixed(2));
+  const pred1h = isSimulation
+    ? (trend?.is_simulated && trend?.predicted_level_1h != null && Math.abs(trend.latest - simWaterLevel) < 0.2
+        ? parseFloat(trend.predicted_level_1h)
+        : parseFloat(Math.max(0.1, simWaterLevel + (rateVal * 1)).toFixed(2)))
+    : (trend?.predicted_level_1h != null
+        ? parseFloat(trend.predicted_level_1h)
+        : parseFloat((wl + rateVal * 1).toFixed(2)));
+
+  const pred3h = isSimulation
+    ? (trend?.is_simulated && trend?.predicted_level_3h != null && Math.abs(trend.latest - simWaterLevel) < 0.2
+        ? parseFloat(trend.predicted_level_3h)
+        : parseFloat(Math.max(0.1, simWaterLevel + (rateVal * 3)).toFixed(2)))
+    : (trend?.predicted_level_3h != null
+        ? parseFloat(trend.predicted_level_3h)
+        : parseFloat((wl + rateVal * 3).toFixed(2)));
   const mlR2 = trend?.model_r2_score || 0.97;
   const visionConf = isSimulation ? 99 : (reading?.confidence != null ? Math.round(reading.confidence * 100) : 75);
 
@@ -481,6 +494,11 @@ export default function Dashboard() {
                           <span className="ml-2 text-red-600 dark:text-red-400 font-bold">🔊 Siren Active</span>
                         )}
                       </div>
+                      {alert.predictive_text && (
+                        <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mt-1 italic">
+                          🔮 {alert.predictive_text}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <FloodBadge level={alert.flood_level} size="sm" />

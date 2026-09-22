@@ -64,9 +64,10 @@ export function AlertNotifier() {
         const notifTitle = isManual
           ? '🚨 MDRRMO MANUAL EMERGENCY ALARM TRIGGERED'
           : cfg.title;
+        const forecastPrefix = alert.predictive_text ? `${alert.predictive_text}\n\n` : '';
         const notifBody = isManual
           ? 'EMERGENCY: A manual siren alarm has been triggered by MDRRMO! Please evacuate or proceed to safe ground immediately.'
-          : `${cfg.action}\n\nWater level is at ${cfg.label}.`;
+          : `${forecastPrefix}👉 ACTION: ${cfg.action}`;
 
         sendLocalNotification(notifTitle, notifBody);
       }

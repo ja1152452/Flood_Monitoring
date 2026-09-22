@@ -106,7 +106,9 @@ export default function AlertsScreen() {
                 </View>
                 <View style={[styles.messageBubble, { backgroundColor: config.bg }]}>
                   <Text style={[styles.messageText, { color: config.color }]}>
-                    Water Level Alert: The river water level has reached the {alert.flood_level} threshold. Please remain vigilant and follow MDRRMO advisories.
+                    {alert.predictive_text
+                      ? alert.predictive_text
+                      : `Water Level Alert: The river water level has reached the ${alert.flood_level} threshold. Please remain vigilant and follow MDRRMO advisories.`}
                   </Text>
                 </View>
               </View>

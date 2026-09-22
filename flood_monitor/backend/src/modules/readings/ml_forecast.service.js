@@ -195,13 +195,13 @@ export const calculateMLForecast = async (cameraId, currentLevelM, ratePerHour =
   let predictive_text = '';
   if (effectiveRiseVelocity > 0.03) {
     const timeStr = estimated_hours_to_next != null
-      ? (estimated_hours_to_next < 1 ? `${Math.round(estimated_hours_to_next * 60)} mins` : `${estimated_hours_to_next} hrs`)
-      : '1.5 hrs';
-    predictive_text = `AI Prediction (${dynamicConfidence}% Reliability): Water level is ${current_m.toFixed(2)}m (${levelLabel}), rising at +${v15.toFixed(2)} m/hr. Expected to reach ${predicted_level_1h}m in 1 hour and ${predicted_level_3h}m in 3 hours, approaching ${currentCfg.nextLabel} (${currentCfg.target.toFixed(1)}m) in approx. ${timeStr}.`;
+      ? (estimated_hours_to_next < 1 ? `${Math.round(estimated_hours_to_next * 60)} minutes` : `${estimated_hours_to_next} hours`)
+      : '1.5 hours';
+    predictive_text = `River water is at ${current_m.toFixed(2)}m (${levelLabel}) and rising (+${v15.toFixed(2)} m/hr). Expected to reach ${predicted_level_1h}m in 1 hour, and may reach ${currentCfg.nextLabel} (${currentCfg.target.toFixed(1)}m) in about ${timeStr}.`;
   } else if (effectiveRiseVelocity < -0.03) {
-    predictive_text = `AI Prediction (${dynamicConfidence}% Reliability): Water level is ${current_m.toFixed(2)}m (${levelLabel}), receding at ${Math.abs(effectiveRiseVelocity).toFixed(2)} m/hr. Projected at ${predicted_level_1h}m in 1 hour and ${predicted_level_3h}m in 3 hours.`;
+    predictive_text = `River water is at ${current_m.toFixed(2)}m (${levelLabel}) and receding safely (${Math.abs(effectiveRiseVelocity).toFixed(2)} m/hr). Projected to drop to ${predicted_level_1h}m in 1 hour and ${predicted_level_3h}m in 3 hours.`;
   } else {
-    predictive_text = `AI Prediction (${dynamicConfidence}% Reliability): Water level is ${current_m.toFixed(2)}m (${levelLabel}) and steady. Projected at ${predicted_level_1h}m in 1 hour and ${predicted_level_3h}m in 3 hours.`;
+    predictive_text = `River water is at ${current_m.toFixed(2)}m (${levelLabel}) and holding steady. Projected around ${predicted_level_1h}m in 1 hour and ${predicted_level_3h}m in 3 hours.`;
   }
 
   // Commit predictions to PostgreSQL water_level_forecasts table (live camera with valid UUID only)

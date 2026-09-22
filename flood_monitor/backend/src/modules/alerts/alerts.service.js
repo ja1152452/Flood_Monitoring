@@ -153,7 +153,7 @@ export const evaluateAndDispatch = async (reading, client) => {
       const centerLines = centers.length
         ? centers.map(c => `• ${c.name} (${c.available_slots} slots)`).join('\n')
         : '• No open evacuation centers nearby.';
-      const pushBody = `${forecastLine} ${meta.action}\n\nNearest open evacuation centers in your area:\n${centerLines}`;
+      const pushBody = `${forecastLine}\n\n👉 ACTION: ${meta.action}\n\n🏠 Nearest Safe Evacuation Centers:\n${centerLines}`;
       try {
         await sendPushNotification(user.fcm_token, meta.title, pushBody);
       } catch (fcmError) {

@@ -59,13 +59,17 @@ export function FloodAlertModal({ visible, level, alertData, centers = [], onDis
     ? '🚨 MDRRMO MANUAL EMERGENCY ALARM TRIGGERED'
     : cfg.title;
 
-  const predictiveText = isManual
+  const rawPredictive = isManual
     ? 'AN EMERGENCY SIREN ALARM HAS BEEN MANUALLY TRIGGERED BY MDRRMO. ALL CITIZENS AND RESPONDERS PLEASE PROCEED TO DESIGNATED HIGH GROUND OR EVACUATION CENTERS IMMEDIATELY.'
     : (alertData?.predictive_text || (
         level === 'CRITICAL'
           ? 'CRITICAL DANGER: Water level has reached Critical Level. Extreme hazard!'
           : `Water level has reached ${cfg.label}. Please stay tuned for live monitoring updates.`
       ));
+
+  const predictiveText = typeof rawPredictive === 'string'
+    ? rawPredictive.replace(/\s*\((?:Forecast\s+)?(?:Reliability|Confidence)[^)]*\)/gi, '').trim()
+    : rawPredictive;
 
   useEffect(() => {
     if (visible) {
@@ -94,50 +98,87 @@ export function FloodAlertModal({ visible, level, alertData, centers = [], onDis
           </View>
 
           <View style={[styles.badge, { backgroundColor: cfg.color + '22', borderColor: cfg.color }]}>
-            <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label.toUpperCase()}</Text>
+            <Text style={[styles.badgeText, { color: cfg.color }]}>
+              {alertData?.current_water_level_m ? `${alertData.current_water_level_m}m · ` : ''}{cfg.label.toUpperCase()}
+            </Text>
           </View>
 
           <Text style={[styles.title, { color: cfg.color }]}>
             {displayTitle}
           </Text>
 
+          {/* 1. Quick Glance: 1h & 3h Future Estimates */}
+          {(alertData?.predicted_level_1h != null || alertData?.predicted_level_3h != null) && (
+            <View style={styles.projectionsCard}>
+              <View style={styles.projectionItem}>
+                <Text style={styles.projectionLabel}>Expected in 1 Hour</Text>
+                <Text style={[styles.projectionValue, { color: cfg.color }]}>
+                  {alertData.predicted_level_1h ? `${alertData.predicted_level_1h.toFixed(2)}m` : '--'}
+                </Text>
+              </View>
+              <View style={styles.projectionDivider} />
+              <View style={styles.projectionItem}>
+                <Text style={styles.projectionLabel}>Expected in 3 Hours</Text>
+                <Text style={[styles.projectionValue, { color: cfg.color }]}>
+                  {alertData.predicted_level_3h ? `${alertData.predicted_level_3h.toFixed(2)}m` : '--'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* 2. Plain English Forecast Advisory */}
           <View style={styles.predictiveBox}>
-            <Text style={styles.predictiveHeader}>🔮 REAL-TIME PREDICTIVE FORECAST</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Ionicons name="sparkles" size={16} color="#38bdf8" />
+              <Text style={styles.predictiveHeader}>FLOOD EARLY WARNING ADVISORY</Text>
+            </View>
             <Text style={styles.message}>
-              "{predictiveText}"
+              {predictiveText}
             </Text>
+          </View>
+
+          {/* 3. Plain Safety Instructions */}
+          <View style={styles.actionBox}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Ionicons name="shield-checkmark" size={16} color="#fbbf24" />
+              <Text style={styles.actionHeader}>WHAT YOU SHOULD DO NOW:</Text>
+            </View>
             <Text style={styles.actionText}>
               {cfg.action}
             </Text>
           </View>
 
+          {/* 4. Evacuation Centers */}
           <View style={[styles.centersBox, { borderColor: cfg.color + '44' }]}>
-            <Text style={[styles.centersTitle, { color: cfg.color }]}>
-              Nearest Open Evacuation Centers:
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <Ionicons name="home" size={16} color={cfg.color} />
+              <Text style={[styles.centersTitle, { color: cfg.color }]}>
+                Nearest Safe Evacuation Centers:
+              </Text>
+            </View>
             {centers.length > 0 ? centers.map((c, i) => (
               <View key={i} style={styles.centerItemContainer}>
                 <View style={[styles.bullet, { backgroundColor: cfg.color }]} />
                 <Text style={styles.centerItem}>
-                  {c.name} <Text style={{ color: '#94a3b8' }}>({c.available_slots} slots)</Text>
+                  {c.name} <Text style={{ color: '#4ade80', fontWeight: '700' }}>({c.available_slots} slots available)</Text>
                 </Text>
               </View>
             )) : (
               <Text style={styles.centerItem}>
-                No open evacuation centers nearby.
+                Stay tuned for designated evacuation points from your Barangay.
               </Text>
             )}
           </View>
 
           <Text style={styles.author}>
-            Issued by: MDRRMO Lumban · {formatDateTime(alertData?.created_at || new Date())}
+            Official Advisory · Municipal Disaster Risk Reduction & Management Office
           </Text>
 
           <TouchableOpacity
             style={[styles.dismissBtn, { backgroundColor: cfg.color }]}
             onPress={onDismiss}
             activeOpacity={0.8}>
-            <Text style={styles.dismissText}>I Understand</Text>
+            <Text style={styles.dismissText}>I Understand & Will Stay Alert</Text>
           </TouchableOpacity>
 
         </ScrollView>
@@ -154,28 +195,28 @@ const styles = StyleSheet.create({
     flexGrow:          1,
     justifyContent:    'center',
     alignItems:        'center',
-    paddingHorizontal: 24,
-    paddingVertical:   60,
+    paddingHorizontal: 20,
+    paddingVertical:   50,
   },
   iconRow: {
-    width:          80,
-    height:         80,
-    borderRadius:   40,
-    justifyContent: 'center',
-    alignItems:     'center',
-    marginBottom:   20,
+    width:           76,
+    height:          76,
+    borderRadius:    38,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    16,
   },
   badge: {
-    paddingHorizontal: 16,
-    paddingVertical:   6,
+    borderWidth:       1.5,
     borderRadius:      20,
-    borderWidth:       1,
-    marginBottom:      14,
+    paddingHorizontal: 14,
+    paddingVertical:   5,
+    marginBottom:      10,
   },
   badgeText: {
     fontSize:      12,
-    fontWeight:    '800',
-    letterSpacing: 1,
+    fontWeight:    '900',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize:     20,
@@ -184,37 +225,78 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     lineHeight:   26,
   },
+  projectionsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+    marginBottom: 14,
+  },
+  projectionItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  projectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginBottom: 3,
+  },
+  projectionValue: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  projectionDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#334155',
+  },
   predictiveBox: {
     backgroundColor: '#1e293b',
-    borderColor: '#334155',
-    borderWidth: 1,
-    borderRadius: 14,
+    borderColor: '#38bdf844',
+    borderWidth: 1.5,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 14,
     width: '100%',
   },
   predictiveHeader: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '900',
     color: '#38bdf8',
     letterSpacing: 0.5,
-    marginBottom: 6,
   },
   message: {
     fontSize:   13,
-    color:      '#f1f5f9',
-    textAlign:  'center',
+    color:      '#f8fafc',
     lineHeight: 20,
-    fontStyle:  'italic',
     fontWeight: '600',
-    marginBottom: 10,
+  },
+  actionBox: {
+    backgroundColor: '#1e293b',
+    borderColor: '#fbbf2444',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    width: '100%',
+  },
+  actionHeader: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#fbbf24',
+    letterSpacing: 0.5,
   },
   actionText: {
-    fontSize: 12,
-    color: '#fbbf24',
-    textAlign: 'center',
-    fontWeight: '800',
-    lineHeight: 18,
+    fontSize: 13,
+    color: '#fef3c7',
+    fontWeight: '700',
+    lineHeight: 19,
   },
   centersBox: {
     backgroundColor: '#1e293b',
@@ -222,12 +304,11 @@ const styles = StyleSheet.create({
     borderRadius:    16,
     padding:         16,
     width:           '100%',
-    marginBottom:    20,
+    marginBottom:    16,
   },
   centersTitle: {
-    fontSize:     13,
-    fontWeight:   '700',
-    marginBottom: 10,
+    fontSize:     12,
+    fontWeight:   '800',
   },
   centerItemContainer: {
     flexDirection: 'row',
@@ -247,18 +328,24 @@ const styles = StyleSheet.create({
   author: {
     fontSize:     11,
     color:        '#64748b',
-    marginBottom: 24,
+    marginBottom: 20,
+    textAlign:    'center',
   },
   dismissBtn: {
     width:          '100%',
     paddingVertical: 16,
     borderRadius:   14,
     alignItems:     'center',
+    shadowColor:    '#000',
+    shadowOffset:   { width: 0, height: 2 },
+    shadowOpacity:  0.2,
+    shadowRadius:   4,
+    elevation:      3,
   },
   dismissText: {
     color:         '#ffffff',
-    fontSize:      16,
-    fontWeight:    '800',
+    fontSize:      15,
+    fontWeight:    '900',
     letterSpacing: 0.5,
   },
 });
